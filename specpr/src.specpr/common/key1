@@ -1,0 +1,40 @@
+# alias (variables) in specpr series (inferred from code, R. Clark 2/2025)
+#
+# ikeywd  =  alias found on command line (? I think.  R. Clark))
+# keysiz  =  the alias size
+#  beg    =  beginning position on the command line where the vvariable should be put
+# ibeg    =
+# lnend   =
+# nend    =
+# set     =  seems to be a copy of iopcon (the command line)
+
+# cmdals  =  the name of the cmd variable  (max 16 characters)
+# cmdtrn  =  the value of the variable (max 75 characters)
+# numals  =  the number of defined aliases (variables)
+# trnsiz  =  the value of the variable size.
+# alsize  =  the translated variable size.
+# cmdcomm =  comment for the variable
+# acomsiz =  comment length
+
+# subroutines that use these arrays:
+#
+#  setkey      gets the alias definition from the command line
+#                    this subroutine is called by crtn
+#  setals      does the actual setting of the key; called by setkey
+#  keytrn      translates an alias with its value on the command line
+#                    this subroutine is called by crtn
+#  allist      lists all the aliases (variables)
+
+# be sure common/spmaxes is included in the code before this file
+
+	  common /key1/ ikeywd, keysiz, beg, lnend, ibeg, nend, set
+	  common /key1/ cmdals, cmdtrn, numals, trnsiz, alsize
+	  common /key1/ cmdcomm, acomsiz
+
+          character*16 ikeywd, cmdals(SPMAXALIAS)
+	  character*75 cmdtrn(SPMAXALIAS), cmdcomm(SPMAXALIAS)
+   	  character*80 set
+
+	  integer*4 keysiz, beg, lnend, numals, trnsiz(SPMAXALIAS)
+	  integer*4 alsize(SPMAXALIAS), ibeg, nend
+	  integer*4 acomsiz(SPMAXALIAS)
