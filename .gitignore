@@ -1,0 +1,32 @@
+# Ignore filetypes with these suffixes
+*.pyc
+*.swp
+
+# Ignore files with these names
+.DS_Store
+.idea
+.buildinfo
+.nojekyll
+
+# Ignore folders and their contents with these names
+.vscode
+
+# Ignore test, build and distribution files
+build/
+dist/*.whl
+*.egg
+*.egg-info/
+.pytest_cache/
+__pycache__/
+
+# Ignore built documentation files
+site/
+.cache/
+
+# Ignore local testing directories
+local/
+
+# uv
+#uv.lock
+#.python-version
+.venv
