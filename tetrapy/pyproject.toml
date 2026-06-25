@@ -28,7 +28,6 @@ emit-utils = { git = "https://github.com/emit-sds/emit-utils.git" }
 
 [tool.pixi.tasks]
 
-# emit-sds-l2b dependencies
 [tool.pixi.dependencies]
 gdal = ">=3.13.1,<4"
 libgdal-core = ">=3.13.1,<4"

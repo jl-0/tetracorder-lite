@@ -61,26 +61,30 @@ def setup_tetrun(
 
     # Remove erroneous 'time' command in the script
     path = Path(output) / "cmd.runtet"
-    path.write_text(
-        path.read_text().replace("time", "")
-    )
+    if path.exists():
+        path.write_text(
+            path.read_text().replace("time", "")
+        )
 
     # v6 cmd file needs to set the geology parameter
     if "6" in version:
         path = Path(f"{output}/cmds.start.t{version}")
-        lines = path.read_text().splitlines()
 
-        geo = "geology" if geology else "nogeology"
-        for i, line in enumerate(lines):
-            if line.startswith("mode"):
-                lines.insert(i, geo)
-                break
+        if path.exists():
+            lines = path.read_text().splitlines()
 
-        path.write_text("\n".join(lines) + "\n")
+            geo = "geology" if geology else "nogeology"
+            for i, line in enumerate(lines):
+                if line.startswith("mode"):
+                    lines.insert(i, geo)
+                    break
+
+            path.write_text("\n".join(lines) + "\n")
 
     if cores:
         path = Path(f"{output}/TETNCPU.txt")
-        path.write_text(str(cores))
+        if path.exists():
+            path.write_text(str(cores))
 
     print("\nAlternatively, use `tetrapy tetrun` to execute with defaults")
 

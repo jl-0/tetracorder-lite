@@ -1,7 +1,7 @@
 # Davinci only offers AMD support, no ARM
 # Newer versions of ubuntu do not have some older packages like libcfitsio9 (davinci dep)
 FROM --platform=linux/amd64 ubuntu:22.04
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 USER root
 RUN apt-get update &&\
@@ -10,6 +10,7 @@ RUN apt-get update &&\
       wget \
       gnuplot \
       gdal-bin \
+      libgdal-dev \
       libcfitsio9 \
       libcurl4-nss-dev \
       #~ specpr
@@ -56,6 +57,8 @@ RUN apt-get update &&\
       # imagemagick-common \
       # imagemagick-doc \
       #~ utilities
+      curl \
+      git \
       &&\
     rm -rf /var/lib/apt/lists/*
 
@@ -141,7 +144,11 @@ RUN cd tetracorder &&\
     make installsingle
 
 # Prepare the python CLI
-RUN uv sync
-ENV PATH="/root/.venv/bin:$PATH"
+ENV PIXI_HOME="/pixi"
+ENV PATH="/pixi/bin:$PATH"
+RUN curl -fsSL https://pixi.sh/install.sh | sh &&\
+    git clone https://github.com/emit-sds/emit-sds-l2b.git &&\
+    pixi run tetrapy
+ENV PATH="/root/.pixi/envs/default/bin/:$PATH"
 
 CMD ["tetrapy"]
