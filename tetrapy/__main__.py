@@ -3,6 +3,7 @@ import os
 import click
 
 from tetrapy import tetra
+from tetrapy import convolve
 
 
 @click.group
@@ -54,3 +55,23 @@ def run(**kwargs):
     """
     tetra.setup_tetrun(**kwargs)
     tetra.exec_tetrun(**kwargs)
+
+
+@cli.command("convol-inputs", help=convolve.write_convol_inputs.__doc__)
+@file
+@click.option("--waves-out", default="waves.txt")
+@click.option("--resol-out", default="resol.txt")
+def convol_inputs(**kwargs):
+    convolve.write_convol_inputs(**kwargs)
+
+
+@cli.command("convolve", help=convolve.build_convolved_library.__doc__)
+@file
+@click.option("-l", "--library-path", default="/data/splib06b")
+@outp
+@click.option("-n", "--name", default="semcalx")
+@click.option("-v", "--version", default="a")
+@click.option("-t", "--title", default="EMIT")
+@click.option("--fwhm-record", default="12")
+def convolve_cmd(**kwargs):
+    convolve.build_convolved_library(**kwargs)

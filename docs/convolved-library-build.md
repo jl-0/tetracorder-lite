@@ -38,8 +38,14 @@ AAA.make.new.instrument.convolved.rlib-spectral.library.sh
 ```
 
 Inputs the user supplies: a **wavelength** file and an **FWHM** file (single-column ascii, microns).
-Phil's note: these can be generated from a radiance ENVI header with a ~5-line python script —
-a good `tetrapy` add-on.
+
+**Input source decided:** derive both from the **L2A reflectance ENVI header** (not a separate L1B
+file). Reflectance is tetracorder's own input, so the wl/FWHM self-consistently match the scene, and
+only the tiny `.hdr` is needed. The L1B `EMIT_Wavelengths_*.txt` cal file is *not* sufficient — its
+FWHM column is zeroed. Implemented in `tetrapy/convolve.py`:
+- `tetrapy convol-inputs -f <rfl>` → writes `waves.txt`/`resol.txt` (nm→µm converted).
+- `tetrapy convolve -f <rfl> -l <splib06b> -o <out>` → full build (see container-call args below).
+Verified against `in/…l2a_rfl…hdr`: 285 channels, 0.381–2.493 µm, FWHM ~0.0084 µm.
 
 ---
 
@@ -114,6 +120,8 @@ Enforced by `.gitignore` + `.containerignore` entries so they can't be accidenta
 - Run one end-to-end convolution from an EMIT wl/fwhm pair; diff against the shipped `s06emitc`.
 
 ## Hand-off
-Jeff: this trace + first-cut file port. James: wire it into the `Containerfile` /
-`tetrapy` flow as the optional library-build step. Still needed from Phil: confirm the
-`emit_wl_*/emit_fwhm_*` input source (or the 5-line ENVI-header generator).
+Jeff: trace + first-cut file port + the `tetrapy` convolution generator (`convolve.py`).
+James: wire it into the `Containerfile` flow as the optional library-build step, and confirm the
+mount paths / output-dir contract. Validation still owed: diff our derived `waves/resol` against
+Phil's `emit_wl_20250721.txt` / `emit_fwhm_20250721.txt` (em2507a) to confirm they match, and run
+one end-to-end convolution in-container against the mounted `splib06b`.
