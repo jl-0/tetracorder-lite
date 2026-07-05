@@ -1,127 +1,69 @@
-# Building the convolved spectral library inside the container
+# Building the convolved spectral library (Python)
 
-**Status:** trace / design note — first-stab scoping (Jeff), hands to James for container wiring.
-**Context:** Tag-up 2026-06-25. Tetracorder 6.0 has new library entries not present in the
-current convolved library, so we need to be able to **regenerate a convolved library from a
-wavelength/FWHM pair** inside the container — today the container only ships a pre-convolved
-EMIT library (`s06emitc`). Phil's reference recipe ("Library convolution example for current
-system") is in `#emit-critical-minerals`, 2026-06-25 11:53.
+**Status:** implemented + validated. Pure-Python reimplementation of the USGS specpr
+convolution — no Fortran/specpr needed for library building.
 
-Goal (Phil's framing): pre-convolve by wavelength to a fixed dir; the container takes the
-library path as an input.
+## What this does
 
----
+Tetracorder matches observed reflectance against a spectral library **convolved** to
+the instrument's channels. New calibration epoch → new wavelengths/FWHM → the
+convolved library must be regenerated. `tetrapy convolve` does this in Python:
 
-## What runs what (call graph)
+1. **Read** the unconvolved master library `splib06b` (specpr binary format).
+2. **Convolve** each spectrum from its own native grid + resolution onto the target
+   EMIT grid: Gaussian-weighted resample with a native-FWHM quadrature correction
+   (`σ_eff = √(FWHM_target² − FWHM_native²)`). Each spectrum's native wavelengths come
+   from its `irwav` record; native FWHM from the paired "Bandpass (FWHM)" record.
+3. **Write** a valid specpr library by overwriting the numeric data in an existing
+   convolved library used as a **template** — preserving record numbering, titles,
+   text/description records, and pointers exactly (Phil's "conserve indexing").
 
-Entry point (Phil's example uses the `s`/spectral side; there's a parallel `r`/reflectance side):
+The target grid comes from an EMIT **reflectance ENVI header** (`--envi-header`), so
+wavelength/FWHM self-consistently match the scene; omit it to reuse the template grid.
+
+## Validation
+
+Reconvolving `splib06b` and diffing against the shipped `s06emitc`:
 
 ```
-AAA.make.new.instrument.convolved.spectral.library.sh   (entry)
-  ├─ make.new.convol.library.start.file
-  │     ├─ make.new.restart.file
-  │     ├─ dspecpr  < cmd.specpr.add.waves.resol.to.lib.noX      (specpr engine)
-  │     ├─ cp startfiles/s06av95a.start  <lib>        ← HARDCODED template dep
-  │     └─ spprint
-  ├─ spsetwave / spprint                               (specpr support progs)
-  └─ mak.convol.library
-        ├─ mak.convolve.1.cmds        → writes conv.<lib>.cmds
-        ├─ dspecpr < conv.<lib>.cmds  → convolves against splib06b
-        └─ sp_stamp <lib>             (adds header so davinci can read it)
-
-rlib (reflectance) side, if needed:
-AAA.make.new.instrument.convolved.rlib-spectral.library.sh
-  ├─ reads library06.conv/startfiles/<s-lib>.start + restartfiles/r.<s-lib>
-  ├─ spsettitle / spsetwave / spprint
-  ├─ mak.convol.library …
-  └─ sanity count vs sprlb06a / sprlb06b
+tetrapy convolve -m splib06b -t s06emitc -o out         # reuse s06emitc's grid
+tetrapy validate out s06emitc
+# 1365 spectra: median RMS=4.4e-05 mean=7.6e-05 p95=2.5e-04 max=1.4e-03
 ```
 
-Inputs the user supplies: a **wavelength** file and an **FWHM** file (single-column ascii, microns).
+Median per-spectrum RMS **~4.4e-5** (reflectance 0-1), identical file structure/size.
+That reproduces specpr's convolution to ~0.004% — well below any matching threshold.
 
-**Input source decided:** derive both from the **L2A reflectance ENVI header** (not a separate L1B
-file). Reflectance is tetracorder's own input, so the wl/FWHM self-consistently match the scene, and
-only the tiny `.hdr` is needed. The L1B `EMIT_Wavelengths_*.txt` cal file is *not* sufficient — its
-FWHM column is zeroed. Implemented in `tetrapy/convolve.py`:
-- `tetrapy convol-inputs -f <rfl>` → writes `waves.txt`/`resol.txt` (nm→µm converted).
-- `tetrapy convolve -f <rfl> -l <splib06b> -o <out>` → full build (see container-call args below).
-Verified against `in/…l2a_rfl…hdr`: 285 channels, 0.381–2.493 µm, FWHM ~0.0084 µm.
+## Usage
 
----
+```sh
+# new calibration epoch: convolve splib06b to an EMIT scene's grid, reusing a prior
+# EMIT convolved library for structure/indexing
+tetrapy convolve \
+  -m /data/splib06b \
+  -t /data/s06emit_prior \
+  -e /data/<scene>_rfl.hdr \
+  -o /output/s06emit_new
+```
 
-## Already satisfied by the current container ✅
+`splib06b` and the template are **mounted at runtime** (not baked) — enforced by
+`.gitignore` / `.containerignore`.
 
-The `Containerfile` already:
-- installs `gfortran`, `ratfor`, `make`, `gcc`, `g++`, `libx11-dev`;
-- sets every `SP_*` / `SPECPR` / `F77` / `RF` env var specpr needs;
-- **compiles specpr + support progs** via
-  `AAA.INSTALL.specpr+support-progs-linux-upgrade.1.7.sh install`, installing
-  `spprint`, `spsetwave`, `spsettitle`, `sp_stamp`, `dspecpr`, `specpr` to `/usr/local/bin`.
+## Format reference
 
-`spcmdf`, `sppad`, `sptype`, `spur` are **specpr interactive commands** (written into the
-`.cmds` files, executed by the engine) — not separate binaries. No extra build needed.
+specpr = 1536-byte big-endian records, `icflag % 4` selects record type (0 data-head,
+1 data-cont, 2 text-head, 3 text-cont). A spectrum's header carries `itchan`, `irwav`
+(wavelength record #), `irespt` (resolution record #). Full spec:
+`specpr/specpr-format-2,3/specpr-format-v2.txt`; struct offsets cross-checked against
+the vendored opalpy reader and the C++ `Spectral-Library-Reader`. `tetrapy/convolve.py`
+has the reader/writer.
 
-So there is **no new build/toolchain work** — the gap is only missing scripts + data.
+## Why not drive specpr itself?
 
----
-
-## Port manifest — what to copy into the container tree
-
-Source of truth: `spectroscopy-tetracorder/sl1/usgs/` (server: `/store/shared/spectroscopy-tetracorder/sl1/usgs/`).
-Destination: `tetracorder/sl1/usgs/` in this repo.
-
-### `library06.conv/` — build scripts (tiny, ~44 KB total)
-| File | Role |
-|---|---|
-| `AAA.make.new.instrument.convolved.spectral.library.sh` | entry point |
-| `mak.convol.library` | drives convolution |
-| `make.new.convol.library.start.file` | builds specpr start/restart files |
-| `make.new.restart.file` | leaf: restart file |
-| `mak.convolve.1.cmds` | generates the specpr `.cmds` |
-| `cmd.specpr.add.waves.resol.to.lib.noX` | specpr command file (noX variant) |
-
-### `library06.conv/` — required data/templates
-| File | Size | Role | How |
-|---|---|---|---|
-| `startfiles/s06av95a.start` | 48 KB | template copied by `make.new.convol.library.start.file` (hardcoded name) | **committed** |
-| `splib06b` | **20 MB** | unconvolved master source library — convolution reads this | **mounted** |
-
-### `rlib06/` — reflectance-side library (part of Phil's full recipe)
-| File | Size | Role | How |
-|---|---|---|---|
-| `AAA.make.new.instrument.convolved.rlib-spectral.library.sh` | — | rlib entry | **committed** |
-| `sprlb06a`, `sprlb06b` | 2.8 / 2.9 MB | reference libs for the post-build sanity count (informational) | **mounted** |
-
-**Not needed** (Phil: don't bring the giant convolved libraries): the per-instrument `conv.s06*.cmds`
-+ `s06*` outputs, `splib06a` (50 MB), the `waves.ascii.files/` examples, READMEs.
-
----
-
-## Decision: mount the master library at runtime (2026-06)
-
-`splib06b` (20 MB binary specpr data) and the rlib reference libs are **not committed and not
-baked into the image**. They are mounted at runtime and the container takes the library path as an
-input — matching Phil's "container takes the library path as an input." Keeps repo/image lean.
-Enforced by `.gitignore` + `.containerignore` entries so they can't be accidentally committed/baked.
-
-### Proposed volume contract (for James's container wiring)
-- Host mounts the master-library dir (server: `/store/shared/tetracorder_libraries/` and the
-  source `splib06b` under `sl1/usgs/library06.conv/`) to a fixed in-container path, e.g. `/data`.
-- Container accepts `--library-path <dir>` (tetrapy flag / env), pointing at the mounted master libs.
-- specpr convolution scripts read `splib06b` from their CWD (`library06.conv/`), so the wiring must
-  symlink/stage the mounted `splib06b` (and `sprlb06a/b` for the rlib count) into the workdir before
-  running — or run the convolution in the mounted dir directly.
-- **Convolved output**: publish to a fixed, mountable output dir the caller can retrieve (per Phil's
-  "pre-convolve by wavelength to a fixed dir"). Decide the exact path with James.
-
-## Verification items
-- Confirm `/usr/local/bin` (specpr install target) is on `PATH` at runtime for the convolution scripts.
-- Confirm `dspecpr` runs headless (`-g99` noX path) in the container — no X server.
-- Run one end-to-end convolution from an EMIT wl/fwhm pair; diff against the shipped `s06emitc`.
-
-## Hand-off
-Jeff: trace + first-cut file port + the `tetrapy` convolution generator (`convolve.py`).
-James: wire it into the `Containerfile` flow as the optional library-build step, and confirm the
-mount paths / output-dir contract. Validation still owed: diff our derived `waves/resol` against
-Phil's `emit_wl_20250721.txt` / `emit_fwhm_20250721.txt` (em2507a) to confirm they match, and run
-one end-to-end convolution in-container against the mounted `splib06b`.
+Earlier attempt drove the container's specpr build via its convolution scripts. Dead
+end: the container's gfortran-built specpr throws direct-access file I/O errors
+(`mathin: ERROR on device 15`, gfortran error 5002) during the convolution math —
+a specpr build issue (suspected `recl`-unit / scratch-file handling). The convolution
+math itself is trivial (a Gaussian resample), so reimplementing in Python sidesteps the
+whole legacy-tool problem and matches where the team wants this to go. The specpr build
+still matters for running Tetracorder itself — that's separate and unaffected.

@@ -57,21 +57,21 @@ def run(**kwargs):
     tetra.exec_tetrun(**kwargs)
 
 
-@cli.command("convol-inputs", help=convolve.write_convol_inputs.__doc__)
-@file
-@click.option("--waves-out", default="waves.txt")
-@click.option("--resol-out", default="resol.txt")
-def convol_inputs(**kwargs):
-    convolve.write_convol_inputs(**kwargs)
-
-
 @cli.command("convolve", help=convolve.build_convolved_library.__doc__)
-@file
-@click.option("-l", "--library-path", default="/data/splib06b")
-@outp
-@click.option("-n", "--name", default="semcalx")
-@click.option("-v", "--version", default="a")
-@click.option("-t", "--title", default="EMIT")
-@click.option("--fwhm-record", default="12")
+@click.option("-m", "--master", default="/data/splib06b",
+              help="Unconvolved master library (specpr format)")
+@click.option("-t", "--template", default="/data/template",
+              help="Existing convolved library to reuse structure/indexing from")
+@click.option("-o", "--output", default="/output/library")
+@click.option("-e", "--envi-header", default=None,
+              help="EMIT reflectance .hdr for the target wavelength/FWHM grid "
+                   "(omit to reuse the template's grid)")
 def convolve_cmd(**kwargs):
     convolve.build_convolved_library(**kwargs)
+
+
+@cli.command("validate", help=convolve.compare_libraries.__doc__)
+@click.argument("a")
+@click.argument("b")
+def validate_cmd(a, b):
+    convolve.compare_libraries(a, b)
