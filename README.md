@@ -15,13 +15,10 @@ docker run --rm \
 
 # Build a convolved spectral library for a new calibration epoch
 docker run --rm \
-  -v /path/to/data:/data \
+  -v /path/to/scene:/data \
+  -v /path/to/libs:/spectral-lib \
   -v /path/to/output:/output \
-  tetracorder-lite convolve \
-    -m /data/splib06b \
-    -t /data/s06emitc \
-    -e /data/scene_rfl.hdr \
-    -o /output/s06emit_new
+  tetracorder-lite convolve
 ```
 
 ## Building the container
@@ -59,11 +56,14 @@ docker run --rm tetracorder-lite convolve --help
 
 | Mount point | Purpose |
 |---|---|
-| `/data` | Input: reflectance file, master library (`splib06b`), template library, ENVI headers |
+| `/data` | Input: reflectance/L1A file (ENVI format with `.hdr`) |
 | `/output` | Output: tetracorder results or the newly-convolved library |
+| `/spectral-lib` | (convolve only) Directory containing `splib06b` — the unconvolved USGS master spectral library in specpr format (~20 MB) |
 
-The unconvolved master library (`splib06b`) and template convolved library are
-**mounted at runtime**, never baked into the image.
+The template convolved library (`s06emitc`) is **baked into the image** under
+`/root/sl1/usgs/`. The unconvolved master (`splib06b`) is **mounted at runtime**
+to avoid bloating the image. Get it from the `spectroscopy-tetracorder` repo at
+`sl1/usgs/library06.conv/splib06b`.
 
 ## Convolved spectral library
 
@@ -71,23 +71,30 @@ Tetracorder matches observed reflectance against a spectral library convolved to
 instrument's channels. When EMIT gets a new calibration (new wavelengths/FWHM), the
 library must be regenerated. `tetrapy convolve` does this in **pure Python**:
 
-1. Reads the unconvolved master library `splib06b` (specpr binary format)
+1. Reads the unconvolved master library (baked into the image at
+   `/root/sl1/usgs/rlib06/r06emit_c`)
 2. Gaussian-convolves each spectrum from its native grid to the target EMIT grid
    (with native-FWHM quadrature correction)
-3. Writes a valid specpr library using an existing convolved library as a structural
+3. Writes a valid specpr library using the baked-in convolved library as a structural
    template (preserves record indexing)
 
-The target grid is taken from an EMIT reflectance ENVI header, so wavelength/FWHM
-self-consistently match the scene.
+The target grid is taken from the mounted EMIT reflectance/L1A ENVI header (`/data/r.hdr`
+by default), so wavelength/FWHM self-consistently match the scene.
 
 ```sh
-# Convolve to a new epoch's grid
-docker run --rm -v ./data:/data -v ./out:/output tetracorder-lite convolve \
-  -m /data/splib06b -t /data/s06emitc -e /data/new_scene_rfl.hdr -o /output/s06emit_new
+# Convolve to a new epoch's grid (reads wavelength/FWHM from /data/r.hdr)
+docker run --rm \
+  -v ./scene:/data -v ./libs:/spectral-lib -v ./out:/output \
+  tetracorder-lite convolve
 
-# Validate the result against a reference
-docker run --rm -v ./out:/output -v ./ref:/ref tetracorder-lite validate \
-  /output/s06emit_new /ref/s06emitc
+# Override reflectance file and output name
+docker run --rm \
+  -v ./scene:/data -v ./libs:/spectral-lib -v ./out:/output \
+  tetracorder-lite convolve -f /data/new_scene_rfl -o /output/s06emit_new
+
+# Validate the result against the baked-in reference
+docker run --rm -v ./out:/output tetracorder-lite validate \
+  /output/s06emit_new /root/sl1/usgs/library06.conv/s06emitc
 ```
 
 Validated against the shipped `s06emitc`: 1365 spectra, median RMS 4.4e-5

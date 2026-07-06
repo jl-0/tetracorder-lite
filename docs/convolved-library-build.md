@@ -37,17 +37,17 @@ That reproduces specpr's convolution to ~0.004% — well below any matching thre
 ## Usage
 
 ```sh
-# new calibration epoch: convolve splib06b to an EMIT scene's grid, reusing a prior
-# EMIT convolved library for structure/indexing
-tetrapy convolve \
-  -m /data/splib06b \
-  -t /data/s06emit_prior \
-  -e /data/<scene>_rfl.hdr \
-  -o /output/s06emit_new
+# new calibration epoch: mount a dir containing the L1A/reflectance .hdr file
+docker run --rm -v ./data:/data -v ./out:/output tetracorder-lite convolve
+
+# override the input file and output path
+docker run --rm -v ./data:/data -v ./out:/output tetracorder-lite convolve \
+  -f /data/<scene>_rfl -o /output/s06emit_new
 ```
 
-`splib06b` and the template are **mounted at runtime** (not baked) — enforced by
-`.gitignore` / `.containerignore`.
+The master library (`r06emit_c`) and template (`s06emit_c`) are **baked into the
+image** under `/root/sl1/usgs/`. The user only provides the L1A/reflectance ENVI
+header for the target wavelength/FWHM grid.
 
 ## Format reference
 

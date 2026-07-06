@@ -72,16 +72,21 @@ def run(**kwargs):
 
 
 @cli.command("convolve", help=convolve.build_convolved_library.__doc__)
-@click.option("-m", "--master", default="/data/splib06b",
-              help="Unconvolved master library (specpr format)")
-@click.option("-t", "--template", default="/data/template",
-              help="Existing convolved library to reuse structure/indexing from")
-@click.option("-o", "--output", default="/output/library")
-@click.option("-e", "--envi-header", default=None,
-              help="EMIT reflectance .hdr for the target wavelength/FWHM grid "
-                   "(omit to reuse the template's grid)")
-def convolve_cmd(**kwargs):
-    convolve.build_convolved_library(**kwargs)
+@file
+@click.option("-o", "--output", default="/output/s06emit_convolved",
+              help="Output convolved-library path (specpr + ENVI)")
+@click.option("-s", "--sensor", default="emitc",
+              help="Sensor suffix — selects template s06<s> from the image")
+@click.option("--master", default="/spectral-lib/splib06b",
+              help="Unconvolved master library path")
+def convolve_cmd(file, output, sensor, master):
+    sl1 = "/root/sl1/usgs"
+    template = f"{sl1}/library06.conv/s06{sensor}"
+    envi_header = f"{file}.hdr" if not file.endswith(".hdr") else file
+    convolve.build_convolved_library(
+        master=master, template=template, output=output, envi_header=envi_header
+    )
+    convolve.export_envi(output, f"{output}_envi")
 
 
 @cli.command("validate", help=convolve.compare_libraries.__doc__)

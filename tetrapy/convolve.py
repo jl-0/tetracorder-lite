@@ -268,6 +268,78 @@ def build_convolved_library(master, template, output, envi_header=None, **_):
     return output
 
 
+def export_envi(specpr_path, envi_path):
+    """Export a specpr convolved library to ENVI spectral library format.
+
+    Writes a flat float32 binary (BSQ, little-endian) plus a .hdr with wavelengths,
+    record numbers, and spectra names — matching the format used by emit-sds-l2b's
+    Spectral-Library-Reader.
+    """
+    records = load(specpr_path)
+    wl_rec, _ = find_grid(records)
+    wavelengths = read_array(records, wl_rec)
+    n_channels = wavelengths.size
+
+    mins = mineral_records(records)
+    spectra = []
+    names = []
+    rec_nums = []
+    for i in mins:
+        spectra.append(read_array(records, i).astype(np.float32))
+        names.append(_title(records[i]))
+        rec_nums.append(i)
+
+    # Include the setup records (wavelength, resolution, channel-number) as first rows
+    setup_recs = []
+    for i, r in enumerate(records):
+        if _is_data_start(r):
+            t = _title(r)
+            if t.startswith("Wavelengths") or t.startswith("Resolution") or "Data value" in t:
+                setup_recs.append((i, t, read_array(records, i).astype(np.float32)))
+
+    all_rows = []
+    all_names = []
+    all_rec_nums = []
+    for ri, name, arr in setup_recs:
+        all_rows.append(arr)
+        all_names.append(name)
+        all_rec_nums.append(ri)
+    for arr, name, ri in zip(spectra, names, rec_nums):
+        all_rows.append(arr)
+        all_names.append(name)
+        all_rec_nums.append(ri)
+
+    data = np.stack(all_rows)
+    data[~np.isfinite(data)] = -1.23e34
+
+    out = Path(envi_path)
+    out.write_bytes(data.astype("<f4").tobytes())
+
+    wl_str = ",".join(f"{w:.6g}" for w in wavelengths)
+    rec_str = ",".join(str(r) for r in all_rec_nums)
+    names_str = ", \n ".join(f"{n:40s}" for n in all_names)
+
+    hdr = (
+        f"ENVI\n"
+        f"file type = ENVI Spectral Library\n"
+        f"bands = 1\n"
+        f"samples = {n_channels}\n"
+        f"lines = {len(all_rows)}\n"
+        f"band names = {{Library translated from SPECPR}}\n"
+        f"wavelength units  = Micrometers\n"
+        f"wavelength = {{{wl_str}}}\n"
+        f"record = {{{rec_str}}}\n"
+        f"spectra names = {{ \n {names_str}}}\n"
+        f"header offset = 0 \n"
+        f"data type = 4\n"
+        f"interleave = bsq \n"
+        f"byte order = 0\n"
+    )
+    Path(envi_path + ".hdr").write_text(hdr)
+    print(f"Wrote ENVI spectral library ({len(all_rows)} spectra, {n_channels} ch) -> {envi_path}")
+    return envi_path
+
+
 def compare_libraries(a, b, **_):
     """Report per-spectrum RMS between two convolved libraries (aligned by order)."""
     ra, rb = load(a), load(b)
