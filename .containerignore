@@ -1,5 +1,8 @@
 **/.git
 **/.venv
+**/.pixi
 **/__pycache__
+**/local
 .gitignore
 .DS_Store
+emit-sds-l2b
