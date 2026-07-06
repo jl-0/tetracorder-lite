@@ -6,8 +6,16 @@ from tetrapy import tetra
 from tetrapy import convolve
 
 
-@click.group
+@click.group()
 def cli():
+    """tetracorder-lite CLI.
+
+    Run USGS Tetracorder (v6) mineral identification or rebuild the convolved
+    spectral library — all containerized.
+
+    \b
+    Default (no subcommand): setup + run tetracorder on the mounted input.
+    """
     pass
 
 
@@ -48,11 +56,17 @@ def patch(**kwargs):
     tetra.patch_cmd_file(**kwargs)
 
 
-@cli.command
+@cli.command(help="Setup then run tetracorder (the default container action).")
+@click.option("-v", "--version", default="6.00a")
+@outp
+@click.option("-s", "--sensor", default="emit_c")
+@mode
+@file
+@click.option("-g", "--geology", is_flag=True)
+@click.option("-c", "--cores", type=int, default=os.cpu_count())
+@click.option("-a", "--args", nargs=9, default=["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"])
+@click.option("--rm", is_flag=True)
 def run(**kwargs):
-    """\
-    Executes setup then tetrun
-    """
     tetra.setup_tetrun(**kwargs)
     tetra.exec_tetrun(**kwargs)
 
