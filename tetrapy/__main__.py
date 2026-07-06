@@ -11,13 +11,14 @@ def cli():
 
 
 # Shared click options
+vers = click.option("-v", "--version", default="6.00a")
 outp = click.option("-o", "--output", default="/output/tetracorder")
 mode = click.option("-m", "--mode", default="cube")
 file = click.option("-f", "--file", default="/data/r")
 
 
 @cli.command(help=tetra.setup_tetrun.__doc__)
-@click.option("-v", "--version", default="6.00a")
+@vers
 @outp
 @click.option("-s", "--sensor", default="emit_c")
 @mode
@@ -37,6 +38,13 @@ def setup(**kwargs):
 @click.option("-a", "--args", nargs=3, default=["band", "20", "gif"])
 def tetrun(**kwargs):
     tetra.exec_tetrun(**kwargs)
+
+
+@cli.command(help=tetra.patch_cmd_file.__doc__)
+@vers
+@outp
+def patch(**kwargs):
+    tetra.patch_cmd_file(**kwargs)
 
 
 @cli.command

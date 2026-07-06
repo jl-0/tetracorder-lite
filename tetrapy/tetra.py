@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -118,3 +119,78 @@ def exec_tetrun(
     ]
 
     subprocess.run(cmd, cwd=output)
+
+
+def parse_variables(file: str) -> dict[str, float | tuple[float, ...]]:
+    """
+    Parse ==[NAME] value... definitions from a command file.
+
+    Parameters
+    ----------
+    text : str
+        Input text
+
+    Returns
+    -------
+    dict[str, float | tuple[float, ...]]
+        Mapping of variable names to either a float or tuple of floats.
+        If a variable is defined multiple times, the last definition wins.
+    """
+    text = Path(file).read_text()
+
+    pattern = re.compile(r"^==\[(?P<name>[^\]]+)\]\s*(?P<values>[-+0-9.eE\s]+)", re.MULTILINE)
+
+    variables = {}
+    for match in pattern.finditer(text):
+        values = tuple(map(float, match["values"].split()))
+        variables[match["name"]] = values[0] if len(values) == 1 else values
+
+    return variables
+
+
+def parse_variables(file: str) -> dict[str, str]:
+    """Parse ==[NAME] value... definitions from a command file.
+
+    If a variable is defined multiple times, the last definition wins.
+    """
+    text = Path(file).read_text()
+
+    pattern = re.compile(
+        r"^==\[(?P<name>[^\]]+)\]\s*(?P<values>[-+0-9.eE\s]+)",
+        re.MULTILINE,
+    )
+
+    return {
+        match["name"]: match["values"].strip()
+        for match in pattern.finditer(text)
+    }
+
+
+def patch_cmd_file(output, version):
+    """
+    Creates a patched version of the expert command file to be compatible with the EMIT
+    l2b scripts
+    """
+    cmd = "cmd.lib.setup"
+    ver = f"t{version}2"
+
+    output = Path(output)
+    variables = parse_variables(output / f"{cmd}.variables")
+
+    text = Path(output / f"{cmd}.{ver}").read_text()
+
+    # Fix variable substitutions
+    text = re.sub(
+        r"\[([^\]]+)\]",
+        lambda m: variables.get(m[1], m[0]),
+        text,
+    )
+
+    # Remove all instances of TITLE= that aren't a title line
+    text = re.sub(
+        r"(?m)^(?!\\#[-=]+.*TITLE=).*?TITLE=",
+        "",
+        text,
+    )
+
+    Path(output / f"{cmd}.{ver}.patched").write_text(text)
