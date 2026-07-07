@@ -30,6 +30,7 @@ emit-utils = { git = "https://github.com/emit-sds/emit-utils.git" }
 
 # emit-sds-l2b dependencies
 [tool.pixi.dependencies]
+numpy = ">=1.26"
 gdal = ">=3.13.1,<4"
 libgdal-core = ">=3.13.1,<4"
 pyyaml = ">=6.0.3,<7"

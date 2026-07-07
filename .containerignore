@@ -6,3 +6,9 @@
 .gitignore
 .DS_Store
 emit-sds-l2b
+
+# Unconvolved master spectral libraries — mounted at runtime, never baked into the image.
+# See docs/convolved-library-build.md (volume contract).
+tetracorder/sl1/usgs/library06.conv/splib06b
+tetracorder/sl1/usgs/rlib06/sprlb06a
+tetracorder/sl1/usgs/rlib06/sprlb06b
