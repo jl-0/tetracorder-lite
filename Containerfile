@@ -148,7 +148,6 @@ RUN cd tetracorder &&\
 
 # Prepare the python CLI
 ENV PIXI_HOME="/pixi"
-ENV PATH="/pixi/bin:$PATH"
 ENV PATH="/pixi/bin:/root/.pixi/envs/default/bin:$PATH"
 RUN curl -fsSL https://pixi.sh/install.sh | sh &&\
     git clone https://github.com/emit-sds/emit-sds-l2b.git &&\

@@ -26,8 +26,10 @@ against the opalpy reader and the C++ Spectral-Library-Reader.
 import re
 import struct
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from numpy.typing import NDArray
 
 RECLEN = 1536
 HEAD_FMT = ">i40s8s16i60s74s74s74s74s6i260f"   # case 0: data-start (256 chan) — 1536 bytes
@@ -41,32 +43,108 @@ OFF_DATA = 512
 
 
 # --------------------------------------------------------------------------- I/O
-def load(path):
-    """Read a specpr file into a list of 1536-byte records."""
+def load(path: str) -> List[bytes]:
+    """
+    Read a specpr file into a list of 1536-byte records.
+
+    Parameters
+    ----------
+    path : str
+        Path to the specpr binary file.
+
+    Returns
+    -------
+    List[bytes]
+        List of fixed-length (1536-byte) records from the specpr file.
+    """
     d = Path(path).read_bytes()
     return [d[i * RECLEN:(i + 1) * RECLEN] for i in range(len(d) // RECLEN)]
 
 
-def save(path, records):
+def save(path: str, records: List[bytes]) -> None:
+    """
+    Write a list of records to a specpr file.
+
+    Parameters
+    ----------
+    path : str
+        Output path for the specpr binary file.
+    records : List[bytes]
+        List of 1536-byte records to write.
+    """
     Path(path).write_bytes(b"".join(records))
 
 
-def _is_data_start(rec):
+def _is_data_start(rec: bytes) -> bool:
+    """
+    Check if a record is a data-start record (case 0).
+
+    Parameters
+    ----------
+    rec : bytes
+        1536-byte specpr record.
+
+    Returns
+    -------
+    bool
+        True if the record is a data-start record.
+    """
     return (struct.unpack(">i", rec[:4])[0] & 3) == 0
 
 
-def _title(rec):
+def _title(rec: bytes) -> str:
+    """
+    Extract the title string from a specpr record.
+
+    Parameters
+    ----------
+    rec : bytes
+        1536-byte specpr record.
+
+    Returns
+    -------
+    str
+        ASCII title string with null bytes and trailing spaces removed.
+    """
     return struct.unpack(HEAD_FMT, rec)[1].decode("ascii", "ignore").rstrip("\x00 ")
 
 
-def _itchan(rec):
+def _itchan(rec: bytes) -> int:
+    """
+    Extract the channel count (itchan field) from a specpr record.
+
+    Parameters
+    ----------
+    rec : bytes
+        1536-byte specpr record.
+
+    Returns
+    -------
+    int
+        Number of channels in the spectrum.
+    """
     return struct.unpack(">i", rec[OFF_ITCHAN:OFF_ITCHAN + 4])[0]
 
 
-def read_array(records, recno):
-    """Reassemble the full float channel array of the spectrum at ``recno``.
+def read_array(records: List[bytes], recno: int) -> NDArray[np.float64]:
+    """
+    Reassemble the full float channel array of the spectrum at a given record number.
 
-    Bad/deleted channels (|v| >= 1e30) become NaN.
+    This function reads a spectrum's data from the specpr file, spanning multiple
+    records if necessary (data-start record plus continuation records). Invalid
+    channels are converted to NaN.
+
+    Parameters
+    ----------
+    records : List[bytes]
+        List of all records from the specpr file.
+    recno : int
+        Record number (0-indexed) of the spectrum's data-start record.
+
+    Returns
+    -------
+    NDArray[np.float64]
+        Array of channel values. Bad/deleted channels (|v| >= 1e30) are set to NaN.
     """
     n = _itchan(records[recno])
     t = struct.unpack(HEAD_FMT, records[recno])
@@ -81,11 +159,31 @@ def read_array(records, recno):
     return a
 
 
-def write_array(records, recno, values):
-    """Overwrite the float data at ``recno`` (head + continuations) in place.
+def write_array(records: List[bytes], recno: int, values: NDArray[np.float64]) -> None:
+    """
+    Overwrite the float data at a given record number (head + continuations) in place.
 
-    Header fields (title, itchan, irwav, irespt, pointers) are preserved. NaNs are
-    written as the specpr IGNORE sentinel. ``records`` must be a mutable list.
+    This function updates the numeric data portion of a spectrum while preserving
+    all header metadata. The records list is modified in place.
+
+    Parameters
+    ----------
+    records : List[bytes]
+        List of all records from the specpr file. Must be mutable.
+    recno : int
+        Record number (0-indexed) of the spectrum's data-start record.
+    values : NDArray[np.float64]
+        New channel values to write. Length must match the record's itchan field.
+
+    Raises
+    ------
+    ValueError
+        If the number of values doesn't match the record's itchan field.
+
+    Notes
+    -----
+    Header fields (title, itchan, irwav, irespt, pointers) are preserved.
+    NaN values are written as the specpr IGNORE sentinel (-1.23e34).
     """
     n = _itchan(records[recno])
     v = np.asarray(values, dtype=np.float64).copy()
@@ -108,22 +206,61 @@ def write_array(records, recno, values):
 
 
 # ------------------------------------------------------------------- library map
-def _is_setup(title):
-    """True for non-mineral records (wavelength/resolution/reference/header/text)."""
+def _is_setup(title: str) -> bool:
+    """
+    Check if a record title indicates a non-mineral setup record.
+
+    Parameters
+    ----------
+    title : str
+        Record title string from the specpr header.
+
+    Returns
+    -------
+    bool
+        True for non-mineral records (wavelength/resolution/reference/header/text).
+    """
     return (title.startswith("Wavelengths") or "Bandpass" in title or "FWHM" in title
             or "Resolution" in title or "Data value" in title
             or "Digital Spectral Library" in title or title.startswith("*")
             or title in ("", ".."))
 
 
-def mineral_records(records):
-    """Ordered list of record numbers holding mineral spectra (not setup records)."""
+def mineral_records(records: List[bytes]) -> List[int]:
+    """
+    Get ordered list of record numbers holding mineral spectra.
+
+    Parameters
+    ----------
+    records : List[bytes]
+        List of all records from the specpr file.
+
+    Returns
+    -------
+    List[int]
+        Record numbers (0-indexed) of mineral spectra, excluding setup records.
+    """
     return [i for i, r in enumerate(records)
             if _is_data_start(r) and not _is_setup(_title(r))]
 
 
-def _wavelength_resolution_records(records):
-    """Return {wavelength_recno: resolution_recno} pairing (wavelength -> next bandpass)."""
+def _wavelength_resolution_records(records: List[bytes]) -> Dict[int, Optional[int]]:
+    """
+    Return wavelength-to-resolution record pairing.
+
+    For each wavelength record, finds the next bandpass/FWHM record that follows it.
+
+    Parameters
+    ----------
+    records : List[bytes]
+        List of all records from the specpr file.
+
+    Returns
+    -------
+    Dict[int, Optional[int]]
+        Mapping from wavelength record number to its corresponding resolution
+        record number. Value is None if no resolution record follows.
+    """
     waves, bands = [], []
     for i, r in enumerate(records):
         if _is_data_start(r):
@@ -135,8 +272,25 @@ def _wavelength_resolution_records(records):
     return {w: min([b for b in bands if b > w], default=None) for w in waves}
 
 
-def find_grid(records):
-    """Return (wavelength_recno, resolution_recno) for a convolved library template."""
+def find_grid(records: List[bytes]) -> Tuple[int, int]:
+    """
+    Find the wavelength and resolution grid records in a convolved library template.
+
+    Parameters
+    ----------
+    records : List[bytes]
+        List of all records from the specpr file.
+
+    Returns
+    -------
+    Tuple[int, int]
+        Tuple of (wavelength_recno, resolution_recno) for the target instrument grid.
+
+    Raises
+    ------
+    ValueError
+        If the template is missing Wavelengths or Resolution grid records.
+    """
     wl = res = None
     for i, r in enumerate(records):
         if _is_data_start(r):
@@ -238,11 +392,36 @@ def convolve_spectrum(native_wl, native_val, native_fwhm, out_wl, out_fwhm,
 
 
 # ------------------------------------------------------------- ENVI target grid
-def read_wavelengths_fwhm(hdr_path):
-    """Read (wavelengths, fwhm) in microns from an EMIT ENVI header.
+def read_wavelengths_fwhm(hdr_path: str) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """
+    Read wavelengths and FWHM in microns from an EMIT ENVI header.
 
-    Reflectance headers are ideal — the values self-consistently match the scene.
-    EMIT headers are in nanometers; converted to microns here.
+    This function extracts the wavelength and FWHM arrays from an ENVI header file
+    and converts them to micrometers if necessary. EMIT headers typically use
+    nanometers, which are automatically converted.
+
+    Parameters
+    ----------
+    hdr_path : str
+        Path to the ENVI header file (.hdr). If the path doesn't end in .hdr,
+        the function attempts to find the corresponding header file.
+
+    Returns
+    -------
+    Tuple[NDArray[np.float64], NDArray[np.float64]]
+        Tuple of (wavelengths, fwhm) arrays in micrometers.
+
+    Raises
+    ------
+    ValueError
+        If the header is missing 'wavelength' or 'fwhm' fields, or if the
+        wavelength units are unexpected.
+
+    Notes
+    -----
+    Reflectance headers are ideal as the values self-consistently match the scene.
+    Supported wavelength units: nanometers (nm), micrometers (um, μm, microns).
+    EMIT headers are in nanometers and are automatically converted to microns.
     """
     p = Path(hdr_path)
     if p.suffix != ".hdr":
@@ -552,12 +731,35 @@ def build_from_recipe(master, recipe, output, envi_header, sppad=4):
     return output
 
 
-def export_envi(specpr_path, envi_path):
-    """Export a specpr convolved library to ENVI spectral library format.
+def export_envi(specpr_path: str, envi_path: str) -> str:
+    """
+    Export a specpr convolved library to ENVI spectral library format.
 
+    This function converts a specpr-format spectral library to ENVI format,
+    which is required by some processing pipelines. The output includes both
+    a binary data file and a .hdr metadata file.
+
+    Parameters
+    ----------
+    specpr_path : str
+        Path to the input specpr convolved library.
+    envi_path : str
+        Output path for the ENVI library (without .hdr extension).
+
+    Returns
+    -------
+    str
+        Path to the output ENVI library.
+
+    Notes
+    -----
     Writes a flat float32 binary (BSQ, little-endian) plus a .hdr with wavelengths,
     record numbers, and spectra names — matching the format used by emit-sds-l2b's
     Spectral-Library-Reader.
+
+    The output includes setup records (wavelength, resolution, channel-number) as
+    the first rows, followed by all mineral spectra. Invalid values (NaN) are
+    written as -1.23e34 (specpr IGNORE sentinel).
     """
     records = load(specpr_path)
     wl_rec, _ = find_grid(records)
@@ -624,8 +826,43 @@ def export_envi(specpr_path, envi_path):
     return envi_path
 
 
-def compare_libraries(a, b, **_):
-    """Report per-spectrum RMS between two convolved libraries (aligned by order)."""
+def compare_libraries(a: str, b: str, **_) -> Dict[str, float]:
+    """
+    Report per-spectrum RMS differences between two convolved libraries.
+
+    This function validates a newly generated convolved library against a reference
+    by computing RMS (root mean square) differences for each aligned spectrum pair.
+
+    Parameters
+    ----------
+    a : str
+        Path to the first convolved library (specpr format).
+    b : str
+        Path to the second convolved library (specpr format).
+
+    Returns
+    -------
+    Dict[str, float]
+        Dictionary with keys:
+        - 'n': Number of spectra compared
+        - 'median': Median RMS difference
+        - 'max': Maximum RMS difference
+
+    Raises
+    ------
+    ValueError
+        If the two libraries have different numbers of mineral spectra.
+
+    Notes
+    -----
+    Libraries are aligned by order (i-th spectrum in library A is compared to
+    i-th spectrum in library B). Only finite values present in both spectra
+    are included in the RMS calculation. Channels with NaN in either spectrum
+    are excluded.
+
+    RMS differences around 4-5e-5 (reflectance 0-1 scale) indicate excellent
+    agreement, as validated against the shipped USGS libraries.
+    """
     ra, rb = load(a), load(b)
     ma, mb = mineral_records(ra), mineral_records(rb)
     if len(ma) != len(mb):

@@ -1,4 +1,6 @@
 import os
+import logging
+from pathlib import Path
 
 import click
 
@@ -6,8 +8,12 @@ from tetrapy import tetra
 from tetrapy import convolve
 
 
+logging.basicConfig(level=logging.DEBUG)
+Logger = logging.getLogger(__name__)
+
+
 @click.group()
-def cli():
+def cli() -> None:
     """tetracorder-lite CLI.
 
     Run USGS Tetracorder (v6) mineral identification or rebuild the convolved
@@ -36,7 +42,7 @@ file = click.option("-f", "--file", default="/data/r")
 @click.option("-c", "--cores", type=int, default=os.cpu_count())
 @click.option("-a", "--args", nargs=9, default=["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"])
 @click.option("--rm", is_flag=True)
-def setup(**kwargs):
+def setup(**kwargs) -> None:
     tetra.setup_tetrun(**kwargs)
 
 
@@ -45,15 +51,27 @@ def setup(**kwargs):
 @mode
 @file
 @click.option("-a", "--args", nargs=3, default=["band", "20", "gif"])
-def tetrun(**kwargs):
+def tetrun(**kwargs) -> None:
     tetra.exec_tetrun(**kwargs)
 
 
 @cli.command(help=tetra.patch_cmd_file.__doc__)
 @vers
 @outp
-def patch(**kwargs):
+def patch(**kwargs) -> None:
     tetra.patch_cmd_file(**kwargs)
+
+
+@cli.command(help=tetra.group_aggregator.__doc__)
+@vers
+@outp
+@click.option("-m", "--matrix", default="/root/tetrapy/data/mineral_grouping_matrix_t6.subset.csv")
+@click.option("-sl", "--reflib", default="/root/emit-sds-l2b/Spectral-Library-Reader-master/s06av18a_envi")
+@click.option("-rl", "--reslib", default="/root/emit-sds-l2b/Spectral-Library-Reader-master/r06av18a_envi")
+@click.option("-r", "--rfl", required=True)
+@click.option("-u", "--unc", required=True)
+def gagg(**kwargs) -> None:
+    tetra.group_aggregator(**kwargs)
 
 
 @cli.command(help="Setup then run tetracorder (the default container action).")
@@ -66,7 +84,7 @@ def patch(**kwargs):
 @click.option("-c", "--cores", type=int, default=os.cpu_count())
 @click.option("-a", "--args", nargs=9, default=["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"])
 @click.option("--rm", is_flag=True)
-def run(**kwargs):
+def run(**kwargs) -> None:
     tetra.setup_tetrun(**kwargs)
     tetra.exec_tetrun(**kwargs)
 
@@ -114,5 +132,5 @@ def cmds2csv_cmd(cmds, csv):
 @cli.command("validate", help=convolve.compare_libraries.__doc__)
 @click.argument("a")
 @click.argument("b")
-def validate_cmd(a, b):
+def validate_cmd(a: str, b: str) -> None:
     convolve.compare_libraries(a, b)
