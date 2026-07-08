@@ -118,7 +118,9 @@ def exec_tetrun(
         file
     ]
 
-    subprocess.run(cmd, cwd=output)
+    log = Path(output) / "tetrun.log"
+    with log.open("w") as f:
+        subprocess.run(cmd, cwd=output, stdout=f, stderr=subprocess.STDOUT)
 
 
 def parse_variables(file: str) -> dict[str, float | tuple[float, ...]]:
