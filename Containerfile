@@ -152,12 +152,6 @@ ENV PATH="/pixi/bin:$PATH"
 ENV PATH="/pixi/bin:/root/.pixi/envs/default/bin:$PATH"
 RUN curl -fsSL https://pixi.sh/install.sh | sh &&\
     git clone https://github.com/emit-sds/emit-sds-l2b.git &&\
-<<<<<<< HEAD
-    pixi run tetrapy --help
-ENV PATH="/root/.pixi/envs/default/bin/:$PATH"
-=======
     pixi install
->>>>>>> b0fcc177 (Added splib06b; removed unused files; fixed pixi init; added log file to tetrun)
 
-ENTRYPOINT ["tetrapy"]
-CMD ["run"]
+CMD ["tetrapy"]
