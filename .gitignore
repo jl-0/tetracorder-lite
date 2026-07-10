@@ -26,9 +26,12 @@ site/
 # Ignore local testing directories
 local/
 
-# Unconvolved master spectral libraries — mounted at runtime, never committed/baked.
-# See docs/convolved-library-build.md (volume contract).
-tetracorder/sl1/usgs/library06.conv/splib06b
+# Unconvolved master spectral libraries (splib06b / sprlb06b) are small (~24 MB
+# total) and are now COMMITTED under tetracorder/sl1/usgs/library06.conv/ so they
+# bake into the container image. At runtime only the convolution recipe (.cmds/.csv)
+# and the L2A scene (for the target grid) need to be supplied. See
+# docs/convolved-library-build.md (volume contract).
+# (Legacy copies under rlib06/ remain ignored.)
 tetracorder/sl1/usgs/rlib06/sprlb06a
 tetracorder/sl1/usgs/rlib06/sprlb06b
 
