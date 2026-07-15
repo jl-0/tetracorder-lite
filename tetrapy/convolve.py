@@ -24,6 +24,7 @@ against the opalpy reader and the C++ Spectral-Library-Reader.
 """
 
 import re
+import shutil
 import struct
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -729,6 +730,120 @@ def build_from_recipe(master, recipe, output, envi_header, sppad=4):
         for t in placeholders[:10]:
             print(f"      placeholder: {t}")
     return output
+
+
+# The two convolved libraries Tetracorder reads at runtime, keyed by the restart
+# file (restart_files/r1-emitc): the reference library (device y, iyfl) and the
+# research library (device w, iwfl). Each is built from its own unconvolved master
+# and installed at the path the restart file points to under /root/sl1.
+#   name       master (unconvolved)   template + install path (baked into image)
+REFERENCE_LIBRARY = ("splib06b", "/root/sl1/usgs/library06.conv/s06emitc")
+RESEARCH_LIBRARY = ("sprlb06b", "/root/sl1/usgs/rlib06/r06emitc")
+
+
+def build_libraries(
+    reflib: str,
+    reslib: str,
+    file: str = "/data/r",
+    output: str = "/output",
+) -> Dict[str, str]:
+    """
+    Build both convolved libraries Tetracorder reads and install them in place.
+
+    Tetracorder matches observed reflectance against *two* convolved spectral
+    libraries, wired up by the ``r1-emitc`` restart file: the **reference**
+    library (``s06emitc``, device ``y``/``iyfl``) and the **research** library
+    (``r06emitc``, device ``w``/``iwfl``). When a new calibration epoch arrives
+    both must be regenerated from their unconvolved masters onto the new grid.
+
+    This convolves each master (``reflib`` -> reference, ``reslib`` -> research)
+    onto the target instrument grid read from the scene's ENVI header, using the
+    baked-in convolved library as a structural template (see
+    :func:`build_convolved_library`). For each library it then:
+
+    1. writes the specpr result under ``{output}/l2b/`` (persisted to the mounted
+       volume),
+    2. copies it onto the restart-file read path under ``/root/sl1`` so a
+       subsequent ``tetrapy run`` picks it up directly, and
+    3. exports an ENVI-format copy under ``{output}/l2b/`` for the L2B group
+       aggregator (``tetrapy gagg`` ``--reflib``/``--reslib``).
+
+    \b
+    Parameters
+    ----------
+    reflib : str
+        Path to the unconvolved reference master library (``splib06b``) in specpr
+        format. Convolved into the reference library ``s06emitc``.
+    reslib : str
+        Path to the unconvolved research master library (``sprlb06b``) in specpr
+        format. Convolved into the research library ``r06emitc``.
+    file : str, default="/data/r"
+        Path to the EMIT reflectance file (or its ``.hdr``) providing the target
+        wavelength/FWHM grid.
+    output : str, default="/output"
+        Output root. Convolved specpr + ENVI libraries are written under
+        ``{output}/l2b/``.
+
+    Returns
+    -------
+    Dict[str, str]
+        Mapping of installed restart-path -> ``{output}/l2b`` specpr path for each
+        library ("reference", "research").
+
+    Raises
+    ------
+    FileNotFoundError
+        If a master library or its baked-in template is missing.
+
+    Notes
+    -----
+    The install path is identical to the template path (both under
+    ``/root/sl1``); the template is read fully into memory before the install
+    copy overwrites it, so re-running is safe within an ephemeral container.
+    """
+    out = Path(output) / "l2b"
+    out.mkdir(parents=True, exist_ok=True)
+    hdr = Path(file).with_suffix(".hdr")
+
+    jobs = [
+        ("reference", reflib, *REFERENCE_LIBRARY),
+        ("research", reslib, *RESEARCH_LIBRARY),
+    ]
+
+    installed: Dict[str, str] = {}
+    for role, master, master_name, install_path in jobs:
+        if not Path(master).exists():
+            raise FileNotFoundError(
+                f"{role} master library not found: {master} "
+                f"(expected the unconvolved {master_name}; mount it at /spectral-lib)"
+            )
+        if not Path(install_path).exists():
+            raise FileNotFoundError(
+                f"{role} template not found: {install_path} "
+                "(the baked-in convolved library used as a structural template)"
+            )
+
+        name = Path(install_path).name
+        specpr_out = str(out / name)
+
+        # Convolve master -> target grid using the baked-in library as template.
+        build_convolved_library(
+            master=master,
+            template=install_path,
+            output=specpr_out,
+            envi_header=hdr,
+        )
+
+        # Install onto the restart-file read path so `tetrapy run` uses it.
+        shutil.copyfile(specpr_out, install_path)
+        print(f"Installed {role} library -> {install_path}")
+
+        # Export an ENVI copy for the L2B group aggregator.
+        export_envi(specpr_out, str(out / f"{name}_envi"))
+
+        installed[role] = specpr_out
+
+    return installed
 
 
 def export_envi(specpr_path: str, envi_path: str) -> str:

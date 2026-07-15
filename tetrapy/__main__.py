@@ -129,6 +129,15 @@ def cmds2csv_cmd(cmds, csv):
     convolve.cmds_to_csv(cmds, csv)
 
 
+@cli.command("convlibs", help=convolve.build_libraries.__doc__)
+@click.option("-rl", "--reflib", default="/spectral-lib/splib06b")
+@click.option("-sl", "--reslib", default="/spectral-lib/sprlb06b")
+@file
+@click.option("-o", "--output", default="/output")
+def convlibs_cmd(reflib: str, reslib: str, file: str, output: str) -> None:
+    convolve.build_libraries(reflib=reflib, reslib=reslib, file=file, output=output)
+
+
 @cli.command("validate", help=convolve.compare_libraries.__doc__)
 @click.argument("a")
 @click.argument("b")

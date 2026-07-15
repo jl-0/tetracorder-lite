@@ -264,6 +264,7 @@ def group_aggregator(
     group maps with uncertainty quantification. It automatically patches the expert
     system file if needed.
 
+    \b
     Parameters
     ----------
     version : str, default="6.00a"
@@ -283,10 +284,8 @@ def group_aggregator(
     unc : Optional[str], default=None
         Path to the reflectance uncertainty file. Required for uncertainty
         calculation.
-    script_path : Optional[str], default=None
-        Path to the group_aggregator.py script. If None, attempts to locate it
-        relative to this module or in emit-sds-l2b directory.
 
+    \b
     Notes
     -----
     Output files are written to {output}/l2b/:
