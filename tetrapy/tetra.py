@@ -428,13 +428,10 @@ def update_restart(
     text: str,
     reflib: str,
     reslib: str,
-    name: str = "tetrapy",
     chns: int = None,
     ) -> str:
     """
-    Update restart file text with new sensor name and optionally channel count.
-
-    Automatically detects the old sensor name.
+    Update the restart file values for the newly convolved libraries
 
     Parameters
     ----------
@@ -444,8 +441,6 @@ def update_restart(
         Path to reference library file
     reslib : str
         Path to research library
-    name : str, default="tetrapy"
-        New sensor ID
     chns : int, default=None
         New channel count. If None, keeps existing value.
 
@@ -454,49 +449,26 @@ def update_restart(
     str
         Updated restart file content
     """
-    old = get_sensor(text)
+    pack = {"w": reslib, "y": reflib}
+    for t, lib in pack.items():
+        # Research library path (iwfl)
+        text = re.sub(
+            rf'^(i{t}fl=)\w+(\s*)$',
+            rf'\1{reslib}\2',
+            text,
+            flags=re.MULTILINE
+        )
 
-    Logger.debug(f"Replacing old {old!r} with new {name!r}")
-
-    # Research library path (iwfl)
-    text = re.sub(
-        rf'^(iwfl=)/sl1/usgs/rlib06/r06{old}(\s*)$',
-        rf'\1{reslib}\2',
-        text,
-        flags=re.MULTILINE
-    )
-
-    # Reference library path (iyfl)
-    text = re.sub(
-        rf'^(iyfl=)/sl1/usgs/library06\.conv/s06{old}(\s*)$',
-        rf'\1{reflib}\2',
-        text,
-        flags=re.MULTILINE
-    )
-
-    # # Restart file self-reference (irfl)
-    # text = re.sub(
-    #     rf'^(irfl=)r1-{old}(\s*)$',
-    #     rf'\1r1-{name}\2',
-    #     text,
-    #     flags=re.MULTILINE
-    # )
-    #
-    # # 8-character research library name (iwdgt)
-    # text = re.sub(
-    #     rf'^(iwdgt=\s+)r06{old}(\s+#.*)$',
-    #     lambda m: f"{m.group(1)}{'r06' + name:<8}{m.group(2)}",
-    #     text,
-    #     flags=re.MULTILINE
-    # )
-    #
-    # # 8-character reference library name (inmy)
-    # text = re.sub(
-    #     rf'^(inmy=\s+)s06{old}(\s+#.*)$',
-    #     lambda m: f"{m.group(1)}{'s06' + name:<8}{m.group(2)}",
-    #     text,
-    #     flags=re.MULTILINE
-    # )
+        # Update the protection value
+        size = os.path.getsize(lib)
+        records = size // 1536
+        protection = -records
+        text = re.sub(
+            rf'^(iprt{t}=\s+).*(  # device protection {t})$',
+            rf'\1{protection}\2',
+            text,
+            flags=re.MULTILINE
+        )
 
     # Channel count (nchans)
     if chns is not None:
@@ -596,17 +568,17 @@ def convolve(
         output = out / f"{file.name}-{lib}.conv"
         files[lib] = str(output)
 
-        # cv.build_from_recipe(
-        #     master = str(file),
-        #     recipe = str(rcp),
-        #     output = str(output),
-        #     envi_header = str(hdr),
-        # )
-        #
-        # cv.export_envi(
-        #     str(output),
-        #     str(output.with_suffix(".envi"))
-        # )
+        cv.build_from_recipe(
+            master = str(file),
+            recipe = str(rcp),
+            output = str(output),
+            envi_header = str(hdr),
+        )
+
+        cv.export_envi(
+            str(output),
+            str(output.with_suffix(".envi"))
+        )
 
     # Integrate these into Tetracorder
     path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
