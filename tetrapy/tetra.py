@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from tetrapy import convolve as cv
 from tetrapy import utils
 
 
@@ -69,6 +70,7 @@ def setup_tetrun(
     exists = Path(output).exists()
     if rm and exists:
         shutil.rmtree(output)
+        exists = False
 
     assert not exists, "cmd-setup-tetrun requires the output directory to not exist"
 
@@ -339,3 +341,293 @@ def group_aggregator(
     log = out / "group_aggregator.log"
     with log.open("w") as f:
         subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+
+def get_sensor(text: str) -> str:
+    """
+    Auto-detect the sensor name from a restart file.
+
+    Parameters
+    ----------
+    text : str
+        Restart file content
+
+    Returns
+    -------
+    str
+        Sensor ID extracted from the restart file
+
+    Raises
+    ------
+    ValueError
+        If sensor name cannot be detected
+
+    Examples
+    --------
+    >>> text = Path('restart_files/r1-emitc').read_text()
+    >>> sensor = detect_sensor_from_restart(text)
+    >>> print(sensor)
+    'emitc'
+    """
+    # Try to extract from irfl= line (most reliable)
+    match = re.search(r'^irfl=r1-(\w+)', text, re.MULTILINE)
+    if match:
+        return match.group(1)
+
+    # Fallback: try to extract from iwfl= line
+    match = re.search(r'^iwfl=/sl1/usgs/rlib06/r06(\w+)', text, re.MULTILINE)
+    if match:
+        return match.group(1)
+
+    # Fallback: try to extract from iyfl= line
+    match = re.search(r'^iyfl=/sl1/usgs/library06\.conv/s06(\w+)', text, re.MULTILINE)
+    if match:
+        return match.group(1)
+
+    raise ValueError("Could not detect sensor name from restart file")
+
+
+def get_channels(hdr: str) -> int:
+    """
+    Extract the number of channels from an ENVI header file.
+
+    Parameters
+    ----------
+    hdr : str
+        Path to ENVI header file (.hdr)
+
+    Returns
+    -------
+    int
+        Number of spectral channels/bands
+
+    Raises
+    ------
+    ValueError
+        If channels/bands field not found in header
+    FileNotFoundError
+        If header file doesn't exist
+    """
+    text = Path(hdr).read_text()
+
+    # Try to find 'bands' field (preferred)
+    match = re.search(r'^bands\s*=\s*(\d+)', text, re.IGNORECASE | re.MULTILINE)
+    if match:
+        return int(match.group(1))
+
+    # Fallback: count wavelength array elements
+    match = re.search(r'^wavelength\s*=\s*\{(.*?)\}', text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
+    if match:
+        wl = [w.strip() for w in match.group(1).replace('\n', ' ').split(',') if w.strip()]
+        return len(wl)
+
+    raise ValueError(f"Could not find 'bands' or 'wavelength' field in {path}")
+
+
+def update_restart(
+    text: str,
+    reflib: str,
+    reslib: str,
+    name: str = "tetrapy",
+    chns: int = None,
+    ) -> str:
+    """
+    Update restart file text with new sensor name and optionally channel count.
+
+    Automatically detects the old sensor name.
+
+    Parameters
+    ----------
+    text : str
+        Original restart file content
+    reflib : str
+        Path to reference library file
+    reslib : str
+        Path to research library
+    name : str, default="tetrapy"
+        New sensor ID
+    chns : int, default=None
+        New channel count. If None, keeps existing value.
+
+    Returns
+    -------
+    str
+        Updated restart file content
+    """
+    old = get_sensor(text)
+
+    Logger.debug(f"Replacing old {old!r} with new {name!r}")
+
+    # Research library path (iwfl)
+    text = re.sub(
+        rf'^(iwfl=)/sl1/usgs/rlib06/r06{old}(\s*)$',
+        rf'\1{reslib}\2',
+        text,
+        flags=re.MULTILINE
+    )
+
+    # Reference library path (iyfl)
+    text = re.sub(
+        rf'^(iyfl=)/sl1/usgs/library06\.conv/s06{old}(\s*)$',
+        rf'\1{reflib}\2',
+        text,
+        flags=re.MULTILINE
+    )
+
+    # # Restart file self-reference (irfl)
+    # text = re.sub(
+    #     rf'^(irfl=)r1-{old}(\s*)$',
+    #     rf'\1r1-{name}\2',
+    #     text,
+    #     flags=re.MULTILINE
+    # )
+    #
+    # # 8-character research library name (iwdgt)
+    # text = re.sub(
+    #     rf'^(iwdgt=\s+)r06{old}(\s+#.*)$',
+    #     lambda m: f"{m.group(1)}{'r06' + name:<8}{m.group(2)}",
+    #     text,
+    #     flags=re.MULTILINE
+    # )
+    #
+    # # 8-character reference library name (inmy)
+    # text = re.sub(
+    #     rf'^(inmy=\s+)s06{old}(\s+#.*)$',
+    #     lambda m: f"{m.group(1)}{'s06' + name:<8}{m.group(2)}",
+    #     text,
+    #     flags=re.MULTILINE
+    # )
+
+    # Channel count (nchans)
+    if chns is not None:
+        text = re.sub(
+            r'^(nchans=\s+)\d+(\s+#.*)$',
+            lambda m: f"{m.group(1)}{chns:>12}{m.group(2)}",
+            text,
+            flags=re.MULTILINE
+        )
+
+    return text
+
+
+def convolve(
+    reflib: str,
+    reslib: str,
+    recipe: str,
+    version: str = "6.00a",
+    output: str = "/output",
+    file: str = "/data/r",
+) -> Dict[str, str]:
+    """
+    Build convolved libraries from research and reference inputs with a recipe and integrate into tetracorder.
+
+    This command takes research (reslib) and reference (reflib) unconvolved libraries,
+    convolves them using a specified recipe onto the target instrument grid from the
+    scene's ENVI header, and integrates them into tetracorder. Convolved outputs are
+    saved to [output]/l2b/.
+
+    For each library, this function:
+    1. Convolves the master library using the provided recipe
+    2. Writes the specpr result to {output}/l2b/
+    3. Copies it to the tetracorder library path under /root/sl1
+    4. Exports an ENVI-format copy to {output}/l2b/ for downstream processing
+
+    Parameters
+    ----------
+    reflib : str
+        Path to the unconvolved reference library (splib06b) in specpr format.
+    reslib : str
+        Path to the unconvolved research library (sprlb06b) in specpr format.
+    recipe : str
+        Path to the convolution recipe file (.cmds or .csv) that defines which
+        spectra to convolve and their configurations.
+    file : str, default="/data/r"
+        Path to the EMIT reflectance file (or its .hdr) providing the target
+        wavelength/FWHM grid for convolution.
+    output : str, default="/output"
+        Output root directory. Convolved specpr + ENVI libraries are written
+        under {output}/l2b/.
+
+    Returns
+    -------
+    Dict[str, str]
+        Mapping of library role ("reference", "research") to their output paths
+        in {output}/l2b/.
+
+    Raises
+    ------
+    FileNotFoundError
+        If a master library, recipe file, or ENVI header is missing.
+
+    Notes
+    -----
+    The convolved libraries are installed at paths that tetracorder expects:
+    - Reference library: /root/sl1/usgs/library06.conv/s06emitc
+    - Research library: /root/sl1/usgs/rlib06/r06emitc
+
+    ENVI exports are suitable for use with the L2B group aggregator (tetrapy gagg).
+    """
+    out = Path("/root/tetracorder/sl1/usgs/tetrapy")
+    out.mkdir(parents=True, exist_ok=True)
+    hdr = Path(file).with_suffix(".hdr")
+
+    if recipe is None:
+        recipe = Path("/root/tetracorder/sl1/usgs/library06.conv/")
+
+    if not (reflib := Path(reflib)).exists():
+        raise FileNotFoundError(f"Reference library not found: {reflib}")
+    if not (reslib := Path(reslib)).exists():
+        raise FileNotFoundError(f"Research library not found: {reslib}")
+    if not Path(recipe).exists():
+        raise FileNotFoundError(f"Recipe directory not found: {recipe}")
+    if not hdr.exists():
+        raise FileNotFoundError(f"ENVI header not found: {hdr}")
+
+    # TODO: Revisit hardcoding
+    recipes = {"reslib": "conv.r06emitc.cmds", "reflib": "conv.s06emitc.cmds"}
+
+    files = {"reslib": reslib, "reflib": reflib}
+    for lib, file in files.items():
+        Logger.info(f"Convolving {lib} using {file}")
+
+        rcp = recipe / recipes[lib]
+        Logger.info(f"  Recipe: {rcp}")
+
+        output = out / f"{file.name}-{lib}.conv"
+        files[lib] = str(output)
+
+        # cv.build_from_recipe(
+        #     master = str(file),
+        #     recipe = str(rcp),
+        #     output = str(output),
+        #     envi_header = str(hdr),
+        # )
+        #
+        # cv.export_envi(
+        #     str(output),
+        #     str(output.with_suffix(".envi"))
+        # )
+
+    # Integrate these into Tetracorder
+    path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
+
+    # Create the dataset file
+    # text = "\n".join(["data=    tetrapy", "restart= tetrapy"])
+    # (path / "DATASETS" / "tetrapy").write_text(text)
+
+    # Find a file to use as a template
+    # path /= "restart_files"
+    # tmpl = list(path.glob("*emit*"))
+    # if not tmpl:
+    #     tmpl = list(p.glob("*"))
+    file = path / "restart_files" / "r1-emitc"
+
+    # Replace relevant pieces to point to our newly convolved libs
+    text = update_restart(
+        text = file.read_text(),
+        chns = get_channels(hdr),
+        **files
+    )
+
+    # Create the restart file
+    file.write_text(text)
