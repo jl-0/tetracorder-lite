@@ -453,7 +453,7 @@ def update_restart(
     for t, lib in pack.items():
         # Research library path (iwfl)
         text = re.sub(
-            rf'^(i{t}fl=)\w+(\s*)$',
+            rf'^(i{t}fl=)\S+(\s*)$',
             rf'\1{reslib}\2',
             text,
             flags=re.MULTILINE
