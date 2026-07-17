@@ -76,7 +76,7 @@ def gagg(**kwargs) -> None:
 @cli.command(help="Setup then run tetracorder (the default container action).")
 @click.option("-v", "--version", default="6.00a")
 @outp
-@click.option("-s", "--sensor", default="emit_c")
+@click.option("-s", "--sensor", default="tetrapy")
 @mode
 @file
 @click.option("-g", "--geology", is_flag=True)

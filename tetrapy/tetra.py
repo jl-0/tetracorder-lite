@@ -770,17 +770,17 @@ def convolve(
         output = out / f"{file.name}-{lib}.conv"
         files[lib] = output
 
-        # cv.build_from_recipe(
-        #     master = str(file),
-        #     recipe = str(rcp),
-        #     output = str(output),
-        #     envi_header = str(hdr),
-        # )
-        #
-        # cv.export_envi(
-        #     str(output),
-        #     str(output.with_suffix(".envi"))
-        # )
+        cv.build_from_recipe(
+            master = str(file),
+            recipe = str(rcp),
+            output = str(output),
+            envi_header = str(hdr),
+        )
+
+        cv.export_envi(
+            str(output),
+            str(output.with_suffix(".envi"))
+        )
 
     # Integrate these into Tetracorder
     name = "tetrapy"
