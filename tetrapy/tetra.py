@@ -666,6 +666,13 @@ def make_colors_file(path, name):
     (path / "COLOR.channels" / f"color-{name}").write_text(text)
 
 
+def make_disable_file(path, name):
+    """
+    """
+    text = Path("tetrapy/templates/disable.tmpl").read_text()
+    (path / "DISABLE" / name).write_text(text)
+
+
 def make_restart_file(path, name, hdr, reflib, reslib):
     """
     """
@@ -786,6 +793,7 @@ def convolve(
     name = "tetrapy"
     path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
     make_colors_file(path, name)
+    make_disable_file(path, name)
     make_datasets_file(path, name)
     make_deleted_file(path, name, hdr)
     make_restart_file(path, name, hdr, files["reflib"], files["reslib"])
