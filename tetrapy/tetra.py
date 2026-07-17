@@ -652,6 +652,13 @@ def make_deleted_file(path, name, hdr):
     file.write_text(f"{ranges} c # {name}")
 
 
+def make_deleted_file(path, name, *_, **__):
+    """
+    """
+    text = Path("tetrapy/templates/delete_channels.tmpl").read_text()
+    (path / "DELETED.channels" / f"delete_{name}").write_text(text)
+
+
 def make_datasets_file(path, name):
     """
     """
