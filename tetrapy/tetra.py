@@ -803,4 +803,4 @@ def convolve(
     make_disable_file(path, name)
     make_datasets_file(path, name)
     make_deleted_file(path, name, hdr)
-    make_restart_file(path, name, hdr, reflib=reflib, reslib=files["reslib"])
+    make_restart_file(path, name, hdr, reflib=reslib, reslib=files["reslib"])
