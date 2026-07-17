@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+import numpy as np
+
 from tetrapy import convolve as cv
 from tetrapy import utils
 
@@ -482,6 +484,206 @@ def update_restart(
     return text
 
 
+def get_protection(file: str) -> int:
+    """
+    Calculations the protection value of a file
+    """
+    size = os.path.getsize(file)
+    records = size // 1536
+    protection = -records
+    return protection
+
+
+def find_deleted_channels(
+    wavelengths: NDArray[np.float64],
+    bad_regions: Optional[List[Tuple[float, float]]] = [
+        # Default atmospheric absorption regions
+        ( 000,  380), # Below visible
+        ( 940,  960), # H2O
+        (1100, 1160), # H2O
+        (1350, 1500), # H2O
+        (1800, 1980), # H2O
+        (2500, 3000), # Thermal/low SNR
+    ],
+) -> List[int]:
+    """
+    Identify channel indices that fall within bad spectral regions.
+
+    Parameters
+    ----------
+    wavelengths : NDArray[np.float64]
+        Wavelength array in micrometers
+    bad_regions : list of tuple, optional
+        List of (min_wl, max_wl) tuples defining bad regions in micrometers.
+        If None, uses default atmospheric absorption bands.
+
+    Returns
+    -------
+    list of int
+        1-indexed channel numbers to delete
+
+    Examples
+    --------
+    >>> wavelengths = np.linspace(0.38, 2.5, 285)
+    >>> deleted = find_deleted_channels(wavelengths)
+    >>> print(deleted[:5])  # First few deleted channels
+    [1, 2, 3, 4, 5]
+    """
+    deleted = []
+    for i, wl in enumerate(wavelengths, start=1):
+        for min_wl, max_wl in bad_regions:
+            if min_wl <= wl <= max_wl:
+                deleted.append(i)
+                break
+
+    return deleted
+
+
+def format_deleted_ranges(channels: List[int]) -> str:
+    """
+    Convert a list of channel numbers to range string format.
+
+    Parameters
+    ----------
+    channels : list of int
+        List of channel numbers (1-indexed)
+
+    Returns
+    -------
+    str
+        Space-separated range string (e.g., "1-4 107-113 150-165")
+
+    Examples
+    --------
+    >>> format_deleted_ranges([1, 2, 3, 4, 10, 11, 12, 20])
+    '1-4  10-12  20'
+    """
+    if not channels:
+        return ""
+
+    channels = sorted(set(channels))
+    ranges = []
+    start = channels[0]
+    end = channels[0]
+
+    for ch in channels[1:]:
+        if ch == end + 1:
+            end = ch
+        else:
+            if start == end:
+                ranges.append(str(start))
+            else:
+                ranges.append(f"{start}t{end}")
+            start = end = ch
+
+    # Add final range
+    if start == end:
+        ranges.append(str(start))
+    else:
+        ranges.append(f"{start}t{end}")
+
+    return "  ".join(ranges)
+
+
+def read_wavelengths(hdr: str) -> NDArray[np.float64]:
+    """
+    Extract wavelength array from an ENVI header file.
+
+    Parameters
+    ----------
+    hdr_path : str
+        Path to ENVI .hdr file
+
+    Returns
+    -------
+    NDArray[np.float64]
+        Wavelength array in micrometers
+
+    Raises
+    ------
+    FileNotFoundError
+        If header file doesn't exist
+    ValueError
+        If wavelength field is not found or cannot be parsed
+    """
+    text = Path(hdr).read_text()
+
+    # Find wavelength array
+    match = re.search(
+        r'wavelength\s*=\s*\{(.*?)\}',
+        text,
+        re.DOTALL | re.IGNORECASE
+    )
+    if not match:
+        raise ValueError(f"No wavelength field found in {hdr_path}")
+
+    # Parse wavelengths
+    wls = match.group(1).replace('\n', ' ').strip()
+    try:
+        wavelengths = np.array([float(w.strip()) for w in wls.split(',') if w.strip()])
+    except ValueError as e:
+        raise ValueError(f"Failed to parse wavelengths: {e}")
+
+    # Check units and convert if needed
+    units_match = re.search(r'wavelength\s+units\s*=\s*(\w+)', text, re.IGNORECASE)
+    if units_match:
+        units = units_match.group(1).lower()
+        if units in ['nanometers', 'nm']:
+            wavelengths = wavelengths / 1000.0  # Convert nm to µm
+        elif units not in ['micrometers', 'um', 'microns', 'µm']:
+            Logger.warning(f"Unknown wavelength units '{units}', assuming micrometers")
+
+    return wavelengths
+
+
+def make_deleted_file(path, name, hdr):
+    """
+    """
+    wavelengths = read_wavelengths(hdr)
+
+    # Find deleted channels
+    deleted = find_deleted_channels(wavelengths)
+
+    # Format as ranges
+    ranges = format_deleted_ranges(deleted)
+
+    # Write file
+    file = path / "DELETED.channels" / f"delete_{name}"
+    file.write_text(f"{ranges} c # {name}")
+
+
+def make_datasets_file(path, name):
+    """
+    """
+    text = "\n".join([f"data=    {name}", f"restart= r1-{name}"])
+    (path / "DATASETS" / name).write_text(text)
+
+
+def make_colors_file(path, name):
+    """
+    """
+    text = Path("tetrapy/templates/color.tmpl").read_text()
+    (path / "COLOR.channels" / f"color-{name}").write_text(text)
+
+
+def make_restart_file(path, name, hdr, reflib, reslib):
+    """
+    """
+    file = path / "restart_files" / f"r1-{name}"
+    text = Path("tetrapy/templates/restart_file.tmpl").read_text()
+    text = text.format(
+        name   = name,
+        nchans = get_channels(hdr),
+        reflib_full       = reflib,
+        reflib_short      = reflib.name[:8],
+        reflib_protection = get_protection(reflib),
+        reslib_full       = reslib,
+        reslib_short      = reslib.name[:8],
+        reslib_protection = get_protection(reslib),
+    )
+    file.write_text(text)
+
+
 def convolve(
     reflib: str,
     reslib: str,
@@ -566,40 +768,24 @@ def convolve(
         Logger.info(f"  Recipe: {rcp}")
 
         output = out / f"{file.name}-{lib}.conv"
-        files[lib] = str(output)
+        files[lib] = output
 
-        cv.build_from_recipe(
-            master = str(file),
-            recipe = str(rcp),
-            output = str(output),
-            envi_header = str(hdr),
-        )
-
-        cv.export_envi(
-            str(output),
-            str(output.with_suffix(".envi"))
-        )
+        # cv.build_from_recipe(
+        #     master = str(file),
+        #     recipe = str(rcp),
+        #     output = str(output),
+        #     envi_header = str(hdr),
+        # )
+        #
+        # cv.export_envi(
+        #     str(output),
+        #     str(output.with_suffix(".envi"))
+        # )
 
     # Integrate these into Tetracorder
+    name = "tetrapy"
     path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
-
-    # Create the dataset file
-    # text = "\n".join(["data=    tetrapy", "restart= tetrapy"])
-    # (path / "DATASETS" / "tetrapy").write_text(text)
-
-    # Find a file to use as a template
-    # path /= "restart_files"
-    # tmpl = list(path.glob("*emit*"))
-    # if not tmpl:
-    #     tmpl = list(p.glob("*"))
-    file = path / "restart_files" / "r1-emitc"
-
-    # Replace relevant pieces to point to our newly convolved libs
-    text = update_restart(
-        text = file.read_text(),
-        chns = get_channels(hdr),
-        **files
-    )
-
-    # Create the restart file
-    file.write_text(text)
+    make_colors_file(path, name)
+    make_datasets_file(path, name)
+    make_deleted_file(path, name, hdr)
+    make_restart_file(path, name, hdr, files["reflib"], files["reslib"])
