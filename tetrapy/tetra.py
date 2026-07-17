@@ -489,7 +489,7 @@ def get_protection(file: str) -> int:
     Calculations the protection value of a file
     """
     size = os.path.getsize(file)
-    records = size // 1536
+    records = size // 1536 - 1
     protection = -records
     return protection
 
@@ -767,7 +767,7 @@ def convolve(
         rcp = recipe / recipes[lib]
         Logger.info(f"  Recipe: {rcp}")
 
-        output = out / f"{file.name}-{lib}.conv"
+        output = out / f"{lib}"
         files[lib] = output
 
         cv.build_from_recipe(
