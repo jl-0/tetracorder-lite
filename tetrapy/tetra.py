@@ -656,6 +656,7 @@ def make_deleted_file(path, name, *_, **__):
     """
     """
     text = Path("tetrapy/templates/delete_channels.tmpl").read_text()
+    text = text.format(name=name)
     (path / "DELETED.channels" / f"delete_{name}").write_text(text)
 
 
