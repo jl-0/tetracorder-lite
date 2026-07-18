@@ -638,6 +638,7 @@ def read_wavelengths(hdr: str) -> NDArray[np.float64]:
 
 def make_deleted_file(path, name, hdr):
     """
+    Attempts to find deleted channels
     """
     wavelengths = read_wavelengths(hdr)
 
@@ -654,6 +655,7 @@ def make_deleted_file(path, name, hdr):
 
 def make_deleted_file(path, name, *_, **__):
     """
+    Just takes the template as-is
     """
     text = Path("tetrapy/templates/delete_channels.tmpl").read_text()
     text = text.format(name=name)
@@ -699,6 +701,40 @@ def make_restart_file(path, name, hdr, reflib, reslib):
     file.write_text(text)
 
 
+def make_convolution(lib, file, recipe, envi, output, links):
+    """
+    """
+    Logger.info(f"Convolving {lib}: {file}")
+    Logger.debug(f"  Recipe: {recipe}")
+
+    output /= f"{lib}"
+
+    cv.build_from_recipe(
+        master = str(file),
+        recipe = str(recipe),
+        output = str(output),
+        envi_header = str(envi),
+    )
+
+    Logger.debug(f"  Saved to: {output}")
+
+    cv.export_envi(
+        str(output),
+        str(output.with_suffix(".envi"))
+    )
+
+    if lib == "reslib":
+        link = links / "rlib06" / output.name
+    elif lib == "reflib":
+        link = links / "library06.conv" / output.name
+
+    Logger.debug(f"  Linking to: {file}")
+    link.parent.mkdir(exist_ok=True, parents=True)
+    link.symlink_to(output)
+
+    return output
+
+
 def convolve(
     reflib: str,
     reslib: str,
@@ -706,6 +742,7 @@ def convolve(
     version: str = "6.00a",
     output: str = "/output",
     file: str = "/data/r",
+    noconv: bool = False,
 ) -> Dict[str, str]:
     """
     Build convolved libraries from research and reference inputs with a recipe and integrate into tetracorder.
@@ -772,30 +809,26 @@ def convolve(
     if not hdr.exists():
         raise FileNotFoundError(f"ENVI header not found: {hdr}")
 
-    # TODO: Revisit hardcoding
-    recipes = {"reslib": "conv.r06emitc.cmds", "reflib": "conv.s06emitc.cmds"}
+    if not noconv:
+        # Research Library
+        reslib = make_convolution(
+            lib  = "reslib",
+            file = reslib,
+            recipe = recipe / "conv.r06emitc.cmds",
+            envi   = hdr,
+            output = out,
+            links  = Path("/root/tetracorder/sl1/usgs")
+        )
 
-    files = {"reslib": reslib, "reflib": reflib}
-    for lib, file in files.items():
-        Logger.info(f"Convolving {lib} using {file}")
-
-        rcp = recipe / recipes[lib]
-        Logger.info(f"  Recipe: {rcp}")
-
-        output = out / f"{lib}"
-        files[lib] = output
-
-        # cv.build_from_recipe(
-        #     master = str(file),
-        #     recipe = str(rcp),
-        #     output = str(output),
-        #     envi_header = str(hdr),
-        # )
-        #
-        # cv.export_envi(
-        #     str(output),
-        #     str(output.with_suffix(".envi"))
-        # )
+        # Reference Library
+        make_convolution(
+            lib  = "reflib",
+            file = reflib,
+            recipe = recipe / "conv.s06emitc.cmds",
+            envi   = hdr,
+            output = out,
+            links  = Path("/root/tetracorder/sl1/usgs")
+        )
 
     # Integrate these into Tetracorder
     name = "tetrapy"
@@ -804,4 +837,4 @@ def convolve(
     make_disable_file(path, name)
     make_datasets_file(path, name)
     make_deleted_file(path, name, hdr)
-    make_restart_file(path, name, hdr, reflib=reslib, reslib=files["reslib"])
+    make_restart_file(path, name, hdr, reslib=reslib, reflib=reflib)

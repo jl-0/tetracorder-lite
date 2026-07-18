@@ -34,7 +34,7 @@ file = click.option("-f", "--file", default="/data/r")
 @cli.command(help=tetra.setup_tetrun.__doc__)
 @vers
 @outp
-@click.option("-s", "--sensor", default="emit_c")
+@click.option("-s", "--sensor", default="tetrapy")
 @mode
 @file
 @click.option("-g", "--geology", is_flag=True)
@@ -150,5 +150,6 @@ def run(**kwargs) -> None:
 @click.option("-rl", "--reflib", default="/root/tetracorder/sl1/usgs/library06.conv/splib06b")
 @click.option("-sl", "--reslib", default="/root/tetracorder/sl1/usgs/library06.conv/sprlb06b")
 @click.option("-r", "--recipe")
+@click.option("-nc", "--noconv", is_flag=True)
 def convolve(**kwargs) -> None:
     tetra.convolve(**kwargs)
