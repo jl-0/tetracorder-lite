@@ -701,7 +701,7 @@ def make_restart_file(path, name, hdr, reflib, reslib):
     file.write_text(text)
 
 
-def make_convolution(lib, file, recipe, envi, output, links):
+def make_convolution(lib, file, recipe, envi, output, links, noconv):
     """
     """
     Logger.info(f"Convolving {lib}: {file}")
@@ -709,30 +709,37 @@ def make_convolution(lib, file, recipe, envi, output, links):
 
     output /= f"{lib}"
 
-    cv.build_from_recipe(
-        master = str(file),
-        recipe = str(recipe),
-        output = str(output),
-        envi_header = str(envi),
-    )
+    if not noconv:
+        if output.exists():
+            output.unlink()
 
-    Logger.debug(f"  Saved to: {output}")
+        cv.build_from_recipe(
+            master = str(file),
+            recipe = str(recipe),
+            output = str(output),
+            envi_header = str(envi),
+        )
 
-    cv.export_envi(
-        str(output),
-        str(output.with_suffix(".envi"))
-    )
+        Logger.debug(f"  Saved to: {output}")
+
+        cv.export_envi(
+            str(output),
+            str(output.with_suffix(".envi"))
+        )
 
     if lib == "reslib":
         link = links / "rlib06" / output.name
     elif lib == "reflib":
         link = links / "library06.conv" / output.name
 
+    if link.exists():
+        link.unlink()
+
     Logger.debug(f"  Linking to: {file}")
     link.parent.mkdir(exist_ok=True, parents=True)
     link.symlink_to(output)
 
-    return output
+    return link
 
 
 def convolve(
@@ -809,26 +816,29 @@ def convolve(
     if not hdr.exists():
         raise FileNotFoundError(f"ENVI header not found: {hdr}")
 
-    if not noconv:
-        # Research Library
-        reslib = make_convolution(
-            lib  = "reslib",
-            file = reslib,
-            recipe = recipe / "conv.r06emitc.cmds",
-            envi   = hdr,
-            output = out,
-            links  = Path("/root/tetracorder/sl1/usgs")
-        )
+    # Research Library
+    sprlb = reslib
+    reslib = make_convolution(
+        lib  = "reslib",
+        file = reslib,
+        recipe = recipe / "conv.r06emitc.cmds",
+        envi   = hdr,
+        output = out,
+        links  = Path("/root/tetracorder/sl1/usgs"),
+        noconv = noconv
+    )
 
-        # Reference Library
-        make_convolution(
-            lib  = "reflib",
-            file = reflib,
-            recipe = recipe / "conv.s06emitc.cmds",
-            envi   = hdr,
-            output = out,
-            links  = Path("/root/tetracorder/sl1/usgs")
-        )
+    # Reference Library
+    # splib = reflib
+    reflib = make_convolution(
+        lib  = "reflib",
+        file = reflib,
+        recipe = recipe / "conv.s06emitc.cmds",
+        envi   = hdr,
+        output = out,
+        links  = Path("/root/tetracorder/sl1/usgs"),
+        noconv = noconv,
+    )
 
     # Integrate these into Tetracorder
     name = "tetrapy"
