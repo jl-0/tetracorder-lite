@@ -65,8 +65,8 @@ def patch(**kwargs) -> None:
 @vers
 @outp
 @click.option("-m", "--matrix", default="/root/tetrapy/data/mineral_grouping_matrix_t6.subset.csv")
-@click.option("-sl", "--reflib", default="/root/tetracorder/sl1/usgs/tetrapy/splib06b-reflib.envi")
-@click.option("-rl", "--reslib", default="/root/tetracorder/sl1/usgs/tetrapy/sprlb06b-reslib.envi")
+@click.option("-sl", "--reflib", default="/root/tetracorder/sl1/usgs/tetrapy/reflib.envi")
+@click.option("-rl", "--reslib", default="/root/tetracorder/sl1/usgs/tetrapy/reslib.envi")
 @click.option("-r", "--rfl", required=True)
 @click.option("-u", "--unc", required=True)
 def gagg(**kwargs) -> None:
