@@ -918,7 +918,10 @@ def export_envi(specpr_path: str, envi_path: str) -> str:
 
     wl_str = ",".join(f"{w:.6g}" for w in wavelengths)
     rec_str = ",".join(str(r) for r in all_rec_nums)
-    names_str = ", \n ".join(f"{n:40s}" for n in all_names)
+    # Sanitize spectrum names: replace commas with semicolons to avoid parser confusion
+    # (spectral library parsers split by comma, so embedded commas break the name list)
+    sanitized_names = [n.replace(',', ';') for n in all_names]
+    names_str = ", \n ".join(f"{n:40s}" for n in sanitized_names)
 
     hdr = (
         f"ENVI\n"
