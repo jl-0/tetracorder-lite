@@ -399,6 +399,7 @@ def group_output_conversion(
         loc,
         glt,
     ]
+    cmd = [str(c) for c in cmd]
 
     assert cmd[4].exists(), f"Missing mineral abundance envi: {cmd[4]}"
     assert cmd[5].exists(), f"Missing mineral abununcert envi: {cmd[5]}"
