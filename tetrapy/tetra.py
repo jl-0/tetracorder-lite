@@ -395,7 +395,7 @@ def group_output_conversion(
         out / "abun.nc",
         out / "abununcert.nc",
         agg if agg else out / "abun",
-        unc if unc else out / "unc",
+        unc if unc else out / "abununcert",
         loc,
         glt,
     ]
