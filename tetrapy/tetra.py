@@ -315,8 +315,8 @@ def group_aggregator(
         "/root/emit-sds-l2b/group_aggregator.py",
         output,
         matrix,
-        str(out / abun),
-        str(out / "unc"),
+        str(out / "abun"),
+        str(out / "abununcert"),
         "--expert_system_file", esf,
         "--reference_library", reflib,
         "--research_library", reslib,
@@ -392,9 +392,9 @@ def group_output_conversion(
     cmd = [
         sys.executable,  # Use current Python interpreter
         "/root/emit-sds-l2b/group_output_conversion.py",
-        out / "abun",
-        out / "abununcert",
-        agg if agg else out / abun,
+        out / "abun.nc",
+        out / "abununcert.nc",
+        agg if agg else out / "abun",
         unc if unc else out / "unc",
         loc,
         glt,
