@@ -399,10 +399,10 @@ def group_output_conversion(
         loc,
         glt,
     ]
-    cmd = [str(c) for c in cmd]
 
     assert cmd[4].exists(), f"Missing mineral abundance envi: {cmd[4]}"
     assert cmd[5].exists(), f"Missing mineral abununcert envi: {cmd[5]}"
+    cmd = [str(c) for c in cmd]
 
     Logger.info("Calling emit-sds-l2b group_output_conversion.py")
     Logger.debug(f"Command:\n{utils.format_args(cmd)}")
