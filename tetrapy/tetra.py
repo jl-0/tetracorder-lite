@@ -398,6 +398,8 @@ def group_output_conversion(
         unc if unc else out / "abununcert",
         loc,
         glt,
+        version,
+        software_delivery_version,
     ]
 
     assert cmd[4].exists(), f"Missing mineral abundance envi: {cmd[4]}"
