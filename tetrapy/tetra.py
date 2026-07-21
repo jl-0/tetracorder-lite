@@ -258,7 +258,6 @@ def group_aggregator(
     reslib: str = "/root/emit-sds-l2b/Spectral-Library-Reader-master/r06av18a_envi",
     rfl: Optional[str] = None,
     unc: Optional[str] = None,
-    script_path: Optional[str] = None,
 ) -> None:
     """
     Streamline the call to the emit-sds-l2b group_aggregator.py script.
@@ -316,7 +315,7 @@ def group_aggregator(
         "/root/emit-sds-l2b/group_aggregator.py",
         output,
         matrix,
-        str(out / "agg"),
+        str(out / abun),
         str(out / "unc"),
         "--expert_system_file", esf,
         "--reference_library", reflib,
@@ -343,6 +342,74 @@ def group_aggregator(
     log = out / "group_aggregator.log"
     with log.open("w") as f:
         subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+
+def group_output_conversion(
+    output: str,
+    agg: Optional[str],
+    unc: Optional[str],
+    loc: str,
+    glt: str,
+    version: str,
+    software_delivery_version: str,
+) -> None:
+    """
+    Convert tetracorder group outputs to EMIT L2B format.
+
+    Wraps the emit-sds-l2b group_output_conversion.py script to package
+    mineral abundance and uncertainty maps into standardized EMIT L2B
+    product format with metadata.
+
+    \b
+    Parameters
+    ----------
+    output : str
+        Output directory path containing l2b subdirectory with results.
+    agg : str, optional
+        Path to aggregated reflectance file. If None, uses {output}/l2b/agg.
+    unc : str, optional
+        Path to uncertainty file. If None, uses {output}/l2b/unc.
+    loc : str
+        Path to location (LOC) file with geographic coordinates.
+    glt : str
+        Path to geometric lookup table (GLT) file for orthorectification.
+    version : str
+        Product version identifier (e.g., "1.0.0").
+    software_delivery_version : str
+        EMIT SDS software version used for processing.
+
+    Notes
+    -----
+    Expects the following files to exist in {output}/l2b/:
+    - abun: mineral abundance ENVI format
+    - abununcert: mineral abundance uncertainty ENVI format
+
+    The script will create standardized NetCDF output with embedded metadata.
+    """
+    out = Path(output) / "l2b"
+
+    # Build command arguments
+    cmd = [
+        sys.executable,  # Use current Python interpreter
+        "/root/emit-sds-l2b/group_output_conversion.py",
+        out / "abun",
+        out / "abununcert",
+        agg if agg else out / abun,
+        unc if unc else out / "unc",
+        loc,
+        glt,
+    ]
+
+    assert cmd[4].exists(), f"Missing mineral abundance envi: {cmd[4]}"
+    assert cmd[5].exists(), f"Missing mineral abununcert envi: {cmd[5]}"
+
+    Logger.info("Calling emit-sds-l2b group_output_conversion.py")
+    Logger.debug(f"Command:\n{utils.format_args(cmd)}")
+
+    log = out / "group_output_conversion.log"
+    with log.open("w") as f:
+        subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=output)
+
 
 
 def get_sensor(text: str) -> str:

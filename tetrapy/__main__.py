@@ -73,6 +73,18 @@ def gagg(**kwargs) -> None:
     tetra.group_aggregator(**kwargs)
 
 
+@cli.command(help=tetra.group_output_conversion.__doc__)
+@outp
+@click.option("-a", "--agg")
+@click.option("-u", "--unc")
+@click.option("-l", "--loc", required=True)
+@click.option("-g", "--glt", required=True)
+@click.option("-v", "--version", required=True)
+@click.option("-s", "--software_delivery_version", required=True)
+def goc(**kwargs) -> None:
+    tetra.group_output_conversion(**kwargs)
+
+
 @cli.command(help="Setup then run tetracorder (the default container action).")
 @click.option("-v", "--version", default="6.00a")
 @outp
