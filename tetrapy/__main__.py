@@ -1,13 +1,18 @@
 import os
+import logging
+from pathlib import Path
 
 import click
 
 from tetrapy import tetra
-from tetrapy import convolve
+
+
+logging.basicConfig(level=logging.DEBUG)
+Logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cli():
+def cli() -> None:
     """tetracorder-lite CLI.
 
     Run USGS Tetracorder (v6) mineral identification or rebuild the convolved
@@ -29,14 +34,14 @@ file = click.option("-f", "--file", default="/data/r")
 @cli.command(help=tetra.setup_tetrun.__doc__)
 @vers
 @outp
-@click.option("-s", "--sensor", default="emit_c")
+@click.option("-s", "--sensor", default="tetrapy")
 @mode
 @file
 @click.option("-g", "--geology", is_flag=True)
 @click.option("-c", "--cores", type=int, default=os.cpu_count())
 @click.option("-a", "--args", nargs=9, default=["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"])
 @click.option("--rm", is_flag=True)
-def setup(**kwargs):
+def setup(**kwargs) -> None:
     tetra.setup_tetrun(**kwargs)
 
 
@@ -45,74 +50,118 @@ def setup(**kwargs):
 @mode
 @file
 @click.option("-a", "--args", nargs=3, default=["band", "20", "gif"])
-def tetrun(**kwargs):
+def tetrun(**kwargs) -> None:
     tetra.exec_tetrun(**kwargs)
 
 
 @cli.command(help=tetra.patch_cmd_file.__doc__)
 @vers
 @outp
-def patch(**kwargs):
+def patch(**kwargs) -> None:
     tetra.patch_cmd_file(**kwargs)
+
+
+@cli.command(help=tetra.group_aggregator.__doc__)
+@vers
+@outp
+@click.option("-m", "--matrix", default="/root/tetrapy/data/mineral_grouping_matrix_t6.subset.csv")
+@click.option("-sl", "--reflib", default="/root/tetracorder/sl1/usgs/tetrapy/reflib.envi")
+@click.option("-rl", "--reslib", default="/root/tetracorder/sl1/usgs/tetrapy/reslib.envi")
+@click.option("-r", "--rfl", required=True)
+@click.option("-u", "--unc", required=True)
+def gagg(**kwargs) -> None:
+    tetra.group_aggregator(**kwargs)
+
+
+@cli.command(help=tetra.group_output_conversion.__doc__)
+@outp
+@click.option("-a", "--agg")
+@click.option("-u", "--unc")
+@click.option("-l", "--loc", required=True)
+@click.option("-g", "--glt", required=True)
+@click.option("-v", "--version", required=True)
+@click.option("-s", "--software_delivery_version", required=True)
+def goc(**kwargs) -> None:
+    tetra.group_output_conversion(**kwargs)
 
 
 @cli.command(help="Setup then run tetracorder (the default container action).")
 @click.option("-v", "--version", default="6.00a")
 @outp
-@click.option("-s", "--sensor", default="emit_c")
+@click.option("-s", "--sensor", default="tetrapy")
 @mode
 @file
 @click.option("-g", "--geology", is_flag=True)
 @click.option("-c", "--cores", type=int, default=os.cpu_count())
 @click.option("-a", "--args", nargs=9, default=["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"])
 @click.option("--rm", is_flag=True)
-def run(**kwargs):
+def run(**kwargs) -> None:
     tetra.setup_tetrun(**kwargs)
     tetra.exec_tetrun(**kwargs)
 
 
-@cli.command("convolve", help=convolve.build_all.__doc__)
+# @cli.command("convolve", help=convolve.build_all.__doc__)
+# @file
+# @click.option("-o", "--output-dir", default="/output",
+#               help="Directory for convolved libraries (s06/r06 + ENVI)")
+# @click.option("--spectral-lib", default="/root/sl1/usgs/library06.conv",
+#               help="Directory holding master libraries (splib06b / sprlb06b). "
+#                    "Defaults to the masters baked into the image; override with a "
+#                    "mount to convolve from a different master vintage.")
+# @click.option("--recipe-dir", default="/spectral-lib",
+#               help="Directory holding conv.s06*/conv.r06* recipes (.cmds/.csv), "
+#                    "mounted at runtime")
+# @click.option("--cmds", default=None,
+#               help="Build a single library from this explicit recipe file "
+#                    "(.cmds/.csv); bypasses recipe-dir discovery")
+# @click.option("--master", default=None,
+#               help="Master library for --cmds (required when --cmds is used)")
+# @click.option("-o1", "--output", default=None,
+#               help="Output path for --cmds (required when --cmds is used)")
+# def convolve_cmd(file, output_dir, spectral_lib, recipe_dir, cmds, master, output):
+#     envi_header = f"{file}.hdr" if not file.endswith(".hdr") else file
+#     if cmds:
+#         if not (master and output):
+#             raise click.UsageError("--cmds requires --master and --output")
+#         convolve.build_from_recipe(master=master, recipe=cmds,
+#                                    output=output, envi_header=envi_header)
+#         convolve.export_envi(output, f"{output}_envi")
+#     else:
+#         convolve.build_all(
+#             spectral_lib_dir=spectral_lib, recipe_dir=recipe_dir,
+#             output_dir=output_dir, envi_header=envi_header,
+#         )
+#
+#
+# @cli.command("cmds2csv", help=convolve.cmds_to_csv.__doc__)
+# @click.argument("cmds")
+# @click.argument("csv")
+# def cmds2csv_cmd(cmds, csv):
+#     convolve.cmds_to_csv(cmds, csv)
+#
+#
+# @cli.command("convlibs", help=convolve.build_libraries.__doc__)
+# @click.option("-rl", "--reflib", default="/spectral-lib/splib06b")
+# @click.option("-sl", "--reslib", default="/spectral-lib/sprlb06b")
+# @file
+# @click.option("-o", "--output", default="/output")
+# def convlibs_cmd(reflib: str, reslib: str, file: str, output: str) -> None:
+#     convolve.build_libraries(reflib=reflib, reslib=reslib, file=file, output=output)
+#
+#
+# @cli.command("validate", help=convolve.compare_libraries.__doc__)
+# @click.argument("a")
+# @click.argument("b")
+# def validate_cmd(a: str, b: str) -> None:
+#     convolve.compare_libraries(a, b)
+
+
+@cli.command("convolve", help=tetra.convolve.__doc__)
+@vers
 @file
-@click.option("-o", "--output-dir", default="/output",
-              help="Directory for convolved libraries (s06/r06 + ENVI)")
-@click.option("--spectral-lib", default="/root/sl1/usgs/library06.conv",
-              help="Directory holding master libraries (splib06b / sprlb06b). "
-                   "Defaults to the masters baked into the image; override with a "
-                   "mount to convolve from a different master vintage.")
-@click.option("--recipe-dir", default="/spectral-lib",
-              help="Directory holding conv.s06*/conv.r06* recipes (.cmds/.csv), "
-                   "mounted at runtime")
-@click.option("--cmds", default=None,
-              help="Build a single library from this explicit recipe file "
-                   "(.cmds/.csv); bypasses recipe-dir discovery")
-@click.option("--master", default=None,
-              help="Master library for --cmds (required when --cmds is used)")
-@click.option("-o1", "--output", default=None,
-              help="Output path for --cmds (required when --cmds is used)")
-def convolve_cmd(file, output_dir, spectral_lib, recipe_dir, cmds, master, output):
-    envi_header = f"{file}.hdr" if not file.endswith(".hdr") else file
-    if cmds:
-        if not (master and output):
-            raise click.UsageError("--cmds requires --master and --output")
-        convolve.build_from_recipe(master=master, recipe=cmds,
-                                   output=output, envi_header=envi_header)
-        convolve.export_envi(output, f"{output}_envi")
-    else:
-        convolve.build_all(
-            spectral_lib_dir=spectral_lib, recipe_dir=recipe_dir,
-            output_dir=output_dir, envi_header=envi_header,
-        )
-
-
-@cli.command("cmds2csv", help=convolve.cmds_to_csv.__doc__)
-@click.argument("cmds")
-@click.argument("csv")
-def cmds2csv_cmd(cmds, csv):
-    convolve.cmds_to_csv(cmds, csv)
-
-
-@cli.command("validate", help=convolve.compare_libraries.__doc__)
-@click.argument("a")
-@click.argument("b")
-def validate_cmd(a, b):
-    convolve.compare_libraries(a, b)
+@click.option("-rl", "--reflib", default="/root/tetracorder/sl1/usgs/library06.conv/splib06b")
+@click.option("-sl", "--reslib", default="/root/tetracorder/sl1/usgs/library06.conv/sprlb06b")
+@click.option("-r", "--recipe")
+@click.option("-nc", "--noconv", is_flag=True)
+def convolve(**kwargs) -> None:
+    tetra.convolve(**kwargs)

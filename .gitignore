@@ -46,3 +46,9 @@ tetracorder/sl1/usgs/rlib06/sprlb06b
 
 # Repos
 emit-sds-l2b
+
+# Generated files
+tetracorder/tetracorder.cmds/tetracorder6.00a.cmds/**/*tetrapy*
+tetracorder/sl1/usgs/tetrapy
+reslib
+reflib

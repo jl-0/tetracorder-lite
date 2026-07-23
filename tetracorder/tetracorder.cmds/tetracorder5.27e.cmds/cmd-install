@@ -1,3 +1,0 @@
-#!/bin/sh
-
-echo "cmd-install: instead use  cmd-setup-tetrun"

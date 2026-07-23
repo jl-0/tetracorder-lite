@@ -117,6 +117,9 @@ RUN sed -i "s/rclark/root/g" tetracorder/AAA.INSTALL.spectroscopy-os-setup-linux
     ln -s tetracorder/sl1 sl1 &&\
     mkdir t1 && ln -s /root/tetracorder/tetracorder.cmds t1/tetracorder.cmds
 
+# Make available Davinci-Tetracorder commands
+ENV PATH="/root/tetracorder/tetracorder.cmds/tetracorder6.00a.cmds/davinci-cmds.for.usr.local.bin/:$PATH"
+
 # Install specpr
 RUN cd tetracorder/specpr &&\
     mkdir -p lib obj &&\
@@ -145,11 +148,9 @@ RUN cd tetracorder &&\
 
 # Prepare the python CLI
 ENV PIXI_HOME="/pixi"
-ENV PATH="/pixi/bin:$PATH"
+ENV PATH="/pixi/bin:/root/.pixi/envs/default/bin:$PATH"
 RUN curl -fsSL https://pixi.sh/install.sh | sh &&\
     git clone https://github.com/emit-sds/emit-sds-l2b.git &&\
-    pixi run tetrapy --help
-ENV PATH="/root/.pixi/envs/default/bin/:$PATH"
+    pixi install
 
-ENTRYPOINT ["tetrapy"]
-CMD ["run"]
+CMD ["tetrapy"]
