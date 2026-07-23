@@ -31,7 +31,7 @@ RUN apt-get update &&\
       alsa-utils \
       #~~ javac
       default-jdk \
-      #~~ extras installed by the install script
+      #~~ extras installed by the install script (do not appear to be needed, just noted here for future reference)
       # glibc-doc \
       # glibc-doc-reference \
       # libxpm-dev \
