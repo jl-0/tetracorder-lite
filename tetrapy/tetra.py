@@ -783,9 +783,14 @@ def make_convolution(lib, file, recipe, envi, output, links, noconv):
         if output.exists():
             output.unlink()
 
-        cv.build_from_recipe(
+        # cv.build_from_recipe(
+        #     master = str(file),
+        #     recipe = str(recipe),
+        #     output = str(output),
+        #     envi_header = str(envi),
+        # )
+        cv.convolve_library(
             master = str(file),
-            recipe = str(recipe),
             output = str(output),
             envi_header = str(envi),
         )
