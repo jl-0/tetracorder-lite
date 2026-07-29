@@ -712,7 +712,11 @@ def export_envi(specpr_path, envi_path):
 
     wl_str = ",".join(f"{w:.6g}" for w in wavelengths)
     rec_str = ",".join(str(r) for r in all_rec_nums)
-    names_str = ", \n ".join(f"{n:40s}" for n in all_names)
+    # ENVI's spectra-names list is comma-delimited with no escaping, so any comma
+    # inside a title would be misread as a separator (inflating the name count and
+    # tripping spectral's "Number of spectrum names does not match data" check).
+    # Replace commas so each title stays a single list element.
+    names_str = ", \n ".join(f"{n.replace(',', ';'):40s}" for n in all_names)
 
     hdr = (
         f"ENVI\n"
