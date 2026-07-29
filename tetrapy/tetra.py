@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from tetrapy import convolve as cv
+from tetrapy import conv
 from tetrapy import utils
 
 
@@ -775,7 +776,7 @@ def make_convolution(lib, file, recipe, envi, output, links, noconv):
     """
     """
     Logger.info(f"Convolving {lib}: {file}")
-    Logger.debug(f"  Recipe: {recipe}")
+    # Logger.debug(f"  Recipe: {recipe}")
 
     output /= f"{lib}"
 
@@ -783,17 +784,19 @@ def make_convolution(lib, file, recipe, envi, output, links, noconv):
         if output.exists():
             output.unlink()
 
-        cv.build_from_recipe(
-            master = str(file),
-            recipe = str(recipe),
-            output = str(output),
-            envi_header = str(envi),
-        )
-        # cv.convolve_library(
+        # cv.build_from_recipe(
         #     master = str(file),
+        #     recipe = str(recipe),
         #     output = str(output),
         #     envi_header = str(envi),
         # )
+        conv.build_library(
+            master_path = str(file),
+            out_path = str(output),
+            hdr_path = str(envi),
+            family = lib,
+            log = Logger.debug,
+        )
 
         Logger.debug(f"  Saved to: {output}")
 
