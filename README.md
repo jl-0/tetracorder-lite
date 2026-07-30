@@ -4,6 +4,17 @@ Containerized USGS Tetracorder (v6) for EMIT mineral identification, with a Pyth
 CLI for running tetracorder and for rebuilding the convolved spectral library when a
 new calibration epoch arrives.
 
+Note - this is not the authoritative version of Tetracorder. Please see [here](https://github.com/PSI-edu/spectroscopy-tetracorder) 
+if that's what you're after.  This version is what is used by EMIT - the core code is consistent,
+and we will work to keep this in-sync with the original codebase.  Major difference are that this
+version does not hold all convolved libraries to keep the containers small (they are instead
+intended to be convolved by the the container).  Python scripts for output conversion
+are also included, and will be expanded upon in the future.
+
+This repository is also a work in progress,
+that we are continuing to try and revise and simplify to aid in community use and uptake
+of Tetracorder.  Suggested contributions are welcome as PRs.
+
 ## Quick start
 
 ```sh
