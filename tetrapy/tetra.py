@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from tetrapy import convolve as cv
+from tetrapy import conv
 from tetrapy import utils
 
 
@@ -214,11 +215,11 @@ def patch_cmd_file(output: str, version: str) -> None:
         Path to the tetracorder output directory containing the command files.
     version : str
         Tetracorder version string (e.g., "6.00a") used to locate the correct
-        command file (cmd.lib.setup.t{version}2).
+        command file (cmd.lib.setup.t{version}#).
 
     Notes
     -----
-    The patched file is written to {output}/cmd.lib.setup.t{version}2.patched.
+    The patched file is written to {output}/cmd.lib.setup.t{version}#.patched.
     Two main transformations are applied:
     1. Variable substitutions: [VAR] references are replaced with their values
        from cmd.lib.setup.variables
@@ -226,7 +227,7 @@ def patch_cmd_file(output: str, version: str) -> None:
        are removed to prevent parsing conflicts
     """
     cmd = "cmd.lib.setup"
-    ver = f"t{version}2"
+    ver = f"t{version}5"
 
     output = Path(output)
     variables = parse_variables(output / f"{cmd}.variables")
@@ -304,7 +305,7 @@ def group_aggregator(
     out = Path(output) / "l2b"
     out.mkdir(exist_ok=True)
 
-    esf = f"cmd.lib.setup.t{version}2.patched"
+    esf = f"cmd.lib.setup.t{version}5.patched"
     if not (Path(output) / esf).exists():
         Logger.info("The expert system file has not been patched, doing so now")
         patch_cmd_file(output, version)
@@ -775,7 +776,7 @@ def make_convolution(lib, file, recipe, envi, output, links, noconv):
     """
     """
     Logger.info(f"Convolving {lib}: {file}")
-    Logger.debug(f"  Recipe: {recipe}")
+    # Logger.debug(f"  Recipe: {recipe}")
 
     output /= f"{lib}"
 
@@ -783,11 +784,18 @@ def make_convolution(lib, file, recipe, envi, output, links, noconv):
         if output.exists():
             output.unlink()
 
-        cv.build_from_recipe(
-            master = str(file),
-            recipe = str(recipe),
-            output = str(output),
-            envi_header = str(envi),
+        # cv.build_from_recipe(
+        #     master = str(file),
+        #     recipe = str(recipe),
+        #     output = str(output),
+        #     envi_header = str(envi),
+        # )
+        conv.build_library(
+            master_path = str(file),
+            out_path = str(output),
+            hdr_path = str(envi),
+            family = lib,
+            log = Logger.debug,
         )
 
         Logger.debug(f"  Saved to: {output}")

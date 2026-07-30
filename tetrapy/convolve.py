@@ -24,13 +24,10 @@ against the opalpy reader and the C++ Spectral-Library-Reader.
 """
 
 import re
-import shutil
 import struct
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from numpy.typing import NDArray
 
 RECLEN = 1536
 HEAD_FMT = ">i40s8s16i60s74s74s74s74s6i260f"   # case 0: data-start (256 chan) — 1536 bytes
@@ -44,108 +41,32 @@ OFF_DATA = 512
 
 
 # --------------------------------------------------------------------------- I/O
-def load(path: str) -> List[bytes]:
-    """
-    Read a specpr file into a list of 1536-byte records.
-
-    Parameters
-    ----------
-    path : str
-        Path to the specpr binary file.
-
-    Returns
-    -------
-    List[bytes]
-        List of fixed-length (1536-byte) records from the specpr file.
-    """
+def load(path):
+    """Read a specpr file into a list of 1536-byte records."""
     d = Path(path).read_bytes()
     return [d[i * RECLEN:(i + 1) * RECLEN] for i in range(len(d) // RECLEN)]
 
 
-def save(path: str, records: List[bytes]) -> None:
-    """
-    Write a list of records to a specpr file.
-
-    Parameters
-    ----------
-    path : str
-        Output path for the specpr binary file.
-    records : List[bytes]
-        List of 1536-byte records to write.
-    """
+def save(path, records):
     Path(path).write_bytes(b"".join(records))
 
 
-def _is_data_start(rec: bytes) -> bool:
-    """
-    Check if a record is a data-start record (case 0).
-
-    Parameters
-    ----------
-    rec : bytes
-        1536-byte specpr record.
-
-    Returns
-    -------
-    bool
-        True if the record is a data-start record.
-    """
+def _is_data_start(rec):
     return (struct.unpack(">i", rec[:4])[0] & 3) == 0
 
 
-def _title(rec: bytes) -> str:
-    """
-    Extract the title string from a specpr record.
-
-    Parameters
-    ----------
-    rec : bytes
-        1536-byte specpr record.
-
-    Returns
-    -------
-    str
-        ASCII title string with null bytes and trailing spaces removed.
-    """
+def _title(rec):
     return struct.unpack(HEAD_FMT, rec)[1].decode("ascii", "ignore").rstrip("\x00 ")
 
 
-def _itchan(rec: bytes) -> int:
-    """
-    Extract the channel count (itchan field) from a specpr record.
-
-    Parameters
-    ----------
-    rec : bytes
-        1536-byte specpr record.
-
-    Returns
-    -------
-    int
-        Number of channels in the spectrum.
-    """
+def _itchan(rec):
     return struct.unpack(">i", rec[OFF_ITCHAN:OFF_ITCHAN + 4])[0]
 
 
-def read_array(records: List[bytes], recno: int) -> NDArray[np.float64]:
-    """
-    Reassemble the full float channel array of the spectrum at a given record number.
+def read_array(records, recno):
+    """Reassemble the full float channel array of the spectrum at ``recno``.
 
-    This function reads a spectrum's data from the specpr file, spanning multiple
-    records if necessary (data-start record plus continuation records). Invalid
-    channels are converted to NaN.
-
-    Parameters
-    ----------
-    records : List[bytes]
-        List of all records from the specpr file.
-    recno : int
-        Record number (0-indexed) of the spectrum's data-start record.
-
-    Returns
-    -------
-    NDArray[np.float64]
-        Array of channel values. Bad/deleted channels (|v| >= 1e30) are set to NaN.
+    Bad/deleted channels (|v| >= 1e30) become NaN.
     """
     n = _itchan(records[recno])
     t = struct.unpack(HEAD_FMT, records[recno])
@@ -160,31 +81,11 @@ def read_array(records: List[bytes], recno: int) -> NDArray[np.float64]:
     return a
 
 
-def write_array(records: List[bytes], recno: int, values: NDArray[np.float64]) -> None:
-    """
-    Overwrite the float data at a given record number (head + continuations) in place.
+def write_array(records, recno, values):
+    """Overwrite the float data at ``recno`` (head + continuations) in place.
 
-    This function updates the numeric data portion of a spectrum while preserving
-    all header metadata. The records list is modified in place.
-
-    Parameters
-    ----------
-    records : List[bytes]
-        List of all records from the specpr file. Must be mutable.
-    recno : int
-        Record number (0-indexed) of the spectrum's data-start record.
-    values : NDArray[np.float64]
-        New channel values to write. Length must match the record's itchan field.
-
-    Raises
-    ------
-    ValueError
-        If the number of values doesn't match the record's itchan field.
-
-    Notes
-    -----
-    Header fields (title, itchan, irwav, irespt, pointers) are preserved.
-    NaN values are written as the specpr IGNORE sentinel (-1.23e34).
+    Header fields (title, itchan, irwav, irespt, pointers) are preserved. NaNs are
+    written as the specpr IGNORE sentinel. ``records`` must be a mutable list.
     """
     n = _itchan(records[recno])
     v = np.asarray(values, dtype=np.float64).copy()
@@ -207,61 +108,22 @@ def write_array(records: List[bytes], recno: int, values: NDArray[np.float64]) -
 
 
 # ------------------------------------------------------------------- library map
-def _is_setup(title: str) -> bool:
-    """
-    Check if a record title indicates a non-mineral setup record.
-
-    Parameters
-    ----------
-    title : str
-        Record title string from the specpr header.
-
-    Returns
-    -------
-    bool
-        True for non-mineral records (wavelength/resolution/reference/header/text).
-    """
+def _is_setup(title):
+    """True for non-mineral records (wavelength/resolution/reference/header/text)."""
     return (title.startswith("Wavelengths") or "Bandpass" in title or "FWHM" in title
             or "Resolution" in title or "Data value" in title
             or "Digital Spectral Library" in title or title.startswith("*")
             or title in ("", ".."))
 
 
-def mineral_records(records: List[bytes]) -> List[int]:
-    """
-    Get ordered list of record numbers holding mineral spectra.
-
-    Parameters
-    ----------
-    records : List[bytes]
-        List of all records from the specpr file.
-
-    Returns
-    -------
-    List[int]
-        Record numbers (0-indexed) of mineral spectra, excluding setup records.
-    """
+def mineral_records(records):
+    """Ordered list of record numbers holding mineral spectra (not setup records)."""
     return [i for i, r in enumerate(records)
             if _is_data_start(r) and not _is_setup(_title(r))]
 
 
-def _wavelength_resolution_records(records: List[bytes]) -> Dict[int, Optional[int]]:
-    """
-    Return wavelength-to-resolution record pairing.
-
-    For each wavelength record, finds the next bandpass/FWHM record that follows it.
-
-    Parameters
-    ----------
-    records : List[bytes]
-        List of all records from the specpr file.
-
-    Returns
-    -------
-    Dict[int, Optional[int]]
-        Mapping from wavelength record number to its corresponding resolution
-        record number. Value is None if no resolution record follows.
-    """
+def _wavelength_resolution_records(records):
+    """Return {wavelength_recno: resolution_recno} pairing (wavelength -> next bandpass)."""
     waves, bands = [], []
     for i, r in enumerate(records):
         if _is_data_start(r):
@@ -273,25 +135,8 @@ def _wavelength_resolution_records(records: List[bytes]) -> Dict[int, Optional[i
     return {w: min([b for b in bands if b > w], default=None) for w in waves}
 
 
-def find_grid(records: List[bytes]) -> Tuple[int, int]:
-    """
-    Find the wavelength and resolution grid records in a convolved library template.
-
-    Parameters
-    ----------
-    records : List[bytes]
-        List of all records from the specpr file.
-
-    Returns
-    -------
-    Tuple[int, int]
-        Tuple of (wavelength_recno, resolution_recno) for the target instrument grid.
-
-    Raises
-    ------
-    ValueError
-        If the template is missing Wavelengths or Resolution grid records.
-    """
+def find_grid(records):
+    """Return (wavelength_recno, resolution_recno) for a convolved library template."""
     wl = res = None
     for i, r in enumerate(records):
         if _is_data_start(r):
@@ -393,36 +238,11 @@ def convolve_spectrum(native_wl, native_val, native_fwhm, out_wl, out_fwhm,
 
 
 # ------------------------------------------------------------- ENVI target grid
-def read_wavelengths_fwhm(hdr_path: str) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """
-    Read wavelengths and FWHM in microns from an EMIT ENVI header.
+def read_wavelengths_fwhm(hdr_path):
+    """Read (wavelengths, fwhm) in microns from an EMIT ENVI header.
 
-    This function extracts the wavelength and FWHM arrays from an ENVI header file
-    and converts them to micrometers if necessary. EMIT headers typically use
-    nanometers, which are automatically converted.
-
-    Parameters
-    ----------
-    hdr_path : str
-        Path to the ENVI header file (.hdr). If the path doesn't end in .hdr,
-        the function attempts to find the corresponding header file.
-
-    Returns
-    -------
-    Tuple[NDArray[np.float64], NDArray[np.float64]]
-        Tuple of (wavelengths, fwhm) arrays in micrometers.
-
-    Raises
-    ------
-    ValueError
-        If the header is missing 'wavelength' or 'fwhm' fields, or if the
-        wavelength units are unexpected.
-
-    Notes
-    -----
-    Reflectance headers are ideal as the values self-consistently match the scene.
-    Supported wavelength units: nanometers (nm), micrometers (um, μm, microns).
-    EMIT headers are in nanometers and are automatically converted to microns.
+    Reflectance headers are ideal — the values self-consistently match the scene.
+    EMIT headers are in nanometers; converted to microns here.
     """
     p = Path(hdr_path)
     if p.suffix != ".hdr":
@@ -446,6 +266,42 @@ def read_wavelengths_fwhm(hdr_path: str) -> Tuple[NDArray[np.float64], NDArray[n
     elif not unit.startswith(("mic", "um", "µ")):
         raise ValueError(f"unexpected wavelength units '{unit}'")
     return waves, fwhm
+
+
+def read_wavelengths_fwhm_txt(wl_path, fwhm_path, units="nanometers"):
+    """Read (wavelengths, fwhm) in microns from two plain-text files.
+
+    One numeric value per line; blank lines and ``#`` comments ignored. ``units``
+    is the units of BOTH files: nanometers (default; divided by 1000) or microns.
+    This is the calibration deliverable format (``emit_wl_*.txt`` / ``emit_fwhm_*.txt``)
+    used by the USGS convolution scripts' ``-waves`` / ``-fwhm`` inputs.
+    """
+    def read(path):
+        vals = []
+        for line in Path(path).read_text().splitlines():
+            s = line.split("#", 1)[0].strip()
+            if s:
+                vals.append(float(s))
+        return np.array(vals)
+
+    waves, fwhm = read(wl_path), read(fwhm_path)
+    if waves.shape != fwhm.shape:
+        raise ValueError(f"wavelength/fwhm length mismatch: {waves.shape} vs {fwhm.shape}")
+    u = units.lower()
+    if u.startswith(("nan", "nm")):
+        waves, fwhm = waves / 1000.0, fwhm / 1000.0
+    elif not u.startswith(("mic", "um", "µ")):
+        raise ValueError(f"unexpected units '{units}'")
+    return waves, fwhm
+
+
+def resolve_grid(envi_header=None, grid=None):
+    """Return (wavelengths, fwhm) in microns from exactly one grid source."""
+    if (envi_header is None) == (grid is None):
+        raise ValueError("provide exactly one of envi_header or grid")
+    if grid is not None:
+        return grid
+    return read_wavelengths_fwhm(envi_header)
 
 
 # --------------------------------------------------------------- recipe parsing
@@ -529,6 +385,81 @@ def cmds_to_csv(cmds_path, csv_path):
     return csv_path
 
 
+# Master-spectrometer channel count -> (inwave, inres) master record numbers.
+# This is the authoritative mapping the USGS generator ``mak.convolve.1.cmds`` uses:
+# it selects each spectrum's native wavelength/resolution grid by the record's
+# channel count. The record numbers are the master's own grid records (splib06b /
+# sprlb06b share this layout).
+CHANNELS_TO_GRID = {
+    3961: (6, 17),      # USGS Denver Beckman
+    2151: (28, 34),     # ASD Field FR 0.35-2.5um
+    4301: (96, 108),    # High-Res Field 0.35-2.5um
+    4595: (120, 133),   # Nicolet 1.12-216um
+    3325: (40, 50),     # Nicolet 1.3-5.2um
+    4280: (60, 72),     # Nicolet 1.3-150um
+    2138: (84, 90),     # AVIRIS 0.4-2.5um
+}
+
+
+def build_recipe_from_master(master, output_slug):
+    """Regenerate the convolution recipe rows from a master library.
+
+    Reproduces the USGS ``mak.convolve.1.cmds`` generator deterministically in
+    Python: every *mineral* record in the master (i.e. not a Wavelengths/Bandpass/
+    Resolution grid record) becomes one recipe row, in master order, whose
+    ``inwave``/``inres`` are the master grid records selected by that spectrum's
+    channel count (:data:`CHANNELS_TO_GRID`). Because :func:`build_from_recipe`
+    lays rows out at a fixed stride, emitting exactly the mineral records in master
+    order reproduces the delivered library's absolute record numbering.
+
+    ``output_slug`` (e.g. ``r06emitc``) is only used to build the ``=`` suffix in
+    the output title, matching the delivery's ``<title> r06emitc=<purity>`` form.
+
+    Returns a list of recipe rows (dicts with inwave/inres/recnum/title).
+    """
+    recs = load(master)
+    rows = []
+    for rn in mineral_records(recs):
+        nch = _itchan(recs[rn])
+        grid = CHANNELS_TO_GRID.get(nch)
+        if grid is None:
+            raise ValueError(
+                f"{master}: record {rn} ({_title(recs[rn])!r}) has {nch} channels "
+                f"with no known native grid — extend CHANNELS_TO_GRID"
+            )
+        inwave, inres = grid
+        rows.append({"inwave": inwave, "inres": inres, "recnum": rn,
+                     "title": _title(recs[rn])})
+    return rows
+
+
+def write_recipe_cmds(rows, cmds_path, *, sppad=4):
+    """Write recipe rows as a specpr-style ``conv.*.cmds`` script.
+
+    Emits the same block structure :func:`parse_cmds` reads back (``convolve
+    spectrum`` header, ``==[inwave]``/``==[inres]``/``==[Recnum]``/``==[Title]``,
+    and ``sppad`` padding markers), so the generated file round-trips through
+    :func:`read_recipe` and reproduces the delivered library via
+    :func:`build_from_recipe`.
+    """
+    lines = ["c", "c", "c", "c", "c", " ", " ", "==[FILEID]y", "==[Fout]v", "m"]
+    for r in rows:
+        lines.append("\\######## convolve spectrum")
+        lines.append(f"==[inwave]Y{r['inwave']}")
+        lines.append(f"==[inres]y{r['inres']}")
+        lines.append(f"==[Recnum] {r['recnum']}")
+        lines.append(f"==[Title]{r.get('title', '')}")
+        lines.append("<work/convolve.cmds.work")
+        lines.append("e;t  \\# go to display")
+        for i in range(1, sppad + 1):
+            lines.append(f"[sppad] t v  \\# add padding record {i}")
+        lines.append("e;m  \\# go to math")
+    lines.append("e;EX")
+    Path(cmds_path).write_text("\n".join(lines) + "\n")
+    print(f"Wrote {len(rows)} recipe rows -> {cmds_path}")
+    return cmds_path
+
+
 # ---------------------------------------------------------- specpr record build
 IGNORE_F4 = np.float32(IGNORE)
 
@@ -582,7 +513,7 @@ def _data_block(shell, title, values):
 
 
 # ------------------------------------------------------------------ entry point
-def build_all(spectral_lib_dir, recipe_dir, output_dir, envi_header):
+def build_all(spectral_lib_dir, recipe_dir, output_dir, *, envi_header=None, grid=None):
     """Convolve every library whose recipe + master are present.
 
     Recipes are discovered by prefix in ``recipe_dir``: ``conv.s06*.cmds`` (or
@@ -624,7 +555,7 @@ def build_all(spectral_lib_dir, recipe_dir, output_dir, envi_header):
         output = f"{output_dir}/{fam['output']}"
         print(f"=== convolving {master.name} via {recipes[0].name} -> {output} ===")
         build_from_recipe(master=str(master), recipe=str(recipes[0]),
-                          output=output, envi_header=envi_header)
+                          output=output, envi_header=envi_header, grid=grid)
         export_envi(output, f"{output}_envi")
         outputs.append(output)
     if not outputs:
@@ -632,7 +563,7 @@ def build_all(spectral_lib_dir, recipe_dir, output_dir, envi_header):
     return outputs
 
 
-def build_from_recipe(master, recipe, output, envi_header, sppad=4):
+def build_from_recipe(master, recipe, output, *, envi_header=None, grid=None, sppad=4):
     """Build a convolved spectral library from a master + recipe, no template.
 
     Reproduces the specpr record layout the Fortran ``conv.*.cmds`` produced — a
@@ -658,7 +589,7 @@ def build_from_recipe(master, recipe, output, envi_header, sppad=4):
     """
     mrecs = load(master)
     rows = read_recipe(recipe)
-    out_wl, out_fwhm = read_wavelengths_fwhm(envi_header)
+    out_wl, out_fwhm = resolve_grid(envi_header=envi_header, grid=grid)
     n_ch = out_wl.size
     channel_axis = np.arange(1, n_ch + 1, dtype=np.float64)
 
@@ -732,149 +663,12 @@ def build_from_recipe(master, recipe, output, envi_header, sppad=4):
     return output
 
 
-# The two convolved libraries Tetracorder reads at runtime, keyed by the restart
-# file (restart_files/r1-emitc): the reference library (device y, iyfl) and the
-# research library (device w, iwfl). Each is built from its own unconvolved master
-# and installed at the path the restart file points to under /root/sl1.
-#   name       master (unconvolved)   template + install path (baked into image)
-REFERENCE_LIBRARY = ("splib06b", "/root/sl1/usgs/library06.conv/s06emitc")
-RESEARCH_LIBRARY = ("sprlb06b", "/root/sl1/usgs/rlib06/r06emitc")
+def export_envi(specpr_path, envi_path):
+    """Export a specpr convolved library to ENVI spectral library format.
 
-
-def build_libraries(
-    reflib: str,
-    reslib: str,
-    file: str = "/data/r",
-    output: str = "/output",
-) -> Dict[str, str]:
-    """
-    Build both convolved libraries Tetracorder reads and install them in place.
-
-    Tetracorder matches observed reflectance against *two* convolved spectral
-    libraries, wired up by the ``r1-emitc`` restart file: the **reference**
-    library (``s06emitc``, device ``y``/``iyfl``) and the **research** library
-    (``r06emitc``, device ``w``/``iwfl``). When a new calibration epoch arrives
-    both must be regenerated from their unconvolved masters onto the new grid.
-
-    This convolves each master (``reflib`` -> reference, ``reslib`` -> research)
-    onto the target instrument grid read from the scene's ENVI header, using the
-    baked-in convolved library as a structural template (see
-    :func:`build_convolved_library`). For each library it then:
-
-    1. writes the specpr result under ``{output}/l2b/`` (persisted to the mounted
-       volume),
-    2. copies it onto the restart-file read path under ``/root/sl1`` so a
-       subsequent ``tetrapy run`` picks it up directly, and
-    3. exports an ENVI-format copy under ``{output}/l2b/`` for the L2B group
-       aggregator (``tetrapy gagg`` ``--reflib``/``--reslib``).
-
-    \b
-    Parameters
-    ----------
-    reflib : str
-        Path to the unconvolved reference master library (``splib06b``) in specpr
-        format. Convolved into the reference library ``s06emitc``.
-    reslib : str
-        Path to the unconvolved research master library (``sprlb06b``) in specpr
-        format. Convolved into the research library ``r06emitc``.
-    file : str, default="/data/r"
-        Path to the EMIT reflectance file (or its ``.hdr``) providing the target
-        wavelength/FWHM grid.
-    output : str, default="/output"
-        Output root. Convolved specpr + ENVI libraries are written under
-        ``{output}/l2b/``.
-
-    Returns
-    -------
-    Dict[str, str]
-        Mapping of installed restart-path -> ``{output}/l2b`` specpr path for each
-        library ("reference", "research").
-
-    Raises
-    ------
-    FileNotFoundError
-        If a master library or its baked-in template is missing.
-
-    Notes
-    -----
-    The install path is identical to the template path (both under
-    ``/root/sl1``); the template is read fully into memory before the install
-    copy overwrites it, so re-running is safe within an ephemeral container.
-    """
-    out = Path(output) / "l2b"
-    out.mkdir(parents=True, exist_ok=True)
-    hdr = Path(file).with_suffix(".hdr")
-
-    jobs = [
-        ("reference", reflib, *REFERENCE_LIBRARY),
-        ("research", reslib, *RESEARCH_LIBRARY),
-    ]
-
-    installed: Dict[str, str] = {}
-    for role, master, master_name, install_path in jobs:
-        if not Path(master).exists():
-            raise FileNotFoundError(
-                f"{role} master library not found: {master} "
-                f"(expected the unconvolved {master_name}; mount it at /spectral-lib)"
-            )
-        if not Path(install_path).exists():
-            raise FileNotFoundError(
-                f"{role} template not found: {install_path} "
-                "(the baked-in convolved library used as a structural template)"
-            )
-
-        name = Path(install_path).name
-        specpr_out = str(out / name)
-
-        # Convolve master -> target grid using the baked-in library as template.
-        build_convolved_library(
-            master=master,
-            template=install_path,
-            output=specpr_out,
-            envi_header=hdr,
-        )
-
-        # Install onto the restart-file read path so `tetrapy run` uses it.
-        shutil.copyfile(specpr_out, install_path)
-        print(f"Installed {role} library -> {install_path}")
-
-        # Export an ENVI copy for the L2B group aggregator.
-        export_envi(specpr_out, str(out / f"{name}_envi"))
-
-        installed[role] = specpr_out
-
-    return installed
-
-
-def export_envi(specpr_path: str, envi_path: str) -> str:
-    """
-    Export a specpr convolved library to ENVI spectral library format.
-
-    This function converts a specpr-format spectral library to ENVI format,
-    which is required by some processing pipelines. The output includes both
-    a binary data file and a .hdr metadata file.
-
-    Parameters
-    ----------
-    specpr_path : str
-        Path to the input specpr convolved library.
-    envi_path : str
-        Output path for the ENVI library (without .hdr extension).
-
-    Returns
-    -------
-    str
-        Path to the output ENVI library.
-
-    Notes
-    -----
     Writes a flat float32 binary (BSQ, little-endian) plus a .hdr with wavelengths,
     record numbers, and spectra names — matching the format used by emit-sds-l2b's
     Spectral-Library-Reader.
-
-    The output includes setup records (wavelength, resolution, channel-number) as
-    the first rows, followed by all mineral spectra. Invalid values (NaN) are
-    written as -1.23e34 (specpr IGNORE sentinel).
     """
     records = load(specpr_path)
     wl_rec, _ = find_grid(records)
@@ -918,10 +712,11 @@ def export_envi(specpr_path: str, envi_path: str) -> str:
 
     wl_str = ",".join(f"{w:.6g}" for w in wavelengths)
     rec_str = ",".join(str(r) for r in all_rec_nums)
-    # Sanitize spectrum names: replace commas with semicolons to avoid parser confusion
-    # (spectral library parsers split by comma, so embedded commas break the name list)
-    sanitized_names = [n.replace(',', ';') for n in all_names]
-    names_str = ", \n ".join(f"{n:40s}" for n in sanitized_names)
+    # ENVI's spectra-names list is comma-delimited with no escaping, so any comma
+    # inside a title would be misread as a separator (inflating the name count and
+    # tripping spectral's "Number of spectrum names does not match data" check).
+    # Replace commas so each title stays a single list element.
+    names_str = ", \n ".join(f"{n.replace(',', ';'):40s}" for n in all_names)
 
     hdr = (
         f"ENVI\n"
@@ -944,43 +739,8 @@ def export_envi(specpr_path: str, envi_path: str) -> str:
     return envi_path
 
 
-def compare_libraries(a: str, b: str, **_) -> Dict[str, float]:
-    """
-    Report per-spectrum RMS differences between two convolved libraries.
-
-    This function validates a newly generated convolved library against a reference
-    by computing RMS (root mean square) differences for each aligned spectrum pair.
-
-    Parameters
-    ----------
-    a : str
-        Path to the first convolved library (specpr format).
-    b : str
-        Path to the second convolved library (specpr format).
-
-    Returns
-    -------
-    Dict[str, float]
-        Dictionary with keys:
-        - 'n': Number of spectra compared
-        - 'median': Median RMS difference
-        - 'max': Maximum RMS difference
-
-    Raises
-    ------
-    ValueError
-        If the two libraries have different numbers of mineral spectra.
-
-    Notes
-    -----
-    Libraries are aligned by order (i-th spectrum in library A is compared to
-    i-th spectrum in library B). Only finite values present in both spectra
-    are included in the RMS calculation. Channels with NaN in either spectrum
-    are excluded.
-
-    RMS differences around 4-5e-5 (reflectance 0-1 scale) indicate excellent
-    agreement, as validated against the shipped USGS libraries.
-    """
+def compare_libraries(a, b, **_):
+    """Report per-spectrum RMS between two convolved libraries (aligned by order)."""
     ra, rb = load(a), load(b)
     ma, mb = mineral_records(ra), mineral_records(rb)
     if len(ma) != len(mb):
