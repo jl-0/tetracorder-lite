@@ -37,9 +37,9 @@ def export_csv(*args, file, **kwargs):
     """
     Convenience wrapper: decode an expert system file and write the records to CSV.
 
-    Constructs a :class:`TetraDecoder` and calls
-    :meth:`~TetraDecoder.export_csv` on it. Positional and keyword arguments (other
-    than ``file``) are forwarded verbatim to :class:`TetraDecoder`.
+    Constructs a :class:`TetraDecoder` and calls :meth:`~TetraDecoder.export_csv` on
+    it, writing to ``file``. All other positional and keyword arguments are forwarded
+    verbatim to :class:`TetraDecoder`.
 
     Parameters
     ----------
@@ -47,6 +47,11 @@ def export_csv(*args, file, **kwargs):
         Passed through to :class:`TetraDecoder` (e.g. ``path``, ``groups``).
     file : str
         Destination path for the CSV file.
+
+    See Also
+    --------
+    TetraDecoder.export_csv : Underlying method, incl. the ``groups`` / ``columns``
+        options for controlling which records and fields are written.
     """
     TetraDecoder(*args, **kwargs).export_csv(file)
 
@@ -102,6 +107,7 @@ class TetraDecoder:
             Group numbers to decode. Blocks belonging to any other group are parsed
             but set aside in :attr:`ignored` rather than :attr:`blocks`. Defaults to
             ``(1, 2)`` (the group 1 / group 2 minerals of the EMIT L2B product).
+            Pass an empty/falsy value to keep every group found in :attr:`groups`.
         """
         self.file = Path(path)
         if self.file.is_dir():
@@ -262,13 +268,13 @@ class TetraDecoder:
 
         return data
 
-    def export_csv(self, file, groups=None):
+    def export_csv(self, file, groups=None, columns=("group", "library", "record", "title", "path")):
         """
-        Write the decoded records to a CSV file with ``record``, ``title``, ``path``.
+        Write the decoded records to a CSV file, one row per material.
 
-        Emits one row per material across both :attr:`blocks` and :attr:`ignored`
-        whose group is in ``groups``, so records outside :attr:`only` can be exported
-        by widening ``groups``.
+        Emits a header row of ``columns`` followed by one row per material across both
+        :attr:`blocks` and :attr:`ignored` whose group is in ``groups``, so records
+        outside :attr:`only` can be exported by widening ``groups``.
 
         Parameters
         ----------
@@ -277,18 +283,19 @@ class TetraDecoder:
         groups : Iterable[int], optional
             Group numbers to include. Defaults to :attr:`only` (the groups that were
             decoded into :attr:`blocks`).
+        columns : tuple[str, ...], optional
+            Record keys to emit as columns, in order; also used as the header row.
+            Every named key must be present on each included record (see
+            :meth:`parse_block` for available keys). Defaults to
+            ``("group", "library", "record", "title", "path")``.
         """
         if groups is None:
             groups = self.only
 
-        data = [("record", "title", "path")]
+        data = [columns]
         for block in self.blocks + self.ignored:
             if block["group"] in groups:
-                data.append((
-                    block["record"],
-                    block["title"],
-                    block["path"]
-                ))
+                data.append([block[c] for c in columns])
 
         with open(file, "w", newline="") as f:
             writer = csv.writer(f)
