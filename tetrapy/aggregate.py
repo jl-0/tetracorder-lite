@@ -24,6 +24,31 @@ DTYPES = {1: "u1", 2: "i2", 4: "f4", 5: "f8", 12: "u2"}
 Logger = logging.getLogger(__name__)
 
 
+def save(da: xr.DataArray, file: str) -> None:
+    """
+    Write a product to disk, dispatching on the file extension.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The product to write.
+    file : str
+        Destination path. ``.nc`` is written as NetCDF and ``.tif`` as a GeoTIFF
+        (via ``rioxarray``); any other extension is logged as an error and skipped.
+    """
+    file = Path(file)
+    file.parent.mkdir(exist_ok=True, parents=True)
+
+    if file.suffix == ".nc":
+        Logger.info(f"Saving {file}")
+        da.to_netcdf(file)
+    elif file.suffix == ".tif":
+        Logger.info(f"Saving {file}")
+        da.rio.to_raster(file)
+    else:
+        Logger.error(f"File extension unrecognized, must be either .nc or .tif, got: {file.suffix}")
+
+
 def read_library(path: str) -> dict[str, list[int] | np.ndarray]:
     """
     Read an ENVI spectral library into records and reflectance.
@@ -255,7 +280,7 @@ def aggregate(
     Returns
     -------
     tuple[xarray.DataArray | None, xarray.DataArray | None]
-        ``(abun, abununcert)``, each ``(band=2, y, x)``, or ``(None, None)`` if the
+        ``(mins, minuncert)``, each ``(band=2, y, x)``, or ``(None, None)`` if the
         group had no valid input.
     """
     Logger.debug(f"Aggregating group {group}")
@@ -271,8 +296,8 @@ def aggregate(
     c = 0
     t = len(blocks)
 
-    abun = None
-    abununcert = None
+    mins = None
+    minuncert = None
     for i, block in enumerate(blocks, start=1):
         name = block["title"]
         base = decoder.root / block["path"]
@@ -294,10 +319,10 @@ def aggregate(
             continue
 
         # Copy shape from first valid input
-        if abun is None:
+        if mins is None:
             y = depth.y
             x = depth.x
-            abun = xr.DataArray(
+            mins = xr.DataArray(
                 np.zeros((2, y.size, x.size)),
                 dims=("band", "y", "x"),
                 coords={
@@ -308,7 +333,7 @@ def aggregate(
                 },
                 name="band_data",
             )
-            abununcert = xr.zeros_like(abun)
+            minuncert = xr.zeros_like(mins)
 
         fit = xr.open_dataset(fit, engine="rasterio")["band_data"].squeeze()
 
@@ -317,10 +342,10 @@ def aggregate(
         fit = fit / 255.0 * 0.5
 
         # Band Depth
-        abun[0] = abun[0].where(~valid, depth)
+        mins[0] = mins[0].where(~valid, depth)
 
         # Mineral ID
-        abun[1] = abun[1].where(~valid, i)
+        mins[1] = mins[1].where(~valid, i)
 
         # Uncertainty
         if libs:
@@ -338,25 +363,26 @@ def aggregate(
                 full = xr.zeros_like(valid, dtype=float)
                 full.data[valid] = unc
 
-                abununcert[0] = abununcert[0].where(~valid, full)
+                minuncert[0] = minuncert[0].where(~valid, full)
             else:
                 Logger.warning(f"[{i:03}/{t:03}] * Library record {rec} not found in {block['library']}, cannot calculate uncertainty for {name}")
 
         # Fit
-        abununcert[1] = abununcert[1].where(~valid, fit)
+        minuncert[1] = minuncert[1].where(~valid, fit)
 
         c += 1
         Logger.debug(f"[{i:03}/{t:03}] + Added {name}")
 
     Logger.debug(f"{c}/{t} ({c / t:.1%}) Blocks successfully aggregated")
-    return abun, abununcert
+    return mins, minuncert
 
 
 def build(
-    output: str | None,
-    out_abun: str | None,
-    out_abununcert: str | None,
     tetracorder: str,
+    output: str | None = None,
+    out_min: str | None = None,
+    out_minuncert: str | None = None,
+    output_as: str | list[str] = "nc",
     rfl: str | None = None,
     rfluncert: str | None = None,
     reflib: str | None = None,
@@ -368,14 +394,19 @@ def build(
     \b
     Parameters
     ----------
-    output : str or None
-        Directory to write ``abun.nc`` and ``abununcert.nc`` to. Takes precedence
-        over ``out_abun`` / ``out_abununcert``; pass ``None`` to use those instead.
-    out_abun, out_abununcert : str or None
-        Explicit output paths for the abundance and uncertainty products. Used only
-        when ``output`` is ``None``, and only if both are given.
     tetracorder : str
         Path to the tetracorder output directory (holding the expert system file).
+    output : str or None
+        Directory to write the products into as ``min.<ext>`` / ``minuncert.<ext>``,
+        one file per format in ``output_as``. Takes precedence over ``out_min`` /
+        ``out_minuncert``; pass ``None`` to use those instead.
+    out_min, out_minuncert : str or None
+        Explicit output paths for the mineral and uncertainty products. Used only
+        when ``output`` is ``None``, and only if both are given.
+    output_as : str or list[str], default "nc"
+        Which format(s) to write into ``output`` — any of ``"nc"`` (NetCDF) and
+        ``"tif"`` (GeoTIFF). Ignored when writing to ``out_min`` / ``out_minuncert``,
+        where the extension of each path decides the format.
     rfl, rfluncert : str, optional
         Paths to the observed reflectance and reflectance-uncertainty rasters. Both
         must be given to enable band-depth uncertainty calculation.
@@ -408,39 +439,38 @@ def build(
             "splib06": read_library(reflib),
         }
 
-    abun1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs)
-    abun2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs)
+    mins1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs)
+    mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs)
 
     # Bands: Depth 1, Min ID 1, Depth 2, Min ID 2
-    abun = xr.concat([abun1, abun2], "band")
-    abun["band"] = range(1, 5)
+    mins = xr.concat([mins1, mins2], "band")
+    mins["band"] = range(1, 5)
 
     # Bands: Uncert 1, Fit 1, Uncert 2, Fit 2
     uncert = xr.concat([uncert1, uncert2], "band")
     uncert["band"] = range(1, 5)
 
-    # Combine and export
-    if output is not None:
+    # Save products
+    if output:
         output = Path(output)
-        output.mkdir(exist_ok=True, parents=True)
+        if "nc" in output_as:
+            save(mins, output / "min.nc")
+            save(uncert, output / "minuncert.nc")
+        if "tif" in output_as:
+            save(mins, output / "min.tif")
+            save(uncert, output / "minuncert.tif")
+    elif out_min and out_minuncert:
+        save(mins, out_min)
+        save(uncert, out_minuncert)
 
-        Logger.info(f"Writing to {output}")
-        abun.to_dataset().to_netcdf(output / "abun.nc")
-        uncert.to_dataset().to_netcdf(output / "abununcert.nc")
-
-    elif out_abun and out_abununcert:
-        Logger.info(f"Writing outputs")
-
-        abun.to_dataset().to_netcdf(out_abun)
-        uncert.to_dataset().to_netcdf(out_abununcert)
-
-    return abun, uncert
+    return mins, uncert
 
 
 @click.command("aggregate", help=build.__doc__, no_args_is_help=True)
 @click.option("-o", "--output")
-@click.option("-oa", "--out_abun")
-@click.option("-ou", "--out_abununcert")
+@click.option("-om", "--out_min")
+@click.option("-ou", "--out_minuncert")
+@click.option("-oa", "--output_as", multiple=True, default=["nc"], type=click.Choice(["nc", "tif"]))
 @click.option("-t", "--tetracorder")
 @click.option("-r", "--rfl")
 @click.option("-u", "--rfluncert")
@@ -448,7 +478,7 @@ def build(
 @click.option("-rs", "--reslib", default="/root/tetracorder/sl1/usgs/tetrapy/reslib.envi")
 def main(**kw):
     op1 = kw["output"]
-    op2 = kw["out_abun"] and kw["out_abununcert"]
+    op2 = kw["out_min"] and kw["out_minuncert"]
     if not op1 and not op2:
         raise ValueError("Must provide -o OR (-oa AND -ou)")
 
