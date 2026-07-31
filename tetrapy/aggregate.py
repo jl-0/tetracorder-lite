@@ -15,6 +15,9 @@ from rasterio.errors import NotGeoreferencedWarning
 # Very spammy, just turn them off
 warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 
+# rasterio/GDAL emit a flood of DEBUG records; keep them at WARNING and up
+logging.getLogger("rasterio").setLevel(logging.WARNING)
+
 # ENVI "data type" -> numpy dtype (only the types the convolved libraries use)
 DTYPES = {1: "u1", 2: "i2", 4: "f4", 5: "f8", 12: "u2"}
 
@@ -153,7 +156,8 @@ def calculate_uncertainty(
     lib: np.ndarray,
     features: list[dict],
 ) -> np.ndarray:
-    """Per-pixel uncertainty of the Clark (2003) continuum-normalized band depth.
+    """
+    Per-pixel uncertainty of the Clark (2003) continuum-normalized band depth.
 
     The band depth is modelled as ``bd = a * L(w_star)``, where ``L`` is the
     continuum-removed library spectrum and ``a`` is the least-squares scale fitting
@@ -389,7 +393,7 @@ def build(
     tc = TetraDecoder(tetracorder)
 
     libs = None
-    if rfl and rfluncert:
+    if None not in (rfl, rfluncert, reflib, reslib):
         Logger.info("Loading reflectance products")
 
         # Transpose to stay consistent with the tetracorder products
@@ -433,7 +437,7 @@ def build(
     return abun, uncert
 
 
-@click.command("aggregate", help=build.__doc__)
+@click.command("aggregate", help=build.__doc__, no_args_is_help=True)
 @click.option("-o", "--output")
 @click.option("-oa", "--out_abun")
 @click.option("-ou", "--out_abununcert")
@@ -442,14 +446,16 @@ def build(
 @click.option("-u", "--rfluncert")
 @click.option("-rl", "--reflib", default="/root/tetracorder/sl1/usgs/tetrapy/reflib.envi")
 @click.option("-rs", "--reslib", default="/root/tetracorder/sl1/usgs/tetrapy/reslib.envi")
-def main(*args, **kwargs):
-    op1 = kwargs["output"]
-    op2 = kwargs["out_abun"] and kwargs["out_abununcert"]
-    if not op1 or not op2:
+def main(**kw):
+    op1 = kw["output"]
+    op2 = kw["out_abun"] and kw["out_abununcert"]
+    if not op1 and not op2:
         raise ValueError("Must provide -o OR (-oa AND -ou)")
 
-    build(*args, **kwargs)
+    build(**kw)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+
     main()
