@@ -6,3 +6,4 @@
 .gitignore
 .DS_Store
 emit-sds-l2b
+emit-utils

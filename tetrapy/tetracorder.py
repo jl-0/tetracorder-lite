@@ -268,6 +268,25 @@ class TetraDecoder:
 
         return data
 
+    def get_groups(self, groups):
+        """
+        Return the decoded records belonging to the given groups.
+
+        Filters :attr:`blocks` (the kept records) by group number.
+
+        Parameters
+        ----------
+        groups : Iterable[int]
+            Group numbers to select.
+
+        Returns
+        -------
+        list[dict]
+            Records from :attr:`blocks` whose ``group`` is in ``groups``. See
+            :meth:`parse_block` for the per-record schema.
+        """
+        return [block for block in self.blocks if block["group"] in groups]
+
     def export_csv(self, file, groups=None, columns=("group", "library", "record", "title", "path")):
         """
         Write the decoded records to a CSV file, one row per material.
