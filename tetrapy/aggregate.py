@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+import click
 import numpy as np
 import spectral.io.envi as envi
 import xarray as xr
@@ -14,11 +15,10 @@ from rasterio.errors import NotGeoreferencedWarning
 # Very spammy, just turn them off
 warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 
-
-Logger = logging.getLogger(__name__)
-
 # ENVI "data type" -> numpy dtype (only the types the convolved libraries use)
 DTYPES = {1: "u1", 2: "i2", 4: "f4", 5: "f8", 12: "u2"}
+
+Logger = logging.getLogger(__name__)
 
 
 def read_library(path: str) -> dict[str, list[int] | np.ndarray]:
@@ -55,208 +55,6 @@ def read_library(path: str) -> dict[str, list[int] | np.ndarray]:
         "records": [int(r) for r in hdr["record"]],
         "rfl": data,
     }
-
-
-def aggregate(
-    decoder: TetraDecoder,
-    group: int,
-    rfl: xr.DataArray | None = None,
-    uncert: xr.DataArray | None = None,
-    libs: dict | None = None,
-) -> tuple[xr.DataArray | None, xr.DataArray | None]:
-    """
-    Aggregate one tetracorder group into band-depth / mineral-id maps.
-
-    Walks every decoded block in ``group``, loads its ``.depth``/``.fit`` outputs,
-    and composites them into a two-band ``(band, y, x)`` array: band 0 is the scaled
-    band depth, band 1 is the (1-based) mineral index of the winning block per pixel.
-    A matching uncertainty array carries the Clark-2003 band-depth uncertainty (band
-    0) and the fit (band 1). Uncertainty is only computed when the reflectance inputs
-    and libraries are supplied.
-
-    Parameters
-    ----------
-    decoder : TetraDecoder
-        Decoded expert system providing the blocks and their output paths.
-    group : int
-        Group number to aggregate (e.g. ``1`` or ``2``).
-    rfl : xarray.DataArray, optional
-        Observed reflectance as ``(y, x, band)`` carrying a ``wavelength`` coordinate,
-        aligned with the depth/fit rasters. Required (with ``uncert`` and ``libs``)
-        for uncertainty.
-    uncert : xarray.DataArray, optional
-        Observed reflectance uncertainty, same shape/ordering as ``rfl``.
-    libs : dict, optional
-        Library id -> ``{"records": [...], "rfl": ndarray}`` as produced by
-        :func:`read_library`. Its presence is what enables the uncertainty band.
-
-    Returns
-    -------
-    tuple[xarray.DataArray | None, xarray.DataArray | None]
-        ``(abun, abununcert)``, each ``(band=2, y, x)``, or ``(None, None)`` if the
-        group had no valid input.
-    """
-    Logger.debug(f"Aggregating group {group}")
-    blocks = decoder.get_groups([group])
-
-    # libs only exists if we're calculating uncertainty
-    if libs:
-        wl = rfl.wavelength.data
-        if (wl > 100).any():
-            wl = wl / 1000
-
-    # Tracking statistics
-    c = 0
-    t = len(blocks)
-
-    abun = None
-    abununcert = None
-    for i, block in enumerate(blocks, start=1):
-        name = block["title"]
-        base = decoder.root / block["path"]
-
-        # Find the data files
-        if not (depth := base.with_name(f"{base.name}.depth.gz")).exists():
-            Logger.debug(f"[{i:03}/{t:03}] - Depth file not found for {name}")
-            continue
-
-        if not (fit := base.with_name(f"{base.name}.fit.gz")).exists():
-            Logger.debug(f"[{i:03}/{t:03}] - Fit file not found for {name}")
-            continue
-
-        # Load the data in
-        depth = xr.open_dataset(depth, engine="rasterio")["band_data"].squeeze()
-        valid = depth > 0
-        if not valid.any():
-            Logger.debug(f"[{i:03}/{t:03}] - No valid data for {name}")
-            continue
-
-        # Copy shape from first valid input
-        if abun is None:
-            y = depth.y
-            x = depth.x
-            abun = xr.DataArray(
-                np.zeros((2, y.size, x.size)),
-                dims=("band", "y", "x"),
-                coords={
-                    "band": range(2),
-                    "y": y,
-                    "x": x,
-
-                },
-                name="band_data",
-            )
-            abununcert = xr.zeros_like(abun)
-
-        fit = xr.open_dataset(fit, engine="rasterio")["band_data"].squeeze()
-
-        # Apply scaling factor
-        depth = depth / 255.0 * 0.5
-        fit = fit / 255.0 * 0.5
-
-        # Band Depth
-        abun[0] = abun[0].where(~valid, depth)
-
-        # Mineral ID
-        abun[1] = abun[1].where(~valid, i)
-
-        # Uncertainty
-        if libs:
-            lib = libs[block["library"]]
-            rec = block["record"]
-            if rec in lib["records"]:
-                unc = calculate_uncertainty(
-                    wl = wl,
-                    rfl = rfl.data[valid.data],
-                    uncert = uncert.data[valid.data],
-                    lib = lib["rfl"][lib["records"].index(rec)],
-                    features = block["features"],
-                )
-
-                full = xr.zeros_like(valid, dtype=float)
-                full.data[valid] = unc
-
-                abununcert[0] = abununcert[0].where(~valid, full)
-            else:
-                Logger.warning(f"[{i:03}/{t:03}] * Library record {rec} not found in {block['library']}, cannot calculate uncertainty for {name}")
-
-        # Fit
-        abununcert[1] = abununcert[1].where(~valid, fit)
-
-        c += 1
-        Logger.debug(f"[{i:03}/{t:03}] + Added {name}")
-
-    Logger.debug(f"{c}/{t} ({c / t:.1%}) Blocks successfully aggregated")
-    return abun, abununcert
-
-
-def build(
-    output: str | None,
-    tetracorder: str,
-    rfl: str | None = None,
-    rfluncert: str | None = None,
-    reflib: str = "/root/tetracorder/sl1/usgs/tetrapy/reflib.envi",
-    reslib: str = "/root/tetracorder/sl1/usgs/tetrapy/reslib.envi",
-) -> tuple[xr.DataArray, xr.DataArray]:
-    """
-    Aggregate groups 1 and 2 into the L2B mineral / uncertainty products.
-
-    Parameters
-    ----------
-    output : str or None
-        Directory to write ``abun.nc`` and ``abununcert.nc`` to. Pass ``None`` to
-        return the products without writing them.
-    tetracorder : str
-        Path to the tetracorder output directory (holding the expert system file).
-    rfl, rfluncert : str, optional
-        Paths to the observed reflectance and reflectance-uncertainty rasters. Both
-        must be given to enable band-depth uncertainty calculation.
-    reflib, reslib : str, optional
-        Paths to the convolved reference (``splib06``) and research (``sprlb06``)
-        ENVI libraries. Only read when uncertainty is being calculated.
-
-    Returns
-    -------
-    tuple[xarray.DataArray, xarray.DataArray]
-        The 4-band abundance and uncertainty stacks (group 1 then group 2).
-    """
-    tc = TetraDecoder(tetracorder)
-
-    libs = None
-    if rfl and rfluncert:
-        Logger.info("Loading reflectance products")
-
-        # Transpose to stay consistent with the tetracorder products
-        rfl = xr.open_dataset(rfl, engine="rasterio")["band_data"]
-        rfl = rfl.transpose("y", "x", "band").load()
-
-        rfluncert = xr.open_dataset(rfluncert, engine="rasterio")
-        rfluncert = rfluncert["band_data"].transpose("y", "x", "band").load()
-
-        libs = {
-            "sprlb06": read_library(reslib),
-            "splib06": read_library(reflib),
-        }
-
-    abun1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs)
-    abun2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs)
-
-    # Bands: Depth 1, Min ID 1, Depth 2, Min ID 2
-    abun = xr.concat([abun1, abun2], "band")
-    abun["band"] = range(1, 5)
-
-    # Bands: Uncert 1, Fit 1, Uncert 2, Fit 2
-    uncert = xr.concat([uncert1, uncert2], "band")
-    uncert["band"] = range(1, 5)
-
-    # Combine and export
-    if output is not None:
-        output = Path(output)
-        Logger.info(f"Writing to {output}")
-        abun.to_dataset().to_netcdf(output / "abun.nc")
-        uncert.to_dataset().to_netcdf(output / "abununcert.nc")
-
-    return abun, uncert
 
 
 def cont_rem(
@@ -415,3 +213,243 @@ def calculate_uncertainty(
         return np.zeros(len(rfl))
 
     return np.average(uncertainties, axis=0, weights=weights)
+
+
+def aggregate(
+    decoder: TetraDecoder,
+    group: int,
+    rfl: xr.DataArray | None = None,
+    uncert: xr.DataArray | None = None,
+    libs: dict | None = None,
+) -> tuple[xr.DataArray | None, xr.DataArray | None]:
+    """
+    Aggregate one tetracorder group into band-depth / mineral-id maps.
+
+    Walks every decoded block in ``group``, loads its ``.depth``/``.fit`` outputs,
+    and composites them into a two-band ``(band, y, x)`` array: band 0 is the scaled
+    band depth, band 1 is the (1-based) mineral index of the winning block per pixel.
+    A matching uncertainty array carries the Clark-2003 band-depth uncertainty (band
+    0) and the fit (band 1). Uncertainty is only computed when the reflectance inputs
+    and libraries are supplied.
+
+    Parameters
+    ----------
+    decoder : TetraDecoder
+        Decoded expert system providing the blocks and their output paths.
+    group : int
+        Group number to aggregate (e.g. ``1`` or ``2``).
+    rfl : xarray.DataArray, optional
+        Observed reflectance as ``(y, x, band)`` carrying a ``wavelength`` coordinate,
+        aligned with the depth/fit rasters. Required (with ``uncert`` and ``libs``)
+        for uncertainty.
+    uncert : xarray.DataArray, optional
+        Observed reflectance uncertainty, same shape/ordering as ``rfl``.
+    libs : dict, optional
+        Library id -> ``{"records": [...], "rfl": ndarray}`` as produced by
+        :func:`read_library`. Its presence is what enables the uncertainty band.
+
+    Returns
+    -------
+    tuple[xarray.DataArray | None, xarray.DataArray | None]
+        ``(abun, abununcert)``, each ``(band=2, y, x)``, or ``(None, None)`` if the
+        group had no valid input.
+    """
+    Logger.debug(f"Aggregating group {group}")
+    blocks = decoder.get_groups([group])
+
+    # libs only exists if we're calculating uncertainty
+    if libs:
+        wl = rfl.wavelength.data
+        if (wl > 100).any():
+            wl = wl / 1000
+
+    # Tracking statistics
+    c = 0
+    t = len(blocks)
+
+    abun = None
+    abununcert = None
+    for i, block in enumerate(blocks, start=1):
+        name = block["title"]
+        base = decoder.root / block["path"]
+
+        # Find the data files
+        if not (depth := base.with_name(f"{base.name}.depth.gz")).exists():
+            Logger.debug(f"[{i:03}/{t:03}] - Depth file not found for {name}")
+            continue
+
+        if not (fit := base.with_name(f"{base.name}.fit.gz")).exists():
+            Logger.debug(f"[{i:03}/{t:03}] - Fit file not found for {name}")
+            continue
+
+        # Load the data in
+        depth = xr.open_dataset(depth, engine="rasterio")["band_data"].squeeze()
+        valid = depth > 0
+        if not valid.any():
+            Logger.debug(f"[{i:03}/{t:03}] - No valid data for {name}")
+            continue
+
+        # Copy shape from first valid input
+        if abun is None:
+            y = depth.y
+            x = depth.x
+            abun = xr.DataArray(
+                np.zeros((2, y.size, x.size)),
+                dims=("band", "y", "x"),
+                coords={
+                    "band": range(2),
+                    "y": y,
+                    "x": x,
+
+                },
+                name="band_data",
+            )
+            abununcert = xr.zeros_like(abun)
+
+        fit = xr.open_dataset(fit, engine="rasterio")["band_data"].squeeze()
+
+        # Apply scaling factor
+        depth = depth / 255.0 * 0.5
+        fit = fit / 255.0 * 0.5
+
+        # Band Depth
+        abun[0] = abun[0].where(~valid, depth)
+
+        # Mineral ID
+        abun[1] = abun[1].where(~valid, i)
+
+        # Uncertainty
+        if libs:
+            lib = libs[block["library"]]
+            rec = block["record"]
+            if rec in lib["records"]:
+                unc = calculate_uncertainty(
+                    wl = wl,
+                    rfl = rfl.data[valid.data],
+                    uncert = uncert.data[valid.data],
+                    lib = lib["rfl"][lib["records"].index(rec)],
+                    features = block["features"],
+                )
+
+                full = xr.zeros_like(valid, dtype=float)
+                full.data[valid] = unc
+
+                abununcert[0] = abununcert[0].where(~valid, full)
+            else:
+                Logger.warning(f"[{i:03}/{t:03}] * Library record {rec} not found in {block['library']}, cannot calculate uncertainty for {name}")
+
+        # Fit
+        abununcert[1] = abununcert[1].where(~valid, fit)
+
+        c += 1
+        Logger.debug(f"[{i:03}/{t:03}] + Added {name}")
+
+    Logger.debug(f"{c}/{t} ({c / t:.1%}) Blocks successfully aggregated")
+    return abun, abununcert
+
+
+def build(
+    output: str | None,
+    out_abun: str | None,
+    out_abununcert: str | None,
+    tetracorder: str,
+    rfl: str | None = None,
+    rfluncert: str | None = None,
+    reflib: str | None = None,
+    reslib: str | None = None,
+) -> tuple[xr.DataArray, xr.DataArray]:
+    """
+    Aggregate groups 1 and 2 into the L2B mineral / uncertainty products.
+
+    \b
+    Parameters
+    ----------
+    output : str or None
+        Directory to write ``abun.nc`` and ``abununcert.nc`` to. Takes precedence
+        over ``out_abun`` / ``out_abununcert``; pass ``None`` to use those instead.
+    out_abun, out_abununcert : str or None
+        Explicit output paths for the abundance and uncertainty products. Used only
+        when ``output`` is ``None``, and only if both are given.
+    tetracorder : str
+        Path to the tetracorder output directory (holding the expert system file).
+    rfl, rfluncert : str, optional
+        Paths to the observed reflectance and reflectance-uncertainty rasters. Both
+        must be given to enable band-depth uncertainty calculation.
+    reflib, reslib : str, optional
+        Paths to the convolved reference (``splib06``) and research (``sprlb06``)
+        ENVI libraries. Only read when uncertainty is being calculated.
+
+    \b
+    Returns
+    -------
+    tuple[xarray.DataArray, xarray.DataArray]
+        The 4-band abundance and uncertainty stacks (group 1 then group 2). Returned
+        regardless of whether they were written to disk.
+    """
+    tc = TetraDecoder(tetracorder)
+
+    libs = None
+    if rfl and rfluncert:
+        Logger.info("Loading reflectance products")
+
+        # Transpose to stay consistent with the tetracorder products
+        rfl = xr.open_dataset(rfl, engine="rasterio")["band_data"]
+        rfl = rfl.transpose("y", "x", "band").load()
+
+        rfluncert = xr.open_dataset(rfluncert, engine="rasterio")
+        rfluncert = rfluncert["band_data"].transpose("y", "x", "band").load()
+
+        libs = {
+            "sprlb06": read_library(reslib),
+            "splib06": read_library(reflib),
+        }
+
+    abun1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs)
+    abun2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs)
+
+    # Bands: Depth 1, Min ID 1, Depth 2, Min ID 2
+    abun = xr.concat([abun1, abun2], "band")
+    abun["band"] = range(1, 5)
+
+    # Bands: Uncert 1, Fit 1, Uncert 2, Fit 2
+    uncert = xr.concat([uncert1, uncert2], "band")
+    uncert["band"] = range(1, 5)
+
+    # Combine and export
+    if output is not None:
+        output = Path(output)
+        output.mkdir(exist_ok=True, parents=True)
+
+        Logger.info(f"Writing to {output}")
+        abun.to_dataset().to_netcdf(output / "abun.nc")
+        uncert.to_dataset().to_netcdf(output / "abununcert.nc")
+
+    elif out_abun and out_abununcert:
+        Logger.info(f"Writing outputs")
+
+        abun.to_dataset().to_netcdf(out_abun)
+        uncert.to_dataset().to_netcdf(out_abununcert)
+
+    return abun, uncert
+
+
+@click.command("aggregate", help=build.__doc__)
+@click.option("-o", "--output")
+@click.option("-oa", "--out_abun")
+@click.option("-ou", "--out_abununcert")
+@click.option("-t", "--tetracorder")
+@click.option("-r", "--rfl")
+@click.option("-u", "--rfluncert")
+@click.option("-rl", "--reflib", default="/root/tetracorder/sl1/usgs/tetrapy/reflib.envi")
+@click.option("-rs", "--reslib", default="/root/tetracorder/sl1/usgs/tetrapy/reslib.envi")
+def main(*args, **kwargs):
+    op1 = kwargs["output"]
+    op2 = kwargs["out_abun"] and kwargs["out_abununcert"]
+    if not op1 or not op2:
+        raise ValueError("Must provide -o OR (-oa AND -ou)")
+
+    build(*args, **kwargs)
+
+
+if __name__ == "__main__":
+    main()
