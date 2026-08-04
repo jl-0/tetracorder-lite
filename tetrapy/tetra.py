@@ -22,7 +22,7 @@ def setup_tetrun(
     output: str = "/output/tetracorder",
     sensor: str = "emit_c",
     mode: str = "cube",
-    file: str = "/data/r",
+    rfl: str = "/data/r",
     geology: bool = False,
     cores: Optional[int] = os.cpu_count(),
     args: List[str] = ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"],
@@ -82,7 +82,7 @@ def setup_tetrun(
         output,
         sensor,
         mode,
-        file,
+        rfl,
         *args
     ]
 
@@ -121,7 +121,7 @@ def setup_tetrun(
 def exec_tetrun(
     output: str = "/output/tetracorder",
     mode: str = "cube",
-    file: str = "/data/r",
+    rfl: str = "/data/r",
     args: List[str] = ["band", "20", "gif"],
     **_
 ) -> None:
@@ -151,7 +151,7 @@ def exec_tetrun(
     cmd = [
         "./cmd.runtet",
         mode,
-        file
+        rfl
     ]
 
     log = Path(output) / "tetrun.log"
@@ -772,28 +772,22 @@ def make_restart_file(path, name, hdr, reflib, reslib):
     file.write_text(text)
 
 
-def make_convolution(lib, file, recipe, envi, output, links, noconv):
+def make_convolution(lib, file, hdr, output, noconv):
     """
     """
     Logger.info(f"Convolving {lib}: {file}")
-    # Logger.debug(f"  Recipe: {recipe}")
 
     output /= f"{lib}"
+    envi = output.with_suffix(".envi")
 
     if not noconv:
         if output.exists():
             output.unlink()
 
-        # cv.build_from_recipe(
-        #     master = str(file),
-        #     recipe = str(recipe),
-        #     output = str(output),
-        #     envi_header = str(envi),
-        # )
         conv.build_library(
             master_path = str(file),
             out_path = str(output),
-            hdr_path = str(envi),
+            hdr_path = str(hdr),
             family = lib,
             log = Logger.debug,
         )
@@ -802,31 +796,20 @@ def make_convolution(lib, file, recipe, envi, output, links, noconv):
 
         cv.export_envi(
             str(output),
-            str(output.with_suffix(".envi"))
+            str(envi)
         )
 
-    if lib == "reslib":
-        link = links / "rlib06" / output.name
-    elif lib == "reflib":
-        link = links / "library06.conv" / output.name
-
-    if link.exists():
-        link.unlink()
-
-    Logger.debug(f"  Linking to: {file}")
-    link.parent.mkdir(exist_ok=True, parents=True)
-    link.symlink_to(output)
-
-    return link
+    return envi
 
 
 def convolve(
     reflib: str,
     reslib: str,
-    recipe: str,
+    rfl: str,
     version: str = "6.00a",
-    output: str = "/output",
-    file: str = "/data/r",
+    output: str = "/conv",
+    name: str = "tetrapy",
+    integrate: True,
     noconv: bool = False,
 ) -> Dict[str, str]:
     """
@@ -878,9 +861,9 @@ def convolve(
 
     ENVI exports are suitable for use with the L2B group aggregator (tetrapy gagg).
     """
-    out = Path("/root/tetracorder/sl1/usgs/tetrapy")
+    out = Path(output)
     out.mkdir(parents=True, exist_ok=True)
-    hdr = Path(file).with_suffix(".hdr")
+    hdr = Path(rfl).with_suffix(".hdr")
 
     if recipe is None:
         recipe = Path("/root/tetracorder/sl1/usgs/library06.conv/")
@@ -889,18 +872,15 @@ def convolve(
         raise FileNotFoundError(f"Reference library not found: {reflib}")
     if not (reslib := Path(reslib)).exists():
         raise FileNotFoundError(f"Research library not found: {reslib}")
-    if not Path(recipe).exists():
-        raise FileNotFoundError(f"Recipe directory not found: {recipe}")
     if not hdr.exists():
         raise FileNotFoundError(f"ENVI header not found: {hdr}")
 
     # Research Library
-    sprlb = reslib
+    # sprlb = reslib
     reslib = make_convolution(
         lib  = "reslib",
         file = reslib,
-        recipe = recipe / "conv.r06emitc.cmds",
-        envi   = hdr,
+        hdr  = hdr,
         output = out,
         links  = Path("/root/tetracorder/sl1/usgs"),
         noconv = noconv
@@ -911,18 +891,17 @@ def convolve(
     reflib = make_convolution(
         lib  = "reflib",
         file = reflib,
-        recipe = recipe / "conv.s06emitc.cmds",
-        envi   = hdr,
+        hdr  = hdr,
         output = out,
         links  = Path("/root/tetracorder/sl1/usgs"),
         noconv = noconv,
     )
 
     # Integrate these into Tetracorder
-    name = "tetrapy"
-    path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
-    make_colors_file(path, name)
-    make_disable_file(path, name)
-    make_datasets_file(path, name)
-    make_deleted_file(path, name, hdr)
-    make_restart_file(path, name, hdr, reslib=reslib, reflib=reflib)
+    if integrate:
+        path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
+        make_colors_file(path, name)
+        make_disable_file(path, name)
+        make_datasets_file(path, name)
+        make_deleted_file(path, name, hdr)
+        make_restart_file(path, name, hdr, reslib=reslib, reflib=reflib)
