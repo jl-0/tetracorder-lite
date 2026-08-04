@@ -29,7 +29,7 @@ def cli() -> None:
 vers = click.option("-v", "--version", default="6.00a")
 outp = click.option("-o", "--output", default="/output/tetracorder")
 mode = click.option("-m", "--mode", default="cube")
-file = click.option("-f", "--file", default="/data/r")
+file = click.option("-f", "--rfl", default="/data/r")
 
 
 @cli.command(help=tetra.setup_tetrun.__doc__)
