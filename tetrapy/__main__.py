@@ -110,7 +110,7 @@ def run(ctx, config, section):
 
     if C.setup.enabled:
         Logger.info("Executing Setup")
-        tetra.setup(
+        tetra.setup_tetrun(
             version = C.tetracorder.version,
             mode    = C.tetracorder.mode,
             rfl     = C.data.rfl,
@@ -127,7 +127,7 @@ def run(ctx, config, section):
 
     if C.tetrun.enabled:
         Logger.info("Executing Tetrun")
-        tetra.tetrun(
+        tetra.exec_tetrun(
             mode    = C.tetracorder.mode,
             rfl     = C.data.rfl,
             output  = C.output,
