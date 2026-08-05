@@ -865,9 +865,6 @@ def convolve(
     out.mkdir(parents=True, exist_ok=True)
     hdr = Path(rfl).with_suffix(".hdr")
 
-    if recipe is None:
-        recipe = Path("/root/tetracorder/sl1/usgs/library06.conv/")
-
     if not (reflib := Path(reflib)).exists():
         raise FileNotFoundError(f"Reference library not found: {reflib}")
     if not (reslib := Path(reslib)).exists():
