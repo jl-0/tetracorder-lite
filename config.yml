@@ -3,6 +3,7 @@
 # Reminder: Container paths
 # Options can be overridden via CLI: --output ... --data.rfl ... --tetrun.args ["band", 10, ...]
 # Syntax ${...} will interpolate values from other parts of the config
+# Example: tetrapy run config.yml --data.rfl /data/emit20230728t214153/emit20230728t214153_rfl --data.rfluncert /data/emit20230728t214153/emit20230728t214153_uncert
 #
 output: /output/tetracorder # Directory must not exist unless setup.autoremove is enabled
 data:
