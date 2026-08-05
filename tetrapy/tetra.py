@@ -809,7 +809,7 @@ def convolve(
     version: str = "6.00a",
     output: str = "/conv",
     name: str = "tetrapy",
-    integrate: True,
+    integrate: bool = True,
     noconv: bool = False,
 ) -> Dict[str, str]:
     """
