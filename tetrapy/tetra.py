@@ -879,7 +879,6 @@ def convolve(
         file = reslib,
         hdr  = hdr,
         output = out,
-        links  = Path("/root/tetracorder/sl1/usgs"),
         noconv = noconv
     )
 
@@ -890,7 +889,6 @@ def convolve(
         file = reflib,
         hdr  = hdr,
         output = out,
-        links  = Path("/root/tetracorder/sl1/usgs"),
         noconv = noconv,
     )
 
