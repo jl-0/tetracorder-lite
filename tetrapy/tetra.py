@@ -799,7 +799,7 @@ def make_convolution(lib, file, hdr, output, noconv):
             str(envi)
         )
 
-    return envi
+    return output
 
 
 def convolve(
