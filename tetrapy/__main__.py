@@ -122,8 +122,8 @@ def run(ctx, config, section):
         )
 
     # Save config after setup (tetracorder initializes the directory)
-    if (out := Path(config.output)).exists():
-        config.to_yaml(filename=out / "config.yml")
+    if (out := Path(C.output)).exists():
+        C.to_yaml(filename=out / "config.yml")
 
     if C.tetrun.enabled:
         Logger.info("Executing Tetrun")
