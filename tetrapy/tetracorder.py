@@ -56,7 +56,6 @@ def export_csv(*args, file, **kwargs):
     TetraDecoder(*args, **kwargs).export_csv(file)
 
 
-
 class TetraDecoder:
     """
     Decode a Tetracorder expert system file into structured per-material records.
@@ -91,11 +90,7 @@ class TetraDecoder:
     ignored : list[dict]
         Decoded records whose group was not in :attr:`only`.
     """
-
-    vars = None
-    nots = None
-
-    def __init__(self, path, groups=(1, 2)):
+    def __init__(self, path, groups=(1, 2), decode=True, raise_casts=True):
         """
         Parameters
         ----------
@@ -115,13 +110,17 @@ class TetraDecoder:
 
         # Retrieve external references first, if available
         self.root = self.file.parent
+
+        self.vars = {}
         if (f := self.root / "cmd.lib.setup.variables").exists():
             self.vars = self.parse_variables(f)
 
+        self.groups = {}
         if files := list(self.root.glob(f"cmds.start.*")):
             self.groups = self.parse_group_paths(files[0])
 
         # Unused
+        # self.nots = {}
         # if (f := self.root / "cmd.lib.setup.nots-ratios").exists():
         #     self.nots = self.parse_not_ratios(f)
 
@@ -129,7 +128,10 @@ class TetraDecoder:
         if not groups:
             self.only = list(self.groups)
 
-        self.decode()
+        self._raise = raise_casts
+
+        if decode:
+            self.decode()
 
     def decode(self):
         """
@@ -236,7 +238,7 @@ class TetraDecoder:
             elif line.startswith("8 DN 255"):
                 val = line.split(" ")[-1]
                 val = self.vars.get(val.strip("[]"), val) # Substitute variables, if necessary
-                data["data_type_scaling"] = float(val)
+                data["data_type_scaling"] = self.cast(float, val)
 
             elif line.startswith("define features"):
                 data["features"] = []
@@ -247,16 +249,17 @@ class TetraDecoder:
                     if line.startswith("f") and split[1] in ("DLw", "MLw", "OLw"):
                         feat = {
                             "feature_type": split[1],
-                            "continuum": list(map(float, split[2:6])),
+                            # "continuum": list(map(float, split[2:6])),
+                            "continuum": self.cast(float, split[2:6]),
                         }
 
                         line = " ".join(split[6:])
                         matches = re.findall(r"([^\s\d]+)>?\s+(.+?)(?=\s+[^\s\d]+>?[\s]|$)", line)
-                        for key, vals in matches:
-                            feat[key] = list(map(float, vals.split()))
+                        for key, val in matches:
+                            # feat[key] = list(map(float, val.split()))
+                            feat[key] = self.cast(float, val.split())
 
                         data["features"].append(feat)
-
 
             elif line.startswith("constraint:"):
                 consts = data.setdefault("constituent_constraints", {})
@@ -264,7 +267,8 @@ class TetraDecoder:
                 matches = re.findall(r"([^\s>]+)>\s*(.*?)(?=\s+[^\s>]+>|$)", line)
                 for key, val in matches:
                     val = self.vars.get(val.strip("[]"), val)
-                    consts[key] = list(map(float, val.split()))
+                    # consts[key] = list(map(float, val.split()))
+                    consts[key] = self.cast(float, val.split())
 
         return data
 
@@ -286,6 +290,19 @@ class TetraDecoder:
             :meth:`parse_block` for the per-record schema.
         """
         return [block for block in self.blocks if block["group"] in groups]
+
+    def cast(self, dtype, val):
+        def apply(v):
+            try:
+                return dtype(v)
+            except:
+                if self._raise:
+                    raise
+                return v
+
+        if isinstance(val, list):
+            return [apply(v) for v in val]
+        return apply(val)
 
     def export_csv(self, file, groups=None, columns=("group", "library", "record", "title", "path")):
         """

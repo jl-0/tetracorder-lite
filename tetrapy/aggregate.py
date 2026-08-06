@@ -474,8 +474,8 @@ def build(
 @click.option("-t", "--tetracorder")
 @click.option("-r", "--rfl")
 @click.option("-u", "--rfluncert")
-@click.option("-rl", "--reflib", default="/root/tetracorder/sl1/usgs/tetrapy/reflib.envi")
-@click.option("-rs", "--reslib", default="/root/tetracorder/sl1/usgs/tetrapy/reslib.envi")
+@click.option("-rl", "--reflib", default="/conv/reflib-envi")
+@click.option("-rs", "--reslib", default="/conv/reslib-envi")
 def main(**kw):
     op1 = kw["output"]
     op2 = kw["out_min"] and kw["out_minuncert"]

@@ -1,3 +1,19 @@
+"""
+Tetracorder workflow: setup, execution, and library convolution.
+
+Thin drivers around the vendored tetracorder command scripts and the pure-Python
+convolution in :mod:`tetrapy.conv`:
+
+- :func:`setup_tetrun` — initialize a run via ``cmd-setup-tetrun`` (plus the
+  post-setup patches).
+- :func:`exec_tetrun` — execute the configured run via ``cmd.runtet``.
+- :func:`convolve` / :func:`make_convolution` — convolve the reference and research
+  master libraries onto a scene's grid and export ENVI copies for the aggregator.
+
+Wiring a convolved library into the command tree is handled separately by
+:mod:`tetrapy.sensor`.
+"""
+
 import logging
 import os
 import re
@@ -160,712 +176,7 @@ def exec_tetrun(
         subprocess.run(cmd, cwd=output, stdout=f, stderr=subprocess.STDOUT)
 
 
-def parse_variables(file: str) -> Dict[str, str]:
-    """
-    Parse ==[NAME] value... definitions from a command file.
-
-    This function extracts variable definitions from tetracorder command files,
-    which use a special ==[NAME] syntax to define parameters. The values are
-    returned as strings to preserve formatting and precision.
-
-    Parameters
-    ----------
-    file : str
-        Path to the command file to parse.
-
-    Returns
-    -------
-    Dict[str, str]
-        Mapping of variable names to their string values (whitespace-stripped).
-        If a variable is defined multiple times, the last definition wins.
-
-    Examples
-    --------
-    Given a file with content:
-        ==[THRESHOLD] 0.5
-        ==[VALUES] 1.0 2.0 3.0
-        ==[THRESHOLD] 0.8
-
-    >>> parse_variables("cmd.file")
-    {'THRESHOLD': '0.8', 'VALUES': '1.0 2.0 3.0'}
-    """
-    text = Path(file).read_text()
-
-    pattern = re.compile(
-        r"^==\[(?P<name>[^\]]+)\]\s*(?P<values>[-+0-9.eE\s]+)",
-        re.MULTILINE,
-    )
-
-    return {
-        match["name"]: match["values"].strip()
-        for match in pattern.finditer(text)
-    }
-
-
-def patch_cmd_file(output: str, version: str) -> None:
-    """
-    Create a patched version of the expert command file for EMIT l2b compatibility.
-
-    This function processes tetracorder's expert system command file to make it
-    compatible with the EMIT l2b processing pipeline. It substitutes variable
-    references and removes duplicate TITLE= directives that cause parsing errors.
-
-    Parameters
-    ----------
-    output : str
-        Path to the tetracorder output directory containing the command files.
-    version : str
-        Tetracorder version string (e.g., "6.00a") used to locate the correct
-        command file (cmd.lib.setup.t{version}#).
-
-    Notes
-    -----
-    The patched file is written to {output}/cmd.lib.setup.t{version}#.patched.
-    Two main transformations are applied:
-    1. Variable substitutions: [VAR] references are replaced with their values
-       from cmd.lib.setup.variables
-    2. TITLE= cleanup: Only title comment lines keep TITLE=; other instances
-       are removed to prevent parsing conflicts
-    """
-    cmd = "cmd.lib.setup"
-    ver = f"t{version}5"
-
-    output = Path(output)
-    variables = parse_variables(output / f"{cmd}.variables")
-
-    text = Path(output / f"{cmd}.{ver}").read_text()
-
-    # Fix variable substitutions
-    text = re.sub(
-        r"\[([^\]]+)\]",
-        lambda m: variables.get(m[1], m[0]),
-        text,
-    )
-
-    # Remove all instances of TITLE= that aren't a title line
-    text = re.sub(
-        r"(?m)^(?!\\#[-=]+.*TITLE=).*?TITLE=",
-        "",
-        text,
-    )
-
-    Path(output / f"{cmd}.{ver}.patched").write_text(text)
-
-
-def group_aggregator(
-    version: str = "6.00a",
-    output: str = "/output/tetracorder",
-    matrix: str = "/root/tetrapy/data/mineral_grouping_matrix_t6.subset.csv",
-    reflib: str = "/root/emit-sds-l2b/Spectral-Library-Reader-master/s06av18a_envi",
-    reslib: str = "/root/emit-sds-l2b/Spectral-Library-Reader-master/r06av18a_envi",
-    rfl: Optional[str] = None,
-    unc: Optional[str] = None,
-) -> None:
-    """
-    Streamline the call to the emit-sds-l2b group_aggregator.py script.
-
-    This function wraps the EMIT L2B group aggregator processing, which takes
-    tetracorder's mineral identification results and aggregates them into mineral
-    group maps with uncertainty quantification. It automatically patches the expert
-    system file if needed.
-
-    \b
-    Parameters
-    ----------
-    version : str, default="6.00a"
-        Tetracorder version string used to locate the expert system file.
-    output : str, default="/output/tetracorder"
-        Path to the tetracorder output directory.
-    matrix : str
-        Path to the mineral grouping matrix CSV file that defines how individual
-        minerals are aggregated into groups.
-    reflib : str
-        Path to the reference spectral library in ENVI format.
-    reslib : str
-        Path to the research spectral library in ENVI format.
-    rfl : Optional[str], default=None
-        Path to the reflectance file used in the tetracorder run. Required for
-        uncertainty calculation.
-    unc : Optional[str], default=None
-        Path to the reflectance uncertainty file. Required for uncertainty
-        calculation.
-
-    \b
-    Notes
-    -----
-    Output files are written to {output}/l2b/:
-    - agg: Aggregated mineral group map
-    - unc: Uncertainty map
-
-    The expert system file is automatically patched for EMIT compatibility if
-    not already patched.
-
-    The function runs group_aggregator.py as a subprocess using Python's
-    interpreter, which avoids import issues with emit-sds-l2b package structure.
-    """
-    out = Path(output) / "l2b"
-    out.mkdir(exist_ok=True)
-
-    esf = f"cmd.lib.setup.t{version}5.patched"
-    if not (Path(output) / esf).exists():
-        Logger.info("The expert system file has not been patched, doing so now")
-        patch_cmd_file(output, version)
-
-    # Build command arguments
-    cmd = [
-        sys.executable,  # Use current Python interpreter
-        "/root/emit-sds-l2b/group_aggregator.py",
-        output,
-        matrix,
-        str(out / "abun"),
-        str(out / "abununcert"),
-        "--expert_system_file", esf,
-        "--reference_library", reflib,
-        "--research_library", reslib,
-    ]
-
-    if rfl and unc:
-        cmd += [
-            "--calculate_uncertainty",
-            "--reflectance_file", rfl,
-            "--reflectance_uncertainty_file", unc,
-        ]
-
-    Logger.info("Calling emit-sds-l2b group_aggregator.py")
-    Logger.debug(f"Command:\n{utils.format_args(cmd)}")
-
-    result = subprocess.run(
-        cmd,
-        cwd=output,
-        capture_output=True,
-        text=True
-    )
-
-    log = out / "group_aggregator.log"
-    with log.open("w") as f:
-        subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
-
-
-def group_output_conversion(
-    output: str,
-    agg: Optional[str],
-    unc: Optional[str],
-    loc: str,
-    glt: str,
-    version: str,
-    software_delivery_version: str,
-) -> None:
-    """
-    Convert tetracorder group outputs to EMIT L2B format.
-
-    Wraps the emit-sds-l2b group_output_conversion.py script to package
-    mineral abundance and uncertainty maps into standardized EMIT L2B
-    product format with metadata.
-
-    \b
-    Parameters
-    ----------
-    output : str
-        Output directory path containing l2b subdirectory with results.
-    agg : str, optional
-        Path to aggregated reflectance file. If None, uses {output}/l2b/agg.
-    unc : str, optional
-        Path to uncertainty file. If None, uses {output}/l2b/unc.
-    loc : str
-        Path to location (LOC) file with geographic coordinates.
-    glt : str
-        Path to geometric lookup table (GLT) file for orthorectification.
-    version : str
-        Product version identifier (e.g., "1.0.0").
-    software_delivery_version : str
-        EMIT SDS software version used for processing.
-
-    Notes
-    -----
-    Expects the following files to exist in {output}/l2b/:
-    - abun: mineral abundance ENVI format
-    - abununcert: mineral abundance uncertainty ENVI format
-
-    The script will create standardized NetCDF output with embedded metadata.
-    """
-    out = Path(output) / "l2b"
-
-    # Build command arguments
-    cmd = [
-        sys.executable,  # Use current Python interpreter
-        "/root/emit-sds-l2b/group_output_conversion.py",
-        out / "abun.nc",
-        out / "abununcert.nc",
-        agg if agg else out / "abun",
-        unc if unc else out / "abununcert",
-        loc,
-        glt,
-        version,
-        software_delivery_version,
-    ]
-
-    assert cmd[4].exists(), f"Missing mineral abundance envi: {cmd[4]}"
-    assert cmd[5].exists(), f"Missing mineral abununcert envi: {cmd[5]}"
-    cmd = [str(c) for c in cmd]
-
-    Logger.info("Calling emit-sds-l2b group_output_conversion.py")
-    Logger.debug(f"Command:\n{utils.format_args(cmd)}")
-
-    log = out / "group_output_conversion.log"
-    with log.open("w") as f:
-        subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=output)
-
-
-
-def get_sensor(text: str) -> str:
-    """
-    Auto-detect the sensor name from a restart file.
-
-    Parameters
-    ----------
-    text : str
-        Restart file content
-
-    Returns
-    -------
-    str
-        Sensor ID extracted from the restart file
-
-    Raises
-    ------
-    ValueError
-        If sensor name cannot be detected
-
-    Examples
-    --------
-    >>> text = Path('restart_files/r1-emitc').read_text()
-    >>> sensor = get_sensor(text)
-    >>> print(sensor)
-    'emitc'
-    """
-    # Try to extract from irfl= line (most reliable)
-    match = re.search(r'^irfl=r1-(\w+)', text, re.MULTILINE)
-    if match:
-        return match.group(1)
-
-    # Fallback: try to extract from iwfl= line
-    match = re.search(r'^iwfl=/sl1/usgs/rlib06/r06(\w+)', text, re.MULTILINE)
-    if match:
-        return match.group(1)
-
-    # Fallback: try to extract from iyfl= line
-    match = re.search(r'^iyfl=/sl1/usgs/library06\.conv/s06(\w+)', text, re.MULTILINE)
-    if match:
-        return match.group(1)
-
-    raise ValueError("Could not detect sensor name from restart file")
-
-
-def get_channels(hdr: str) -> int:
-    """
-    Extract the number of channels from an ENVI header file.
-
-    Parameters
-    ----------
-    hdr : str
-        Path to ENVI header file (.hdr)
-
-    Returns
-    -------
-    int
-        Number of spectral channels/bands
-
-    Raises
-    ------
-    ValueError
-        If channels/bands field not found in header
-    FileNotFoundError
-        If header file doesn't exist
-    """
-    text = Path(hdr).read_text()
-
-    # Try to find 'bands' field (preferred)
-    match = re.search(r'^bands\s*=\s*(\d+)', text, re.IGNORECASE | re.MULTILINE)
-    if match:
-        return int(match.group(1))
-
-    # Fallback: count wavelength array elements
-    match = re.search(r'^wavelength\s*=\s*\{(.*?)\}', text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-    if match:
-        wl = [w.strip() for w in match.group(1).replace('\n', ' ').split(',') if w.strip()]
-        return len(wl)
-
-    raise ValueError(f"Could not find 'bands' or 'wavelength' field in {hdr}")
-
-
-def update_restart(
-    text: str,
-    reflib: str,
-    reslib: str,
-    chns: int = None,
-    ) -> str:
-    """
-    Update the restart file values for the newly convolved libraries
-
-    Parameters
-    ----------
-    text : str
-        Original restart file content
-    reflib : str
-        Path to reference library file
-    reslib : str
-        Path to research library
-    chns : int, default=None
-        New channel count. If None, keeps existing value.
-
-    Returns
-    -------
-    str
-        Updated restart file content
-    """
-    pack = {"w": reslib, "y": reflib}
-    for t, lib in pack.items():
-        # Research library path (iwfl)
-        text = re.sub(
-            rf'^(i{t}fl=)\S+(\s*)$',
-            rf'\1{reslib}\2',
-            text,
-            flags=re.MULTILINE
-        )
-
-        # Update the protection value
-        size = os.path.getsize(lib)
-        records = size // 1536
-        protection = -records
-        text = re.sub(
-            rf'^(iprt{t}=\s+).*(  # device protection {t})$',
-            rf'\1{protection}\2',
-            text,
-            flags=re.MULTILINE
-        )
-
-    # Channel count (nchans)
-    if chns is not None:
-        text = re.sub(
-            r'^(nchans=\s+)\d+(\s+#.*)$',
-            lambda m: f"{m.group(1)}{chns:>12}{m.group(2)}",
-            text,
-            flags=re.MULTILINE
-        )
-
-    return text
-
-
-def get_protection(file: str) -> int:
-    """
-    Compute the specpr "device protection" value for a library file.
-
-    Tetracorder restart files store a negative record count used to guard the
-    library device. This is derived from the file size in 1536-byte specpr
-    records: ``-(size // 1536 - 1)``.
-
-    Parameters
-    ----------
-    file : str
-        Path to the specpr library file.
-
-    Returns
-    -------
-    int
-        Negative record count to write into the restart file.
-    """
-    size = os.path.getsize(file)
-    records = size // 1536 - 1
-    protection = -records
-    return protection
-
-
-def find_deleted_channels(
-    wavelengths: NDArray[np.float64],
-    bad_regions: Optional[List[Tuple[float, float]]] = [
-        # Default atmospheric absorption regions
-        ( 000,  380), # Below visible
-        ( 940,  960), # H2O
-        (1100, 1160), # H2O
-        (1350, 1500), # H2O
-        (1800, 1980), # H2O
-        (2500, 3000), # Thermal/low SNR
-    ],
-) -> List[int]:
-    """
-    Identify channel indices that fall within bad spectral regions.
-
-    Parameters
-    ----------
-    wavelengths : NDArray[np.float64]
-        Wavelength array in micrometers
-    bad_regions : list of tuple, optional
-        List of (min_wl, max_wl) tuples defining bad regions in micrometers.
-        If None, uses default atmospheric absorption bands.
-
-    Returns
-    -------
-    list of int
-        1-indexed channel numbers to delete
-
-    Examples
-    --------
-    >>> wavelengths = np.linspace(0.38, 2.5, 285)
-    >>> deleted = find_deleted_channels(wavelengths)
-    >>> print(deleted[:5])  # First few deleted channels
-    [1, 2, 3, 4, 5]
-    """
-    deleted = []
-    for i, wl in enumerate(wavelengths, start=1):
-        for min_wl, max_wl in bad_regions:
-            if min_wl <= wl <= max_wl:
-                deleted.append(i)
-                break
-
-    return deleted
-
-
-def format_deleted_ranges(channels: List[int]) -> str:
-    """
-    Convert a list of channel numbers to range string format.
-
-    Parameters
-    ----------
-    channels : list of int
-        List of channel numbers (1-indexed)
-
-    Returns
-    -------
-    str
-        Space-separated range string (e.g., "1-4 107-113 150-165")
-
-    Examples
-    --------
-    >>> format_deleted_ranges([1, 2, 3, 4, 10, 11, 12, 20])
-    '1-4  10-12  20'
-    """
-    if not channels:
-        return ""
-
-    channels = sorted(set(channels))
-    ranges = []
-    start = channels[0]
-    end = channels[0]
-
-    for ch in channels[1:]:
-        if ch == end + 1:
-            end = ch
-        else:
-            if start == end:
-                ranges.append(str(start))
-            else:
-                ranges.append(f"{start}t{end}")
-            start = end = ch
-
-    # Add final range
-    if start == end:
-        ranges.append(str(start))
-    else:
-        ranges.append(f"{start}t{end}")
-
-    return "  ".join(ranges)
-
-
-def read_wavelengths(hdr: str) -> NDArray[np.float64]:
-    """
-    Extract wavelength array from an ENVI header file.
-
-    Parameters
-    ----------
-    hdr : str
-        Path to ENVI .hdr file
-
-    Returns
-    -------
-    NDArray[np.float64]
-        Wavelength array in micrometers
-
-    Raises
-    ------
-    FileNotFoundError
-        If header file doesn't exist
-    ValueError
-        If wavelength field is not found or cannot be parsed
-    """
-    text = Path(hdr).read_text()
-
-    # Find wavelength array
-    match = re.search(
-        r'wavelength\s*=\s*\{(.*?)\}',
-        text,
-        re.DOTALL | re.IGNORECASE
-    )
-    if not match:
-        raise ValueError(f"No wavelength field found in {hdr}")
-
-    # Parse wavelengths
-    wls = match.group(1).replace('\n', ' ').strip()
-    try:
-        wavelengths = np.array([float(w.strip()) for w in wls.split(',') if w.strip()])
-    except ValueError as e:
-        raise ValueError(f"Failed to parse wavelengths: {e}")
-
-    # Check units and convert if needed
-    units_match = re.search(r'wavelength\s+units\s*=\s*(\w+)', text, re.IGNORECASE)
-    if units_match:
-        units = units_match.group(1).lower()
-        if units in ['nanometers', 'nm']:
-            wavelengths = wavelengths / 1000.0  # Convert nm to µm
-        elif units not in ['micrometers', 'um', 'microns', 'µm']:
-            Logger.warning(f"Unknown wavelength units '{units}', assuming micrometers")
-
-    return wavelengths
-
-
-def make_deleted_file(path, name, hdr):
-    """
-    Write a DELETED.channels file from the scene's bad spectral regions.
-
-    Reads wavelengths from the scene ENVI header, identifies channels falling in
-    atmospheric/low-SNR regions, and writes them as a specpr channel-range string
-    to ``{path}/DELETED.channels/delete_{name}``.
-
-    .. note::
-        This definition is shadowed by the template-based ``make_deleted_file``
-        below and is currently unused; kept for reference.
-
-    Parameters
-    ----------
-    path : Path
-        Tetracorder command-tree directory containing ``DELETED.channels/``.
-    name : str
-        Sensor/dataset name; used for the output filename and label.
-    hdr : str
-        Path to the scene ENVI ``.hdr`` supplying the wavelength grid.
-    """
-    wavelengths = read_wavelengths(hdr)
-
-    # Find deleted channels
-    deleted = find_deleted_channels(wavelengths)
-
-    # Format as ranges
-    ranges = format_deleted_ranges(deleted)
-
-    # Write file
-    file = path / "DELETED.channels" / f"delete_{name}"
-    file.write_text(f"{ranges} c # {name}")
-
-
-def make_deleted_file(path, name, *_, **__):
-    """
-    Write a DELETED.channels file from the bundled template.
-
-    Uses the ``delete_channels.tmpl`` template verbatim (formatting in ``name``),
-    writing to ``{path}/DELETED.channels/delete_{name}``. Extra positional/keyword
-    arguments (e.g. ``hdr``) are accepted and ignored so this can be called with
-    the same signature as the header-driven variant above.
-
-    Parameters
-    ----------
-    path : Path
-        Tetracorder command-tree directory containing ``DELETED.channels/``.
-    name : str
-        Sensor/dataset name; used for the output filename and template field.
-    """
-    text = Path("tetrapy/templates/delete_channels.tmpl").read_text()
-    text = text.format(name=name)
-    (path / "DELETED.channels" / f"delete_{name}").write_text(text)
-
-
-def make_datasets_file(path, name):
-    """
-    Write the DATASETS entry pairing the dataset with its restart file.
-
-    Writes ``data=`` / ``restart=`` lines to ``{path}/DATASETS/{name}``, pointing
-    the dataset at its ``r1-{name}`` restart file.
-
-    Parameters
-    ----------
-    path : Path
-        Tetracorder command-tree directory containing ``DATASETS/``.
-    name : str
-        Sensor/dataset name.
-    """
-    text = "\n".join([f"data=    {name}", f"restart= r1-{name}"])
-    (path / "DATASETS" / name).write_text(text)
-
-
-def make_colors_file(path, name):
-    """
-    Write the COLOR.channels entry from the bundled template.
-
-    Writes ``color.tmpl`` verbatim to ``{path}/COLOR.channels/color-{name}``.
-
-    Parameters
-    ----------
-    path : Path
-        Tetracorder command-tree directory containing ``COLOR.channels/``.
-    name : str
-        Sensor/dataset name.
-    """
-    text = Path("tetrapy/templates/color.tmpl").read_text()
-    (path / "COLOR.channels" / f"color-{name}").write_text(text)
-
-
-def make_disable_file(path, name):
-    """
-    Write the DISABLE entry from the bundled template.
-
-    Writes ``disable.tmpl`` verbatim to ``{path}/DISABLE/{name}``.
-
-    Parameters
-    ----------
-    path : Path
-        Tetracorder command-tree directory containing ``DISABLE/``.
-    name : str
-        Sensor/dataset name.
-    """
-    text = Path("tetrapy/templates/disable.tmpl").read_text()
-    (path / "DISABLE" / name).write_text(text)
-
-
-def make_restart_file(path, name, hdr, reflib, reslib):
-    """
-    Write the restart file wiring the convolved libraries into tetracorder.
-
-    Fills ``restart_file.tmpl`` with the dataset name, channel count (from the
-    scene header), and the full path, short (8-char) name, and device-protection
-    value of each convolved library, writing to ``{path}/restart_files/r1-{name}``.
-
-    Parameters
-    ----------
-    path : Path
-        Tetracorder command-tree directory containing ``restart_files/``.
-    name : str
-        Sensor/dataset name.
-    hdr : str
-        Path to the scene ENVI ``.hdr`` supplying the channel count.
-    reflib : Path
-        Path to the convolved reference library.
-    reslib : Path
-        Path to the convolved research library.
-    """
-    file = path / "restart_files" / f"r1-{name}"
-    text = Path("tetrapy/templates/restart_file.tmpl").read_text()
-    text = text.format(
-        name   = name,
-        nchans = get_channels(hdr),
-        reflib_full       = reflib,
-        reflib_short      = reflib.name[:8],
-        reflib_protection = get_protection(reflib),
-        reslib_full       = reslib,
-        reslib_short      = reslib.name[:8],
-        reslib_protection = get_protection(reslib),
-    )
-    file.write_text(text)
-
-
-def make_convolution(lib, file, hdr, output, noconv):
+def make_convolution(lib, file, rfl, output, noconv):
     """
     Convolve one master library onto a scene grid and export it as ENVI.
 
@@ -877,12 +188,11 @@ def make_convolution(lib, file, hdr, output, noconv):
     Parameters
     ----------
     lib : str
-        Library role/name, used as the family tag and output stem (e.g.
-        ``"reflib"`` or ``"reslib"``).
+        Library role/name, used as the output stem (e.g. ``"reflib"`` / ``"reslib"``).
     file : str or Path
         Path to the unconvolved master library (specpr format).
-    hdr : str or Path
-        Path to the scene ENVI ``.hdr`` supplying the target grid.
+    rfl : str or Path
+        Path to the scene reflectance raster supplying the target grid.
     output : Path
         Output directory; the specpr library is written to ``output/{lib}``.
     noconv : bool
@@ -895,27 +205,20 @@ def make_convolution(lib, file, hdr, output, noconv):
     """
     Logger.info(f"Convolving {lib}: {file}")
 
-    output /= f"{lib}"
-    envi = output.with_suffix(".envi")
+    conv.build_library(
+        master_path = str(file),
+        out_path = str(output),
+        rfl = str(rfl),
+        log = Logger.debug,
+    )
 
-    if not noconv:
-        if output.exists():
-            output.unlink()
+    Logger.debug(f"  Saved to: {output}")
 
-        conv.build_library(
-            master_path = str(file),
-            out_path = str(output),
-            hdr_path = str(hdr),
-            family = lib,
-            log = Logger.debug,
-        )
-
-        Logger.debug(f"  Saved to: {output}")
-
-        cv.export_envi(
-            str(output),
-            str(envi)
-        )
+    envi = output.with_name(f"{output.name}-envi")
+    cv.export_envi(
+        str(output),
+        str(envi)
+    )
 
     return output
 
@@ -925,23 +228,21 @@ def convolve(
     reslib: str,
     rfl: str,
     version: str = "6.00a",
-    output: str = "/conv",
+    out_ref: str = "/conv/reflib",
+    out_res: str = "/conv/reslib",
     name: str = "tetrapy",
-    integrate: bool = True,
-    noconv: bool = False,
 ) -> None:
     """
-    Convolve the reference and research libraries onto a scene's grid and integrate them into tetracorder.
+    Convolve the reference and research master libraries onto a scene's grid.
 
     Takes the unconvolved reference (``reflib``) and research (``reslib``) master
-    libraries, convolves each onto the target instrument grid read from the scene's
-    ENVI header (``{rfl}.hdr``), and — when ``integrate`` is set — wires the results
-    into the tetracorder command tree so a subsequent run uses them.
+    libraries and convolves each onto the target instrument grid read from the
+    scene's ENVI header (``{rfl}.hdr``). For each library it writes the convolved
+    specpr result plus a matching ENVI export (``{out}-envi``) for the downstream
+    aggregator.
 
-    For each library, this function:
-    1. Convolves the master library onto the scene grid (see :mod:`tetrapy.convolve`)
-    2. Writes the specpr result to ``{output}/{reflib,reslib}``
-    3. Exports an ENVI-format copy alongside it (``.envi``) for downstream processing
+    Wiring the convolved libraries into the tetracorder command tree is a separate
+    step, handled by :mod:`tetrapy.sensor` (the ``sensor`` pipeline stage).
 
     \b
     Parameters
@@ -954,18 +255,17 @@ def convolve(
         Path to the EMIT reflectance file (the data, not the .hdr). Its companion
         ``.hdr`` supplies the target wavelength/FWHM grid for convolution.
     version : str, default="6.00a"
-        Tetracorder version, used to locate the command tree during integration.
-    output : str, default="/conv"
-        Output directory. Convolved specpr + ENVI libraries are written here.
+        Tetracorder version (accepted for pipeline symmetry; convolution itself is
+        version-independent).
+    out_ref : str, default="/conv/reflib"
+        Output path for the convolved reference specpr library. Its ENVI export is
+        written alongside as ``{out_ref}-envi``.
+    out_res : str, default="/conv/reslib"
+        Output path for the convolved research specpr library. Its ENVI export is
+        written alongside as ``{out_res}-envi``.
     name : str, default="tetrapy"
-        Sensor/dataset name used for the integrated tetracorder files (restart,
-        color, disable, datasets, deleted-channels).
-    integrate : bool, default=True
-        If True, write the tetracorder integration files (restart, color, disable,
-        datasets, deleted-channels) so a run picks up the convolved libraries.
-    noconv : bool, default=False
-        If True, skip the convolution step and reuse existing outputs in ``output``
-        (useful when only re-running integration).
+        Sensor/dataset name (retained for pipeline symmetry; integration into the
+        command tree is done by :mod:`tetrapy.sensor`).
 
     Returns
     -------
@@ -978,12 +278,9 @@ def convolve(
 
     Notes
     -----
-    Integration writes into the tetracorder command tree at
-    ``/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds``. The ENVI
-    exports are suitable for use with the L2B aggregator (``tetrapy aggregate``).
+    The ENVI exports are suitable for use with the L2B aggregator
+    (``tetrapy aggregate``).
     """
-    out = Path(output)
-    out.mkdir(parents=True, exist_ok=True)
     hdr = Path(rfl).with_suffix(".hdr")
 
     if not (reflib := Path(reflib)).exists():
@@ -998,8 +295,8 @@ def convolve(
     reslib = make_convolution(
         lib  = "reslib",
         file = reslib,
-        hdr  = hdr,
-        output = out,
+        rfl  = rfl,
+        output = out_res,
         noconv = noconv
     )
 
@@ -1008,16 +305,7 @@ def convolve(
     reflib = make_convolution(
         lib  = "reflib",
         file = reflib,
-        hdr  = hdr,
-        output = out,
+        rfl  = rfl,
+        output = out_ref,
         noconv = noconv,
     )
-
-    # Integrate these into Tetracorder
-    if integrate:
-        path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
-        make_colors_file(path, name)
-        make_disable_file(path, name)
-        make_datasets_file(path, name)
-        make_deleted_file(path, name, hdr)
-        make_restart_file(path, name, hdr, reslib=reslib, reflib=reflib)
