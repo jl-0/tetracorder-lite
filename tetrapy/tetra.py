@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from numpy.typing import NDArray
 
 from tetrapy import convolve as cv
 from tetrapy import conv
@@ -22,7 +23,7 @@ def setup_tetrun(
     output: str = "/output/tetracorder",
     sensor: str = "emit_c",
     mode: str = "cube",
-    file: str = "/data/r",
+    rfl: str = "/data/r",
     geology: bool = False,
     cores: Optional[int] = os.cpu_count(),
     args: List[str] = ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"],
@@ -47,8 +48,8 @@ def setup_tetrun(
         Sensor identifier for spectral library selection (e.g., "emit_c", "aviris").
     mode : str, default="cube"
         Tetracorder processing mode, either "cube" or "singlespectrum".
-    file : str, default="/data/r"
-        Input reflectance file path to process.
+    rfl : str, default="/data/r"
+        Input reflectance file path to process (the data, not the .hdr).
     geology : bool, default=False
         If True and using v6 tetracorder, enables geology mode. Otherwise uses nogeology.
     cores : Optional[int], default=os.cpu_count()
@@ -82,7 +83,7 @@ def setup_tetrun(
         output,
         sensor,
         mode,
-        file,
+        rfl,
         *args
     ]
 
@@ -121,7 +122,7 @@ def setup_tetrun(
 def exec_tetrun(
     output: str = "/output/tetracorder",
     mode: str = "cube",
-    file: str = "/data/r",
+    rfl: str = "/data/r",
     args: List[str] = ["band", "20", "gif"],
     **_
 ) -> None:
@@ -138,8 +139,8 @@ def exec_tetrun(
         Output directory containing the tetracorder setup.
     mode : str, default="cube"
         Tetracorder processing mode, either "cube" or "singlespectrum".
-    file : str, default="/data/r"
-        Input reflectance file path to process.
+    rfl : str, default="/data/r"
+        Input reflectance file path to process (the data, not the .hdr).
     args : List[str], default=["band", "20", "gif"]
         Additional arguments to pass to cmd.runtet script.
 
@@ -151,7 +152,7 @@ def exec_tetrun(
     cmd = [
         "./cmd.runtet",
         mode,
-        file
+        rfl
     ]
 
     log = Path(output) / "tetrun.log"
@@ -438,7 +439,7 @@ def get_sensor(text: str) -> str:
     Examples
     --------
     >>> text = Path('restart_files/r1-emitc').read_text()
-    >>> sensor = detect_sensor_from_restart(text)
+    >>> sensor = get_sensor(text)
     >>> print(sensor)
     'emitc'
     """
@@ -494,7 +495,7 @@ def get_channels(hdr: str) -> int:
         wl = [w.strip() for w in match.group(1).replace('\n', ' ').split(',') if w.strip()]
         return len(wl)
 
-    raise ValueError(f"Could not find 'bands' or 'wavelength' field in {path}")
+    raise ValueError(f"Could not find 'bands' or 'wavelength' field in {hdr}")
 
 
 def update_restart(
@@ -557,7 +558,21 @@ def update_restart(
 
 def get_protection(file: str) -> int:
     """
-    Calculations the protection value of a file
+    Compute the specpr "device protection" value for a library file.
+
+    Tetracorder restart files store a negative record count used to guard the
+    library device. This is derived from the file size in 1536-byte specpr
+    records: ``-(size // 1536 - 1)``.
+
+    Parameters
+    ----------
+    file : str
+        Path to the specpr library file.
+
+    Returns
+    -------
+    int
+        Negative record count to write into the restart file.
     """
     size = os.path.getsize(file)
     records = size // 1536 - 1
@@ -662,7 +677,7 @@ def read_wavelengths(hdr: str) -> NDArray[np.float64]:
 
     Parameters
     ----------
-    hdr_path : str
+    hdr : str
         Path to ENVI .hdr file
 
     Returns
@@ -686,7 +701,7 @@ def read_wavelengths(hdr: str) -> NDArray[np.float64]:
         re.DOTALL | re.IGNORECASE
     )
     if not match:
-        raise ValueError(f"No wavelength field found in {hdr_path}")
+        raise ValueError(f"No wavelength field found in {hdr}")
 
     # Parse wavelengths
     wls = match.group(1).replace('\n', ' ').strip()
@@ -709,7 +724,24 @@ def read_wavelengths(hdr: str) -> NDArray[np.float64]:
 
 def make_deleted_file(path, name, hdr):
     """
-    Attempts to find deleted channels
+    Write a DELETED.channels file from the scene's bad spectral regions.
+
+    Reads wavelengths from the scene ENVI header, identifies channels falling in
+    atmospheric/low-SNR regions, and writes them as a specpr channel-range string
+    to ``{path}/DELETED.channels/delete_{name}``.
+
+    .. note::
+        This definition is shadowed by the template-based ``make_deleted_file``
+        below and is currently unused; kept for reference.
+
+    Parameters
+    ----------
+    path : Path
+        Tetracorder command-tree directory containing ``DELETED.channels/``.
+    name : str
+        Sensor/dataset name; used for the output filename and label.
+    hdr : str
+        Path to the scene ENVI ``.hdr`` supplying the wavelength grid.
     """
     wavelengths = read_wavelengths(hdr)
 
@@ -726,7 +758,19 @@ def make_deleted_file(path, name, hdr):
 
 def make_deleted_file(path, name, *_, **__):
     """
-    Just takes the template as-is
+    Write a DELETED.channels file from the bundled template.
+
+    Uses the ``delete_channels.tmpl`` template verbatim (formatting in ``name``),
+    writing to ``{path}/DELETED.channels/delete_{name}``. Extra positional/keyword
+    arguments (e.g. ``hdr``) are accepted and ignored so this can be called with
+    the same signature as the header-driven variant above.
+
+    Parameters
+    ----------
+    path : Path
+        Tetracorder command-tree directory containing ``DELETED.channels/``.
+    name : str
+        Sensor/dataset name; used for the output filename and template field.
     """
     text = Path("tetrapy/templates/delete_channels.tmpl").read_text()
     text = text.format(name=name)
@@ -735,6 +779,17 @@ def make_deleted_file(path, name, *_, **__):
 
 def make_datasets_file(path, name):
     """
+    Write the DATASETS entry pairing the dataset with its restart file.
+
+    Writes ``data=`` / ``restart=`` lines to ``{path}/DATASETS/{name}``, pointing
+    the dataset at its ``r1-{name}`` restart file.
+
+    Parameters
+    ----------
+    path : Path
+        Tetracorder command-tree directory containing ``DATASETS/``.
+    name : str
+        Sensor/dataset name.
     """
     text = "\n".join([f"data=    {name}", f"restart= r1-{name}"])
     (path / "DATASETS" / name).write_text(text)
@@ -742,6 +797,16 @@ def make_datasets_file(path, name):
 
 def make_colors_file(path, name):
     """
+    Write the COLOR.channels entry from the bundled template.
+
+    Writes ``color.tmpl`` verbatim to ``{path}/COLOR.channels/color-{name}``.
+
+    Parameters
+    ----------
+    path : Path
+        Tetracorder command-tree directory containing ``COLOR.channels/``.
+    name : str
+        Sensor/dataset name.
     """
     text = Path("tetrapy/templates/color.tmpl").read_text()
     (path / "COLOR.channels" / f"color-{name}").write_text(text)
@@ -749,6 +814,16 @@ def make_colors_file(path, name):
 
 def make_disable_file(path, name):
     """
+    Write the DISABLE entry from the bundled template.
+
+    Writes ``disable.tmpl`` verbatim to ``{path}/DISABLE/{name}``.
+
+    Parameters
+    ----------
+    path : Path
+        Tetracorder command-tree directory containing ``DISABLE/``.
+    name : str
+        Sensor/dataset name.
     """
     text = Path("tetrapy/templates/disable.tmpl").read_text()
     (path / "DISABLE" / name).write_text(text)
@@ -756,6 +831,24 @@ def make_disable_file(path, name):
 
 def make_restart_file(path, name, hdr, reflib, reslib):
     """
+    Write the restart file wiring the convolved libraries into tetracorder.
+
+    Fills ``restart_file.tmpl`` with the dataset name, channel count (from the
+    scene header), and the full path, short (8-char) name, and device-protection
+    value of each convolved library, writing to ``{path}/restart_files/r1-{name}``.
+
+    Parameters
+    ----------
+    path : Path
+        Tetracorder command-tree directory containing ``restart_files/``.
+    name : str
+        Sensor/dataset name.
+    hdr : str
+        Path to the scene ENVI ``.hdr`` supplying the channel count.
+    reflib : Path
+        Path to the convolved reference library.
+    reslib : Path
+        Path to the convolved research library.
     """
     file = path / "restart_files" / f"r1-{name}"
     text = Path("tetrapy/templates/restart_file.tmpl").read_text()
@@ -772,28 +865,47 @@ def make_restart_file(path, name, hdr, reflib, reslib):
     file.write_text(text)
 
 
-def make_convolution(lib, file, recipe, envi, output, links, noconv):
+def make_convolution(lib, file, hdr, output, noconv):
     """
+    Convolve one master library onto a scene grid and export it as ENVI.
+
+    Builds the convolved specpr library at ``{output}/{lib}`` (via
+    :func:`tetrapy.conv.build_library`) and writes a matching ``.envi`` copy
+    (via :func:`tetrapy.convolve.export_envi`). When ``noconv`` is True the
+    build/export is skipped and the expected specpr path is returned as-is.
+
+    Parameters
+    ----------
+    lib : str
+        Library role/name, used as the family tag and output stem (e.g.
+        ``"reflib"`` or ``"reslib"``).
+    file : str or Path
+        Path to the unconvolved master library (specpr format).
+    hdr : str or Path
+        Path to the scene ENVI ``.hdr`` supplying the target grid.
+    output : Path
+        Output directory; the specpr library is written to ``output/{lib}``.
+    noconv : bool
+        If True, skip convolution/export and just return the output path.
+
+    Returns
+    -------
+    Path
+        Path to the convolved specpr library (``{output}/{lib}``).
     """
     Logger.info(f"Convolving {lib}: {file}")
-    # Logger.debug(f"  Recipe: {recipe}")
 
     output /= f"{lib}"
+    envi = output.with_suffix(".envi")
 
     if not noconv:
         if output.exists():
             output.unlink()
 
-        # cv.build_from_recipe(
-        #     master = str(file),
-        #     recipe = str(recipe),
-        #     output = str(output),
-        #     envi_header = str(envi),
-        # )
         conv.build_library(
             master_path = str(file),
             out_path = str(output),
-            hdr_path = str(envi),
+            hdr_path = str(hdr),
             family = lib,
             log = Logger.debug,
         )
@@ -802,107 +914,92 @@ def make_convolution(lib, file, recipe, envi, output, links, noconv):
 
         cv.export_envi(
             str(output),
-            str(output.with_suffix(".envi"))
+            str(envi)
         )
 
-    if lib == "reslib":
-        link = links / "rlib06" / output.name
-    elif lib == "reflib":
-        link = links / "library06.conv" / output.name
-
-    if link.exists():
-        link.unlink()
-
-    Logger.debug(f"  Linking to: {file}")
-    link.parent.mkdir(exist_ok=True, parents=True)
-    link.symlink_to(output)
-
-    return link
+    return output
 
 
 def convolve(
     reflib: str,
     reslib: str,
-    recipe: str,
+    rfl: str,
     version: str = "6.00a",
-    output: str = "/output",
-    file: str = "/data/r",
+    output: str = "/conv",
+    name: str = "tetrapy",
+    integrate: bool = True,
     noconv: bool = False,
-) -> Dict[str, str]:
+) -> None:
     """
-    Build convolved libraries from research and reference inputs with a recipe and integrate into tetracorder.
+    Convolve the reference and research libraries onto a scene's grid and integrate them into tetracorder.
 
-    This command takes research (reslib) and reference (reflib) unconvolved libraries,
-    convolves them using a specified recipe onto the target instrument grid from the
-    scene's ENVI header, and integrates them into tetracorder. Convolved outputs are
-    saved to [output]/l2b/.
+    Takes the unconvolved reference (``reflib``) and research (``reslib``) master
+    libraries, convolves each onto the target instrument grid read from the scene's
+    ENVI header (``{rfl}.hdr``), and — when ``integrate`` is set — wires the results
+    into the tetracorder command tree so a subsequent run uses them.
 
     For each library, this function:
-    1. Convolves the master library using the provided recipe
-    2. Writes the specpr result to {output}/l2b/
-    3. Copies it to the tetracorder library path under /root/sl1
-    4. Exports an ENVI-format copy to {output}/l2b/ for downstream processing
+    1. Convolves the master library onto the scene grid (see :mod:`tetrapy.convolve`)
+    2. Writes the specpr result to ``{output}/{reflib,reslib}``
+    3. Exports an ENVI-format copy alongside it (``.envi``) for downstream processing
 
+    \b
     Parameters
     ----------
     reflib : str
         Path to the unconvolved reference library (splib06b) in specpr format.
     reslib : str
         Path to the unconvolved research library (sprlb06b) in specpr format.
-    recipe : str
-        Path to the convolution recipe file (.cmds or .csv) that defines which
-        spectra to convolve and their configurations.
-    file : str, default="/data/r"
-        Path to the EMIT reflectance file (or its .hdr) providing the target
-        wavelength/FWHM grid for convolution.
-    output : str, default="/output"
-        Output root directory. Convolved specpr + ENVI libraries are written
-        under {output}/l2b/.
+    rfl : str
+        Path to the EMIT reflectance file (the data, not the .hdr). Its companion
+        ``.hdr`` supplies the target wavelength/FWHM grid for convolution.
+    version : str, default="6.00a"
+        Tetracorder version, used to locate the command tree during integration.
+    output : str, default="/conv"
+        Output directory. Convolved specpr + ENVI libraries are written here.
+    name : str, default="tetrapy"
+        Sensor/dataset name used for the integrated tetracorder files (restart,
+        color, disable, datasets, deleted-channels).
+    integrate : bool, default=True
+        If True, write the tetracorder integration files (restart, color, disable,
+        datasets, deleted-channels) so a run picks up the convolved libraries.
+    noconv : bool, default=False
+        If True, skip the convolution step and reuse existing outputs in ``output``
+        (useful when only re-running integration).
 
     Returns
     -------
-    Dict[str, str]
-        Mapping of library role ("reference", "research") to their output paths
-        in {output}/l2b/.
+    None
 
     Raises
     ------
     FileNotFoundError
-        If a master library, recipe file, or ENVI header is missing.
+        If a master library or the scene's ENVI header is missing.
 
     Notes
     -----
-    The convolved libraries are installed at paths that tetracorder expects:
-    - Reference library: /root/sl1/usgs/library06.conv/s06emitc
-    - Research library: /root/sl1/usgs/rlib06/r06emitc
-
-    ENVI exports are suitable for use with the L2B group aggregator (tetrapy gagg).
+    Integration writes into the tetracorder command tree at
+    ``/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds``. The ENVI
+    exports are suitable for use with the L2B aggregator (``tetrapy aggregate``).
     """
-    out = Path("/root/tetracorder/sl1/usgs/tetrapy")
+    out = Path(output)
     out.mkdir(parents=True, exist_ok=True)
-    hdr = Path(file).with_suffix(".hdr")
-
-    if recipe is None:
-        recipe = Path("/root/tetracorder/sl1/usgs/library06.conv/")
+    hdr = Path(rfl).with_suffix(".hdr")
 
     if not (reflib := Path(reflib)).exists():
         raise FileNotFoundError(f"Reference library not found: {reflib}")
     if not (reslib := Path(reslib)).exists():
         raise FileNotFoundError(f"Research library not found: {reslib}")
-    if not Path(recipe).exists():
-        raise FileNotFoundError(f"Recipe directory not found: {recipe}")
     if not hdr.exists():
         raise FileNotFoundError(f"ENVI header not found: {hdr}")
 
     # Research Library
-    sprlb = reslib
+    # sprlb = reslib
     reslib = make_convolution(
         lib  = "reslib",
         file = reslib,
-        recipe = recipe / "conv.r06emitc.cmds",
-        envi   = hdr,
+        hdr  = hdr,
         output = out,
-        links  = Path("/root/tetracorder/sl1/usgs"),
         noconv = noconv
     )
 
@@ -911,18 +1008,16 @@ def convolve(
     reflib = make_convolution(
         lib  = "reflib",
         file = reflib,
-        recipe = recipe / "conv.s06emitc.cmds",
-        envi   = hdr,
+        hdr  = hdr,
         output = out,
-        links  = Path("/root/tetracorder/sl1/usgs"),
         noconv = noconv,
     )
 
     # Integrate these into Tetracorder
-    name = "tetrapy"
-    path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
-    make_colors_file(path, name)
-    make_disable_file(path, name)
-    make_datasets_file(path, name)
-    make_deleted_file(path, name, hdr)
-    make_restart_file(path, name, hdr, reslib=reslib, reflib=reflib)
+    if integrate:
+        path = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{version}.cmds")
+        make_colors_file(path, name)
+        make_disable_file(path, name)
+        make_datasets_file(path, name)
+        make_deleted_file(path, name, hdr)
+        make_restart_file(path, name, hdr, reslib=reslib, reflib=reflib)

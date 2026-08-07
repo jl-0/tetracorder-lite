@@ -6,6 +6,12 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.4.1",
+    "numpy>=2.2.6",
+    "python-box[all]>=7.4.1",
+    "rioxarray>=0.19.0",
+    "scipy>=1.15.3",
+    "spectral>=0.25",
+    "xarray>=2025.6.1",
 ]
 
 [project.scripts]
