@@ -8,10 +8,10 @@ endpoints) that define it, and the fit/depth constraints applied.
 import csv
 import re
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 
-def decode(*args, **kwargs):
+def decode(*args, **kwargs) -> List[dict]:
     """
     Convenience wrapper: decode an expert system file and return its material records.
 
@@ -33,7 +33,7 @@ def decode(*args, **kwargs):
     return TetraDecoder(*args, **kwargs).blocks
 
 
-def export_csv(*args, file, **kwargs):
+def export_csv(*args, file: str, **kwargs) -> None:
     """
     Convenience wrapper: decode an expert system file and write the records to CSV.
 
@@ -90,7 +90,13 @@ class TetraDecoder:
     ignored : list[dict]
         Decoded records whose group was not in :attr:`only`.
     """
-    def __init__(self, path, groups=(1, 2), decode=True, raise_casts=True):
+    def __init__(
+        self,
+        path: Union[str, Path],
+        groups: Tuple[int, ...] = (1, 2),
+        decode: bool = True,
+        raise_casts: bool = True,
+    ):
         """
         Parameters
         ----------
@@ -133,7 +139,7 @@ class TetraDecoder:
         if decode:
             self.decode()
 
-    def decode(self):
+    def decode(self) -> List[dict]:
         """
         Read the expert system file and parse every group block.
 
@@ -165,7 +171,7 @@ class TetraDecoder:
 
         return self.blocks
 
-    def parse_block(self, block):
+    def parse_block(self, block: List[str]) -> dict:
         """
         Parse a single group block into a material record.
 
@@ -272,7 +278,7 @@ class TetraDecoder:
 
         return data
 
-    def get_groups(self, groups):
+    def get_groups(self, groups: Iterable[int]) -> List[dict]:
         """
         Return the decoded records belonging to the given groups.
 
@@ -291,8 +297,29 @@ class TetraDecoder:
         """
         return [block for block in self.blocks if block["group"] in groups]
 
-    def cast(self, dtype, val):
-        def apply(v):
+    def cast(self, dtype: type, val: Any) -> Any:
+        """
+        Cast a value (or each item of a list) to ``dtype``, tolerating failures.
+
+        Applies ``dtype`` to ``val`` (or elementwise if ``val`` is a list). When a
+        conversion fails, the original value is kept unless ``raise_casts`` was set on
+        the decoder, in which case the error propagates. Used to coerce the numeric
+        fields parsed out of the expert system while leaving unparseable tokens (e.g.
+        unresolved ``[NAME]`` references) intact.
+
+        Parameters
+        ----------
+        dtype : type
+            The target type/callable applied to each value (e.g. ``float``).
+        val : Any
+            A single value or a list of values to cast.
+
+        Returns
+        -------
+        Any
+            The cast value, or a list of cast values when ``val`` is a list.
+        """
+        def apply(v: Any) -> Any:
             try:
                 return dtype(v)
             except:
@@ -304,7 +331,12 @@ class TetraDecoder:
             return [apply(v) for v in val]
         return apply(val)
 
-    def export_csv(self, file, groups=None, columns=("group", "library", "record", "title", "path")):
+    def export_csv(
+        self,
+        file: str,
+        groups: Optional[Iterable[int]] = None,
+        columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
+    ) -> None:
         """
         Write the decoded records to a CSV file, one row per material.
 
@@ -380,7 +412,7 @@ class TetraDecoder:
         }
 
     @staticmethod
-    def parse_not_ratios(file):
+    def parse_not_ratios(file: str) -> Dict[str, Dict[str, str]]:
         """
         Parse the ``cmd.lib.setup.nots-ratios`` "not feature" definitions.
 
@@ -439,7 +471,7 @@ class TetraDecoder:
         return {int(group): path for group, path in matches}
 
     @staticmethod
-    def extract_blocks(lines):
+    def extract_blocks(lines: Iterable[str]) -> Iterator[List[str]]:
         """
         Split the expert system lines into group blocks.
 

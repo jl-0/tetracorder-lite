@@ -16,11 +16,13 @@ Stage order, as run by ``tetrapy run``:
 import logging
 from pathlib import Path
 
+from box import Box
+
 
 Logger = logging.getLogger(__name__)
 
 
-def export_matrix(c):
+def export_matrix(c: Box) -> None:
     """
     Decode the tetracorder expert system and export its material matrix to CSV.
 
@@ -44,7 +46,7 @@ def export_matrix(c):
     )
 
 
-def convolve(c):
+def convolve(c: Box) -> None:
     """
     Convolve the reference + research master libraries onto the scene's grid.
 
@@ -58,7 +60,6 @@ def convolve(c):
 
     Logger.info("Executing convolve")
     tetra.convolve(
-        version = c.tetracorder.version,
         rfl     = c.data.rfl,
         reflib  = c.convolve.reflib,
         reslib  = c.convolve.reslib,
@@ -67,7 +68,7 @@ def convolve(c):
     )
 
 
-def sensor(c):
+def sensor(c: Box) -> None:
     """
     Integrate the convolved library into the tetracorder command tree.
 
@@ -88,7 +89,7 @@ def sensor(c):
     )
 
 
-def setup(c):
+def setup(c: Box) -> None:
     """
     Configure a tetracorder run (``cmd-setup-tetrun``).
 
@@ -112,7 +113,7 @@ def setup(c):
     )
 
 
-def tetrun(c):
+def tetrun(c: Box) -> None:
     """
     Execute a previously-configured tetracorder run (``cmd.runtet``).
 
@@ -131,7 +132,7 @@ def tetrun(c):
     )
 
 
-def aggregate(c):
+def aggregate(c: Box) -> None:
     """
     Aggregate tetracorder outputs into L2B mineral / uncertainty products.
 

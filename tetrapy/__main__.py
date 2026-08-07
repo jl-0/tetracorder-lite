@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 import click
+from box import Box
 
 from tetrapy import pipeline as pl
 from tetrapy.config import load
@@ -17,7 +18,28 @@ Config = click.argument("config")
 Section = click.option("-s", "--section", help="Subsection of the yaml to load rather than the whole file")
 
 
-def init(config, section, ctx):
+def init(config: str, section: str, ctx: click.Context) -> Box:
+    """
+    Load, patch, and interpolate the config, then configure logging.
+
+    Shared by every command: reads the YAML at ``config`` (optionally narrowed to
+    ``section``), applies the CLI overrides carried on ``ctx``, resolves ``${...}``
+    interpolation, and sets the root log level from ``log.level``.
+
+    Parameters
+    ----------
+    config : str
+        Path to the config YAML file.
+    section : str
+        Subsection of the config to load, or a falsy value for the whole file.
+    ctx : click.Context
+        Click context whose extra args supply the dotted ``--key value`` overrides.
+
+    Returns
+    -------
+    box.Box
+        The fully resolved configuration.
+    """
     config = load(config, section, ctx=ctx, interp=True)
 
     lvl = getattr(logging, config.log.get("level", "INFO"))
@@ -38,7 +60,7 @@ def cli() -> None:
 @click.pass_context
 @Config
 @Section
-def run(**kwargs):
+def run(**kwargs) -> None:
     """\
     Execute the full tetrapy pipeline from a YAML config
     """
@@ -73,7 +95,7 @@ def run(**kwargs):
 @click.pass_context
 @Config
 @Section
-def export_matrix(**kwargs):
+def export_matrix(**kwargs) -> None:
     c = init(**kwargs)
     pl.export_matrix(c)
 
@@ -82,7 +104,7 @@ def export_matrix(**kwargs):
 @click.pass_context
 @Config
 @Section
-def convolve(**kwargs):
+def convolve(**kwargs) -> None:
     c = init(**kwargs)
     pl.convolve(c)
 
@@ -91,7 +113,7 @@ def convolve(**kwargs):
 @click.pass_context
 @Config
 @Section
-def sensor(**kwargs):
+def sensor(**kwargs) -> None:
     c = init(**kwargs)
     pl.sensor(c)
 
@@ -100,7 +122,7 @@ def sensor(**kwargs):
 @click.pass_context
 @Config
 @Section
-def setup(**kwargs):
+def setup(**kwargs) -> None:
     c = init(**kwargs)
     pl.setup(c)
 
@@ -109,7 +131,7 @@ def setup(**kwargs):
 @click.pass_context
 @Config
 @Section
-def tetrun(**kwargs):
+def tetrun(**kwargs) -> None:
     c = init(**kwargs)
     pl.tetrun(c)
 
@@ -118,7 +140,7 @@ def tetrun(**kwargs):
 @click.pass_context
 @Config
 @Section
-def aggregate(**kwargs):
+def aggregate(**kwargs) -> None:
     c = init(**kwargs)
     pl.aggregate(c)
 

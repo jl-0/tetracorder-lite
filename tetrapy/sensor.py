@@ -6,7 +6,7 @@ tetracorder run has to be told about it. That means writing, for a named "sensor
 the handful of per-sensor files the command tree looks up by name:
 
 - ``restart_files/r1-{name}`` — the specpr restart file pointing at the convolved
-  reference / research libraries (built from the :data:`RESTART` template).
+  reference / research libraries.
 - ``DELETED.channels/delete_{name}`` — the channels to drop for this sensor.
 - ``DISABLE/{name}`` — which analysis groups and cases are enabled vs. disabled.
 - ``COLOR.channels/color-{name}`` — the color-composite channel definitions.
@@ -18,8 +18,10 @@ file self-consistently matches the scene being mapped.
 
 import logging
 from pathlib import Path
+from typing import Iterable, List, Union
 
 import xarray as xr
+from box import Box
 
 from tetrapy.tetracorder import TetraDecoder
 
@@ -181,7 +183,7 @@ filtyp(12,5)=         0  # blank
 """
 
 
-def parse_list(vals):
+def parse_list(vals: Iterable[Union[int, str]]) -> List[int]:
     """
     Expand a mixed list of ints and ``"a-b"`` range strings into a flat int list.
 
@@ -213,7 +215,7 @@ def parse_list(vals):
     return ret
 
 
-def build(path, sensor, rfl):
+def build(path: Path, sensor: Box, rfl: Union[str, Path]) -> None:
     """
     Write the per-sensor tetracorder integration files for a convolved library.
 
@@ -256,9 +258,14 @@ def build(path, sensor, rfl):
 
     # restart_files/
     protection = lambda f: -(f.stat().st_size // 1536 - 1)
-    reflib = Path(sensor.reflib)
-    reslib = Path(sensor.reslib)
+
+    if not (reflib := Path(sensor.reflib)).exists():
+        raise FileNotFoundError(f"Reference library not found: {reflib}")
+    if not (reslib := Path(sensor.reslib)).exists():
+        raise FileNotFoundError(f"Research library not found: {reslib}")
+
     nchans = xr.open_dataset(rfl, engine="rasterio").band.size
+
     text = RESTART.format(
         name   = sensor.name,
         nchans = nchans,

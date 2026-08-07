@@ -44,16 +44,14 @@ def setup_tetrun(
     cores: Optional[int] = os.cpu_count(),
     args: List[str] = ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"],
     rm: bool = False,
-    **_
 ) -> None:
-    """\
+    """
     Call the tetracorder cmd-setup-tetrun script to initialize a tetracorder run.
 
     This function sets up the necessary directory structure and configuration files
     for running USGS Tetracorder mineral identification. It invokes the tetracorder
     setup script and applies necessary patches for compatibility.
 
-    \b
     Parameters
     ----------
     version : str, default="6.00a"
@@ -87,12 +85,12 @@ def setup_tetrun(
     - Sets geology/nogeology parameter for v6 tetracorder
     - Configures CPU core count in TETNCPU.txt
     """
-    exists = Path(output).exists()
-    if rm and exists:
+    out = Path(output)
+    if rm and out.exists():
         shutil.rmtree(output)
-        exists = False
 
-    assert not exists, "cmd-setup-tetrun requires the output directory to not exist"
+    if out.exists():
+        raise ValueError("Tetracorder's cmd-setup-tetrun requires the output directory to not exist")
 
     cmd = [
         f"/t1/tetracorder.cmds/tetracorder{version}.cmds/cmd-setup-tetrun",
@@ -103,10 +101,10 @@ def setup_tetrun(
         *args
     ]
 
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
 
     # Remove erroneous 'time' command in the script
-    path = Path(output) / "cmd.runtet"
+    path = out / "cmd.runtet"
     if path.exists():
         path.write_text(
             path.read_text().replace("time", "")
@@ -114,21 +112,14 @@ def setup_tetrun(
 
     # v6 cmd file needs to set the geology parameter
     if "6" in version:
-        path = Path(f"{output}/cmds.start.t{version}")
-
-        if path.exists():
-            lines = path.read_text().splitlines()
-
-            geo = "geology" if geology else "nogeology"
-            for i, line in enumerate(lines):
-                if line.startswith("mode"):
-                    lines.insert(i, geo)
-                    break
-
-            path.write_text("\n".join(lines) + "\n")
+        path = out / f"cmds.start.t{version}"
+        text = path.read_text()
+        path.write_text(
+            text.replace("GGGGGGEOLOGY", "geology" if geology else "nogeology")
+        )
 
     if cores:
-        path = Path(f"{output}/TETNCPU.txt")
+        path = out / "TETNCPU.txt"
         if path.exists():
             path.write_text(str(cores))
 
@@ -140,15 +131,14 @@ def exec_tetrun(
     mode: str = "cube",
     rfl: str = "/data/r",
     args: List[str] = ["band", "20", "gif"],
-    **_
+    davinci: bool = True
 ) -> None:
-    """\
+    """
     Execute the tetracorder cmd.runtet script to run mineral identification.
 
     This function runs the tetracorder processing on the input reflectance data
     using the configuration prepared by setup_tetrun. Output is logged to tetrun.log.
 
-    \b
     Parameters
     ----------
     output : str, default="/output/tetracorder"
@@ -159,12 +149,23 @@ def exec_tetrun(
         Input reflectance file path to process (the data, not the .hdr).
     args : List[str], default=["band", "20", "gif"]
         Additional arguments to pass to cmd.runtet script.
+    davinci : bool, default=True
+        If False, DaVinci entries are stripped from ``PATH`` before running, so the
+        run uses the plain tetracorder tooling instead.
 
     Notes
     -----
     All output from the tetracorder run is captured in tetrun.log within the
     output directory for debugging and verification purposes.
     """
+    env = os.environ["PATH"].copy()
+    if not davinci:
+        env = ":".join([
+            path
+            for path in env.split(":")
+            if "davinci" not in path
+        ])
+
     cmd = [
         "./cmd.runtet",
         mode,
@@ -173,17 +174,27 @@ def exec_tetrun(
 
     log = Path(output) / "tetrun.log"
     with log.open("w") as f:
-        subprocess.run(cmd, cwd=output, stdout=f, stderr=subprocess.STDOUT)
+        subprocess.run(cmd,
+            cwd = output,
+            env = env,
+            stdout = f,
+            stderr = subprocess.STDOUT,
+            check = True,
+        )
 
 
-def make_convolution(lib, file, rfl, output, noconv):
+def make_convolution(
+    lib: str,
+    file: Union[str, Path],
+    rfl: Union[str, Path],
+    output: Path,
+) -> Path:
     """
     Convolve one master library onto a scene grid and export it as ENVI.
 
     Builds the convolved specpr library at ``{output}/{lib}`` (via
     :func:`tetrapy.conv.build_library`) and writes a matching ``.envi`` copy
-    (via :func:`tetrapy.convolve.export_envi`). When ``noconv`` is True the
-    build/export is skipped and the expected specpr path is returned as-is.
+    (via :func:`tetrapy.convolve.export_envi`).
 
     Parameters
     ----------
@@ -195,8 +206,6 @@ def make_convolution(lib, file, rfl, output, noconv):
         Path to the scene reflectance raster supplying the target grid.
     output : Path
         Output directory; the specpr library is written to ``output/{lib}``.
-    noconv : bool
-        If True, skip convolution/export and just return the output path.
 
     Returns
     -------
@@ -224,13 +233,11 @@ def make_convolution(lib, file, rfl, output, noconv):
 
 
 def convolve(
+    rfl: str,
     reflib: str,
     reslib: str,
-    rfl: str,
-    version: str = "6.00a",
     out_ref: str = "/conv/reflib",
     out_res: str = "/conv/reslib",
-    name: str = "tetrapy",
 ) -> None:
     """
     Convolve the reference and research master libraries onto a scene's grid.
@@ -244,7 +251,6 @@ def convolve(
     Wiring the convolved libraries into the tetracorder command tree is a separate
     step, handled by :mod:`tetrapy.sensor` (the ``sensor`` pipeline stage).
 
-    \b
     Parameters
     ----------
     reflib : str
@@ -254,18 +260,12 @@ def convolve(
     rfl : str
         Path to the EMIT reflectance file (the data, not the .hdr). Its companion
         ``.hdr`` supplies the target wavelength/FWHM grid for convolution.
-    version : str, default="6.00a"
-        Tetracorder version (accepted for pipeline symmetry; convolution itself is
-        version-independent).
     out_ref : str, default="/conv/reflib"
         Output path for the convolved reference specpr library. Its ENVI export is
         written alongside as ``{out_ref}-envi``.
     out_res : str, default="/conv/reslib"
         Output path for the convolved research specpr library. Its ENVI export is
         written alongside as ``{out_res}-envi``.
-    name : str, default="tetrapy"
-        Sensor/dataset name (retained for pipeline symmetry; integration into the
-        command tree is done by :mod:`tetrapy.sensor`).
 
     Returns
     -------
@@ -297,7 +297,6 @@ def convolve(
         file = reslib,
         rfl  = rfl,
         output = out_res,
-        noconv = noconv
     )
 
     # Reference Library
@@ -307,5 +306,4 @@ def convolve(
         file = reflib,
         rfl  = rfl,
         output = out_ref,
-        noconv = noconv,
     )

@@ -476,7 +476,7 @@ def build(
 @click.option("-u", "--rfluncert")
 @click.option("-rl", "--reflib", default="/conv/reflib-envi")
 @click.option("-rs", "--reslib", default="/conv/reslib-envi")
-def main(**kw):
+def main(**kw) -> None:
     op1 = kw["output"]
     op2 = kw["out_min"] and kw["out_minuncert"]
     if not op1 and not op2:
