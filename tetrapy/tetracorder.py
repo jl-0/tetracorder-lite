@@ -255,14 +255,12 @@ class TetraDecoder:
                     if line.startswith("f") and split[1] in ("DLw", "MLw", "OLw"):
                         feat = {
                             "feature_type": split[1],
-                            # "continuum": list(map(float, split[2:6])),
                             "continuum": self.cast(float, split[2:6]),
                         }
 
                         line = " ".join(split[6:])
                         matches = re.findall(r"([^\s\d]+)>?\s+(.+?)(?=\s+[^\s\d]+>?[\s]|$)", line)
                         for key, val in matches:
-                            # feat[key] = list(map(float, val.split()))
                             feat[key] = self.cast(float, val.split())
 
                         data["features"].append(feat)
@@ -273,7 +271,6 @@ class TetraDecoder:
                 matches = re.findall(r"([^\s>]+)>\s*(.*?)(?=\s+[^\s>]+>|$)", line)
                 for key, val in matches:
                     val = self.vars.get(val.strip("[]"), val)
-                    # consts[key] = list(map(float, val.split()))
                     consts[key] = self.cast(float, val.split())
 
         return data
