@@ -283,14 +283,10 @@ def convolve(
     The ENVI exports are suitable for use with the L2B aggregator
     (``tetrapy aggregate``).
     """
-    hdr = Path(rfl).with_suffix(".hdr")
-
     if not (reflib := Path(reflib)).exists():
         raise FileNotFoundError(f"Reference library not found: {reflib}")
     if not (reslib := Path(reslib)).exists():
         raise FileNotFoundError(f"Research library not found: {reslib}")
-    if not hdr.exists():
-        raise FileNotFoundError(f"ENVI header not found: {hdr}")
 
     # Research Library
     # sprlb = reslib
