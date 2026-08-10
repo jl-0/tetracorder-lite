@@ -93,6 +93,7 @@ def setup_tetrun(
         raise ValueError("Tetracorder's cmd-setup-tetrun requires the output directory to not exist")
 
     cmd = [
+        "bash",
         f"/t1/tetracorder.cmds/tetracorder{version}.cmds/cmd-setup-tetrun",
         output,
         sensor,
@@ -167,7 +168,8 @@ def exec_tetrun(
         ])
 
     cmd = [
-        "./cmd.runtet",
+        "bash",
+        "cmd.runtet",
         mode,
         rfl
     ]
