@@ -1,313 +1,313 @@
-group,library,record,title,path
-1,splib06,6858,Plastic_Tarp GDS339 Green W1R1Fa,group.1um/organic_green_plastic_tarp_1um
-1,sprlb06,744,Hematite.02+Quartz.98 GDS76 W1R1Ha,group.1um/fe3+_hematite.fine.gr.gds76
-1,sprlb06,882,Goethite WS222 <250um MedGrn W1R1H_ AREF,group.1um/fe3+_goethite.medgr.ws222
-1,splib06,5736,Goethite0.02+Quartz GDS240 W1R1Ba,group.1um/fe3+_goethite+qtz.medgr.gds240
-1,splib06,1878,Goethite MPCMA2-B FineGr adj W1R1Bb,group.1um/fe3+_goethite.fingr.mpcma2
-1,sprlb06,852,Goethite MPCMA2-C M-Crsgrad2 W1R1Hb AREF,group.1um/fe3+_goethite.medcoarsegr.mpcma2
-1,sprlb06,894,Goethite WS222 coarse grain W1R1H_,group.1um/fe3+_goethite.coarsegr.ws222
-1,splib06,6168,Goethite_Thin_Film WS222 W1R1Ba,group.1um/fe3+_goethite.thincoat
-1,splib06,5730,Goeth+qtz.5+Jarosite.5 AMX11 W1R1BbS,group.1um/fe3+_goeth+jarosite
-1,sprlb06,738,Hematite GDS27 W1R1Ha,group.1um/fe3+_hematite.med.gr.gds27
-1,splib06,6198,Hematite_Thin_Film GDS27 W1R1Ba,group.1um/fe3+_hematite.thincoat
-1,splib06,2100,Hematite FE2602 W1R1Bb,group.1um/fe3+_hematite.fine.gr.fe2602
-1,sprlb06,906,Hematite WS161 W1R1Hb,group.1um/fe3+_hematite.fine.gr.ws161
-1,sprlb06,840,Hematite_Coatd_Qtzt BR93-25A W1R1Hb AREF,group.1um/fe3+_hematite.lg.gr.br25a
-1,splib06,6174,Hematite_Coatd_Qtz BR93-25B W1R1Bb,group.1um/fe3+_hematite.med.gr.br25b
-1,sprlb06,816,Hematite_Coatd_Qtzt BR93-25C W1R1Hb AREF,group.1um/fe3+_hematite.lg.gr.br25c
-1,splib06,3468,Nanohematite BR93-34B2 W1R1BbS,group.1um/fe3+_hematite.nano.BR34b2
-1,sprlb06,1026,nHematit+fg-Goethit 34B2+MPC W1R1Hb,group.1um/fe3+_hematite-nano+goethite-fg-amix
-1,sprlb06,918,Nanohematite FBR93-34B2b ed1 W1R1Hb,group.1um/fe3+_hematite.nano.BR34b2b
-1,sprlb06,822,Hematite_Coatd_Qtz BR93-34C W1R1Ha AREF,group.1um/fe3+_hematite.lg.gr.br34c
-1,sprlb06,732,Lepidocrosite GDS80 (Syn) W1R1Hb,group.1um/fe3+_goethite.lepidocrosite
-1,sprlb06,1170,Hematite-nano_KP58610 400nm r06av95a=a,group.1um/fe3+_hematite.nano.KP58610
-1,sprlb06,1182,Hematite-n0.03_KP58610+Qtz r06av95a=a,group.1um/fe3+_hematite.nano-0.3+qtz
-1,sprlb06,1194,Goethite-nano_KP943 70nm r06av95a=a,group.1um/fe3+_goethite.nano-70nm
-1,sprlb06,1200,Goethite-n0.50_KP943+Qtz r06av95a=a,group.1um/fe3+_goethite.nano0.5+qtz
-1,sprlb06,1224,Hematite.10+Goethite.90 hg1 r06av95a=a,group.1um/fe3+_hematite.1+goethite.9hg1
-1,sprlb06,1230,Hematite.20 Goethite.80 hg2 r06av95a=a,group.1um/fe3+_hematite.2+goethite.8hg2
-1,sprlb06,1236,Hematite.30 Goethite.70 hg3 r06av95a=a,group.1um/fe3+_hematite.3+goethite.7hg3
-1,sprlb06,1332,Hematite0.1+Goeth0.4+Qtz.5 r06av95a=aa,group.1um/fe3+_hematite.1+goeth.4+qtz
-1,sprlb06,1338,Hematite0.4+Goeth0.1+Qtz.5 r06av95a=a,group.1um/fe3+_hematite.4+goeth.1+qtz
-1,splib06,6042,Pyrite LV95-6A Weath on Tail W1R1Bb,group.1um/sulfide_pyrite
-1,splib06,4476,Schwertmannite BZ93-1 W1R1Bb,group.1um/fe3+_sulfate_schwertmannite
-1,splib06,6144,Blck_Mn_Coat_Tailngs LV95-3 W1R1Bb,group.1um/Mn-Coating
-1,splib06,5316,Acid_Mine_Dr Assemb1-Fe3+ W1R1Fb,group.1um/fe3+mix_AMD.assemb1
-1,splib06,5322,Acid_Mine_Dr Assemb2-Fe3+ W1R1Fb,group.1um/fe3+mix_AMD.assemb2
-1,splib06,390,Ammonio-Jarosite SCR-NHJ s06av95a=,group.1um/fe3+_sulfate_nh3jarosite
-1,splib06,2514,"Jarosite GDS100 Na,Sy 90C s06av95a=a",group.1um/fe3+_sulfate_jarosite-na-gds100
-1,splib06,2526,"Jarosite GDS101 Na,Sy 200C s06av95a=a",group.1um/fe3+_sulfate_jarosite-na-gds101
-1,splib06,2550,Jarosite GDS98 K 90C Syn s06av95a=a,group.1um/fe3+_sulfate_jarosite-k-90c
-1,splib06,2568,Jarosite GDS99 K 200C Syn W1R1BaS,group.1um/fe3+_sulfate_kjarosite200
-1,splib06,2586,Jarosite JR2501 (K) s06av95a=b,group.1um/fe3+_sulfate_jarosite-K-JR2501
-1,splib06,2592,Jarosite NMNH95074-1 (Na) s06av95a=b,group.1um/fe3+_sulfate_jarosite-na-nmnh
-1,splib06,2604,"Jarosite SJ-1 H3O,10-20% s06av95a=b",group.1um/fe3+_sulfate_jarosite-H3O-SJ-1
-1,splib06,6210,Jarosite_on_Qtzite BR93-34A2 W1R1Bb,group.1um/fe3+_sulfate_jarosite_br34a2
-1,splib06,6204,Jarosite_Thin_Film GDS243 s06av95a=b,group.1um/fe3+_sulfate_jarosite-thinfilm
-1,splib06,5634,Chlorite+Muscovite CU93-65A W1R1Ba,group.1um/fe2+_chlor+muscphy
-1,sprlb06,900,Goethite CU91-252 coatedchip W1R1H_,group.1um/fe2+_goeth+musc
-1,splib06,5604,Chlor+Goethite CU93-4B Phyl W1R1Ba,group.1um/fe2+fe3+_chlor+goeth.propylzone
-1,splib06,1446,Cummingtonite HS294.3B W1R1Bc,group.1um/fe2+generic_nrw.cummingtonite
-1,splib06,72,Actinolite NMNHR16485 W1R1Bb,group.1um/fe2+generic_nrw.actinolite
-1,splib06,42,Actinolite HS22.3B W1R1Bb,group.1um/fe2+generic_nrw.hs-actinolite
-1,splib06,2334,Hypersthene NMNHC2368 W1R1Bb,group.1um/fe2+_pyroxene.hypersthene
-1,splib06,1548,Diopside NMNHR18685 ~160 Pyx W1R1Bb,group.1um/fe2+_pyroxene.diopside
-1,splib06,2502,Jadeite HS343.3B W1R1Bb,group.1um/fe2+generic_med.jadeite
-1,splib06,3966,Pigeonite HS199.3B W1R1Bb,group.1um/fe2+_pyroxene_clino_pigeonite
-1,splib06,1668,Epidote GDS26.a 75-200um W1R1Bb,group.1um/epidote
-1,splib06,5724,Fe-Hydroxide SU93-106 amorph W1R1Bb,group.1um/fe3+bearing1
-1,splib06,1740,"Ferrihydrite GDS75 Syn, F6 W1R1Bb",group.1um/fe3+_ferrihydrite
-1,splib06,3558,Nontronite NG-1.a W1R1Bb,group.1um/fe3+_smectite_nontronite
-1,splib06,5328,Actinolite-Hornfels BR93-5a W1R1Bc,group.1um/fe2+generic_brd.br5a_actinolite
-1,sprlb06,846,Magnetite_skarn BR93-5B W1R1Hb AREF,group.1um/fe2+fe3+mix_with_hematite_br5b
-1,splib06,5334,Actinolite-Tremolit BR93-22C W1R1Bb,group.1um/fe2+generic_brd.br22c_actinolite
-1,splib06,1656,Epidote BR93-33a W1R1Bb AREF,group.1um/fe2+generic_br33a_bioqtzmonz_epidote
-1,splib06,5490,Biotite-Chlorite_Mx BR93-36A W1R1Bb,group.1um/fe2+generic_brd.br36a_chlorite
-1,splib06,5460,Basalt_weathered BR93-43 W1R1Bb,group.1um/fe2+fe3+_hematite_weathering
-1,splib06,5454,Basalt_fresh BR93-46B W1R1Bb,group.1um/fe2+generic_basalt_br46b
-1,splib06,5340,Actinolite_Dolomit BR93-60B W1R1BbS,group.1um/fe2+generic_broad_br60b
-1,splib06,6036,Phlogopite_Sand_Mix BR93-20 W1R1Ba,group.1um/fe2+generic_vbroad_br20
-1,splib06,6942,Renyolds_TnlSldgWet SM93-15w W1R1Ba,group.1um/fe2+fe3+_water_RTsludge
-1,sprlb06,660,Clinochlore GDS158 Flagst W1R1Hb,group.1um/fe2+_chlorite.clinochlor
-1,splib06,1200,Clinochlore NMNH83369 W1R1Bb,group.1um/fe2+_chlorite.Felow.clinochlor
-1,splib06,4890,Thuringite SMR-15.c 32um W1R1Ba,group.1um/fe2+_chlorite.thuringite
-1,splib06,720,Azurite WS316 W1R1Ba,group.1um/copper_carbonate_azurite
-1,splib06,3990,Pitch_Limonite GDS104 Cu W1R1B?,group.1um/fe3+copper-hydroxide_pitchlimonite
-1,splib06,2964,Malachite HS254.3B W1R1Bb,group.1um/copper_carbonate_malachite
-1,splib06,5496,Blue_Efflorscnt_Min SU93-300 W1R1Bb,group.1um/copper_sulfate_bluefflor
-1,splib06,6594,Green_Slime SM93-14A Summitv W1R1Ba,group.1um/copper_precipitate_greenslime
-1,splib06,3696,Olivine HS285.4B Fo80 W1R1Bb,group.1um/fe2+_olivine-lrg-gr
-1,splib06,3666,Olivine GDS71.a Fo91 65um W1R1Bb,group.1um/fe2+_olivine-fine-gr
-1,splib06,4278,Rhodochrosite HS338.3B W1R1Bb,group.1um/carbonate_rhodochrosite
-1,splib06,4560,Siderite HS271.3B W1R1Ba,group.1um/fe2+generic_carbonate_siderite1
-1,splib06,4362,Riebeckite NMNH122689 Amph W1R1Ba,group.1um/fe2+generic_amphibole_riebeckite
-1,splib06,1386,Coquimbite GDS22 W1R1Bc,group.1um/fe3+fe2+_sulfate_coquimbite
-1,splib06,1374,Copiapite GDS21 W1R1Bb,group.1um/fe3+fe2+_sulfate_copiapite
-1,splib06,1134,Chrysocolla HS297.3B W1R1Bb,group.1um/copper_chrysocolla
-1,splib06,3498,Neodymium_Oxide GDS34 W1R1Ba,group.1um/ree_neodymium_oxide_g1
-1,splib06,4410,Samarium_Oxide GDS36 W1R1Ba,group.1um/ree_samarium_oxide_g1
-1,splib06,708,Axinite HS342.3B W1R1Bb,group.1um/fe2+generic_axinite
-1,splib06,4728,Staurolite HS188.3B W1R1Bb,group.1um/fe2+generic_staurolite
-1,splib06,216,Almandine WS479 Garnet W1R1Bb,group.1um/fe2+generic_almandine
-1,splib06,678,Augite NMNH120049 W1R1Bb,group.1um/fe2+_pyroxene_augite
-1,splib06,810,Bronzite HS9.3B Pyroxene W1R1Bc,group.1um/fe2+_pyroxene.bronzite
-1,splib06,858,Butlerite GDS25 W1R1Ba,group.1um/fe2+generic_sulfate_butlerite
-1,splib06,882,Bytownite HS106.3B Plagio W1R1Bc,group.1um/fe2+_feldspar.bytownite
-1,splib06,1002,Chalcopyrite HS431.3B W1R1Bb,group.1um/sulfide_copper_chalcopyrite
-1,splib06,1122,Chromite HS281.3B W1R1Bb,group.1um/fe2+_chromite
-1,splib06,1164,Cinnabar HS133.3B W1R1Bc,group.1um/sulfide_cinnabar
-1,splib06,1458,Cuprite HS127.3B W1R1Bb,group.1um/copper_oxide_cuprite
-1,splib06,6156,Desert_Varnish GDS141 W1R1Ba,group.1um/fe3+mn_desert.varnish1
-1,splib06,6162,Desert_Varnish GDS78A Rhy W1R1Ba,group.1um/fe3+mn_desert.varnish2
-1,splib06,1644,Enstatite NMNH128288 W1R1Bc,group.1um/fe2+_pyroxene_enstatite
-1,splib06,2088,Hedenbergite NMNH119197 W1R1Bb,group.1um/fe2+_pyroxene_hedenbergite
-1,splib06,2796,Lazurite HS418.3B W1R1Bb,group.1um/sulfate_lazurite
-1,splib06,2928,Maghemite GDS81 Syn (M-3) W1R1Bb,group.1um/fe3+_maghemite
-1,splib06,2940,Magnetite HS195.3B W1R1Bb,group.1um/magnetite
-1,splib06,4158,Pyrolusite HS138.3B W1R1Bb,group.1um/mn_oxide_pyrolusite
-1,splib06,3042,Microcline HS103.3B Feldspar W1R1Bc,group.1um/fe2+_feldspar_microcline
-1,splib06,132,Albite HS143.3B Plagioclase W1R1Bc,group.1um/fe2+_feldspar_albite
-1,splib06,3852,Orthoclase NMNH142137 Fe W1R1Bb,group.1um/fe2+_feldspar_orthoclase
-1,splib06,3882,Pectolite NMNH94865.a W1R1Bb,group.1um/inosilicate_pectolite
-1,splib06,4314,Rhodonite NMNHC6148 >250um W1R1Bb,group.1um/mn2+_rhodonite
-1,splib06,4776,Sulfur GDS94 Reagent W1R1Ba,group.1um/sulfur
-2,splib06,7128,Dry_Long_Grass AV87-2 W1R1Ba,group.2um/organic_vegetation-dry-grass-long
-2,splib06,7248,Grass_Golden_Dry GDS480 W1R1Fa,group.2um/organic_vegetation-dry-grass-golden
-2,splib06,6912,Plywood GDS365 Fresh Pine W1R1Fa,group.2um/organic_vegetation-dry-wood
-2,splib06,6864,Plastic_Tarp GDS340 Blu_Wovn W1R1Fa,group.2um/organic_plastic-tarp1
-2,splib06,6876,Plastic_Vinyl GDS372 White W1R1Fa,group.2um/organic_plastic-vinyl
-2,splib06,6558,Fiberglass GDS337 Grn Roofng W1R1Fa,group.2um/organic_fiberglass-roofing
-2,splib06,6936,Polystyrene GDS345 BluInsul W1R1Fa,group.2um/organic_plastic-polystyrene
-2,splib06,6816,Plastic_PETE GDS380 Clear W1R1Fa,group.2um/organic_plastic-pete
-2,splib06,6810,Plastic_PETE GDS379 TrnslBrn W1R1Fa,group.2um/organic_plastic-pete2
-2,splib06,6714,Plastic_HDPE GDS393 GlosWhTr W1R1Fa,group.2um/organic_plastic-hdpe.1
-2,splib06,6672,Painted_Aluminum GDS333 LgGr W1R1Fa,group.2um/organic_paint-1
-2,splib06,6834,Plastic_PETE GDS383 Clrbluis W1R1Fa,group.2um/organic_plastic-pete3
-2,splib06,6810,Plastic_PETE GDS379 TrnslBrn W1R1Fa,group.2um/organic_plastic-pete4
-2,splib06,300,Alunite GDS97 K Syn (150C) W2R4Na,group.2um/sulfate_kalun150c
-2,splib06,294,Alunite GDS96 K Syn (250C) W2R4Na,group.2um/sulfate_kalun250c
-2,splib06,324,Alunite RES-2 K Syn (450C) W2R4Na,group.2um/sulfate_kalun450c
-2,splib06,288,Alunite GDS95 Na Syn (150C) W2R4Na,group.2um/sulfate_naalun150c
-2,splib06,336,Alunite RES-4 Na Syn (300C) W2R4Na,group.2um/sulfate_naalun300c
-2,splib06,330,Alunite RES-3 Na Syn (450C) W2R4Na,group.2um/sulfate_naalun450c
-2,splib06,246,Alunite GDS82 Na82 W1R1Bb,group.2um/sulfate_na82alun100c
-2,splib06,5382,Alunite+Dickite MV99-6-26b W1R1Fc,group.2um/sulfate+kaolingrp_natroalun+dickite
-2,splib06,252,Alunite GDS83 Na63 W1R1Bb,group.2um/sulfate_na63alun300c
-2,splib06,342,Alunite RES-9 Summitv (400C) W2R4Nb,group.2um/sulfate_na40alun400c
-2,splib06,276,Alunite GDS84 Na03 W2R4Na,group.2um/sulfate_alunNa03
-2,splib06,348,Alunite RES10 NA56% Syn 450C W2R4Na,group.2um/sulfate_alunNa56450c
-2,splib06,354,Alunite RES12 NA78% Syn 450C W2R4NaIS,group.2um/sulfate_alunNa78.450c
-2,splib06,5394,Alunite0.35K+.65Na CU91-217H W2R4Nb,group.2um/sulfate_alun35K65Na.low
-2,splib06,5418,Alunite0.73K+.27Na CU91-217D W2R4Na,group.2um/sulfate_alun73K27Na.low
-2,splib06,5412,Alunite0.66K+.34Na CU91-217A W2R4Nb,group.2um/sulfate_alun66K34Na.low
-2,splib06,5976,Muscovite CU91-250A med Al W2R4NbS,group.2um/micagrp_muscovite-med-Al
-2,sprlb06,1038,Calcite.33+Kaol.33+Mus AMXr2 W1R1Ba,group.2um/calcite.33+kaol.33+mus-AMXr2
-2,sprlb06,654,Muscovite GDS113 Ruby >37um W1R1Hb,group.2um/micagrp_muscovite-medhigh-Al
-2,splib06,3876,Paragonite GDS109 W1R1Ba,group.2um/micagrp_paragonite
-2,sprlb06,714,Illite IMt-1.b <2um W1R1BaS,group.2um/micagrp_illite
-2,sprlb06,726,Illite GDS4.2 Marblehead_WI W1R1H_,group.2um/micagrp_illite.gds4
-2,splib06,3306,Muscovite CU93-1 low-Al Phyl W2R4Nb,group.2um/micagrp_muscovite-low-Al
-2,splib06,3372,Muscovite GDS116 Tanzania W1R1Ba,group.2um/micagrp_muscoviteFerich
-2,sprlb06,606,Kaolinite CM9 (wxl) W1R1Hb,group.2um/kaolgrp_kaolinite_wxl
-2,sprlb06,672,Kaolinite KGa-2 (pxl) W1R1Hb,group.2um/kaolgrp_kaolinite_pxl
-2,sprlb06,684,Halloysite NMNH106237 W1R1Ha,group.2um/kaolgrp_halloysite
-2,splib06,3462,Nacrite GDS88 s06crj3a=c,group.2um/kaolgrp_nacrite
-2,sprlb06,708,Dickite NMNH106242 W1R1Bb,group.2um/kaolgrp_dickite
-2,sprlb06,618,Gypsum HS333.3B (Selenite) W1R1Ha,group.2um/sulfate_gypsum
-2,splib06,5868,Kaolin_Smect H89-FR-2 .5Kaol W1R1Bb,group.2um/kaolin.5+smect.5
-2,splib06,5880,Kaolin_Smect H89-FR-5 .3Kaol W1R1Bb,group.2um/kaolin.3+smect.7
-2,sprlb06,588,Montmorillonite SWy-1 W1R1Hb,group.2um/smectite_montmorillonite_na_highswelling
-2,sprlb06,54,Montmorillonite_Fe GDS759A,group.2um/smectite_montmorillonite_fe_swelling
-2,sprlb06,600,Montmorillonite SAz-1 W1R1Hb,group.2um/smectite_montmorillonite_ca_swelling
-2,sprlb06,60,HyBasaltGlassMLUT03-9CMarP&T,group.2um/sioh_hydrated_basaltic_glass
-2,sprlb06,66,Kieserite Batch4 GDS671,group.2um/sulfate_kieserite
-2,sprlb06,150,Szomolnokite NMNH104303 UT,group.2um/sulfate_szomolnokite
-2,sprlb06,192,Szomolnokite GDS874 Heat275C,group.2um/sulfate_szomolnokite_heated
-2,splib06,798,Bloedite GDS147 s06crj3a=a,group.2um/sulfate-bloedite
-2,sprlb06,96,Perchlorate_Mg GDS851.2 220K,group.2um/perchlorate_mg
-2,sprlb06,144,Perchlorate_Na GDS857 230C r06crj3a=_,group.2um/perchlorate_na
-2,splib06,5466,Beidellite+Montmor GDS123 =b,group.2um/smectite_beidellite_gds123
-2,splib06,5478,Beidellite+Montmor GDS124 =b,group.2um/smectite_beidellite_gds124
-2,splib06,990,Chalcedony CU91-6A W1R1Ba,group.2um/sioh_chalcedony
-2,splib06,1488,Diaspore HS416.3B W1R1Bb,group.2um/hydroxide_diaspore
-2,splib06,4188,Pyrophyllite PYS1A fine gr W1R1Ba,group.2um/pyrophyllite
-2,splib06,6054,Pyrophyl.25+wxlKaol.75 AMX17,group.2um/kaol.75+pyroph.25
-2,splib06,6060,Pyrophyl.50+Ca-Mont.50 AMX16 W1R1Ba,group.2um/pyroph.5+mont0.5
-2,splib06,5358,Alun366+.50PyroPYS1A GDS222 W1R1Bb,group.2um/pyroph.5+alunit.5
-2,splib06,5370,Alunite+Pyrophyl SD1093A W1R1Bb,group.2um/alunite+pyrophyl
-2,splib06,6048,Pyrophyl+Muscovite JH_PYRM1 W1R1Fb,group.2um/pyroph+tr.musc
-2,splib06,5988,Muscovite+Pyrophyl JH_PYRP1 W1R1Fb,group.2um/musc+pyroph
-2,splib06,5352,Alun0.3+Musc0.4+Pyro0.3 AMX1 W1R1Ba,group.2um/alunite+musc+pyroph
-2,splib06,5406,Alunite0.5+Kaol_KGa-1 AMX3 W1R1Bb,group.2um/alunite.5+kaol.5
-2,splib06,5910,Kaolwxl.75+Alun_HS295 AMX14 W1R1Bb,group.2um/kaol.75+alun.25
-2,splib06,5820,Kalun+kaol+gth mv2-ar3 W1R1Fb,group.2um/Kalun+kaol.intmx
-2,splib06,5364,Alun_Na+Kaol+Hemat MV00-11a W1R1Fc,group.2um/Na-alun+kaol.intmx
-2,splib06,5832,Kaol.5+MuscCU91-250A AMX13 W1R1Bb,group.2um/kaolin.5+muscov.medAl
-2,splib06,5838,Kaol_Wxl+0.5Musc_Ruby AMX12 W1R1Ba,group.2um/kaolin.5+muscov.medhighAl
-2,sprlb06,870,Kaol+Musc_intimate CU93-5C W1R1Ha AREF,group.2um/kaolin+musc.intimat
-2,sprlb06,876,Muscov+Jaros CU93-314 coatng W1R1Hb,group.2um/musc+jarosite.intimat
-2,splib06,5748,Gyp+jar+ill BRCM1 Marysvale W1R1Fb,group.2um/sulfate-mix_gypsum+jar+illite.intmix
-2,splib06,5766,Gyp.5+Kjar.3+hAlmsc.2 AMX24 W1R1Ba,group.2um/sulfate-mix_gyp+jar+musc.amix
-2,splib06,5760,Gyp.4+jr20+msc.2+dic.2 AMX23 W1R1Ba,group.2um/sulfate-mix_gyp+jar+musc+dick.amix
-2,splib06,5754,Gyp.3+jr.1+msc.4+dic.2 AMX22 W1R1Ba,group.2um/musc+gyp+jar+dick.amix
-2,splib06,5670,Dic.4+msc.3+gyp.2+jr.1 AMX20 W1R1Ba,group.2um/dick+musc+gyp+jar.amix
-2,splib06,5388,Alunite.5+MuscCU91-250A AMX4 W1R1Ba,group.2um/alunite.5+musc.5
-2,splib06,5346,Alun.33+Kaol.33+Musc.33 AMX2 W1R1Ba,group.2um/alunite.33+kaol.33+musc.33
-2,splib06,5982,Muscovite+Chlorite CU91-253D W2R4Na,group.2um/muscovite+chlorite
-2,sprlb06,786,Ammonio-Illite/Smectit GDS87 W1R1Hb,group.2um/smectite_ammonillsmec
-2,splib06,846,Buddingtonite GDS85 D-206 W1R1Bb,group.2um/feldspar_buddingtonite_ammonium
-2,splib06,5502,Buddingtnt+Na-Mont CU93-260B W2R4Nb,group.2um/feldspar_buddington.namont
-2,splib06,5502,Buddingtnt+Na-Mont CU93-260B W2R4Nb,group.2um/feldspar_buddington.namont2
-2,splib06,5436,Alunite_NH4+Jaro NMNH145596A W1R1Bb,group.2um/sulfate_ammonalunite
-2,splib06,390,Ammonio-Jarosite SCR-NHJ W1R1Ba,group.2um/sulfate_ammonjarosite
-2,sprlb06,612,Dolomite HS102.3B W1R1Hb,group.2um/carbonate_dolomite
-2,splib06,72,Actinolite NMNHR16485 W1R1Bb,group.2um/actinolite
-2,splib06,402,Amphibole NMNH78662 W1R1Bb,group.2um/amphibole
-2,splib06,774,Biotite HS28.3B W1R1Bb,group.2um/micagrp_biotite
-2,sprlb06,912,Biotite-phlogopite P23-5 Sam W1R1H_,group.2um/micagrp_biotite-phlogopite
-2,splib06,5664,Chlorite_Serpentine BR93-22B W1R1Bb,group.2um/chlorite-skarn
-2,splib06,1080,Chlorite SMR-13.b 60-104um W1R1Ba,group.2um/chlorite
-2,sprlb06,252,Prehnite+.50Chlorite AMIX,group.2um/prehnite+.50chlorite
-2,sprlb06,258,Prehnite+.67Chlorite AMIX,group.2um/prehnite+.67chlorite
-2,sprlb06,264,Prehnite+.75Chlorite AMIX,group.2um/prehnite+.75chlorite
-2,sprlb06,276,Aragonite GDS898 Moracco,group.2um/carbonate_aragonite
-2,sprlb06,660,Clinochlore GDS158 Flagst W1R1Hb,group.2um/chlorite_clinochlore
-2,splib06,1212,Clinochlore NMNH83369 =bb,group.2um/chlorite_clinochlore.nmnh83369
-2,sprlb06,648,Clinochlore_Fe GDS157.b W1R1Ha,group.2um/chlorite_clinochlore.fe.gds157
-2,splib06,1260,Clinochlore_Fe SC-CCa-1.b =aa_,group.2um/chlorite_clinochlore.fe.sc-cca-1
-2,splib06,1338,Cookeite CAr-1.a 104-150um =bb_,group.2um/chlorite_cookeite-car-1.a
-2,splib06,1368,Cookeite CAr-1.c <30um =cc_,group.2um/chlorite_cookeite-car-1.c
-2,splib06,4872,Thuringite SMR-15.b 32um W1R1Ba,group.2um/chlorite_thuringite
-2,splib06,1668,Epidote GDS26.a 75-200um W1R1Bb,group.2um/epidote
-2,splib06,2274,Hornblende_Fe HS115.3B W1R1Bc,group.2um/hornblende
-2,splib06,2538,Jarosite GDS24 Na W1R1Bb,group.2um/sulfate_jarosite-Na
-2,splib06,2568,Jarosite GDS99 K 200C Syn W1R1Ba,group.2um/sulfate_jarosite-K
-2,splib06,2604,"Jarosite SJ-1 H3O,10-20% W1R1Bb",group.2um/sulfate_jarosite-lowT
-2,splib06,3930,Phlogopite HS23.3B W1R1Bb,group.2um/phlogopite
-2,splib06,5142,Tremolite HS18.3 W1R1Bc,group.2um/tremolite.or.talc
-2,splib06,4800,Talc GDS23 74-250um fr W1R1Ba,group.2um/talc.crsgrnd
-2,splib06,4830,Talc WS659 W1R1Bb,group.2um/talc.fngrnd
-2,splib06,5538,Calcite+Talc PC99-1G W1R1Fc,group.2um/talc+calcite.parkcity
-2,splib06,5682,Dolomit+Calcite+Talc PC99-1E W1R1Fc,group.2um/talc+carbonate.parkcity
-2,splib06,5568,Calcite.8+Ca-Montmor.2 AMX15 W1R1BbS,group.2um/carbonate_calcite+0.2Ca-mont
-2,splib06,5922,Magnesite+Hydroma HS47.3B W1R1Ba,group.2um/carbonate_magnesite
-2,sprlb06,666,Calcite WS272 W1R1Ha,group.2um/carbonate_calcite
-2,splib06,5532,Calcite+Dolomite.5 AMX8 W1R1Bb,group.2um/carbonate_calcite+dolomite.5
-2,splib06,5694,Dolomite.50+Ca-Montmor AMX10 W1R1Bb,group.2um/carbonate_dolo+.5ca-mont
-2,splib06,5514,Calc.25+dolo.25+mont.5 AMX18 W1R1Bb,group.2um/calcite.25+dolom.25+Na-mont.5
-2,splib06,5508,Calc.25+Dolo.25+Ca-Mon AMX7 W1R1Bb,group.2um/carbonate_calcite.25+dolom.25+Ca-mont.5
-2,splib06,4560,Siderite HS271.3B W1R1Ba,group.2um/carbonate_siderite
-2,splib06,3558,Nontronite NG-1.a W1R1Bb,group.2um/smectite_nontronite_swelling
-2,sprlb06,696,Hectorite SHCa-1.Ac-B W1R1Hb,group.2um/clay_hectorite
-2,sprlb06,702,Saponite SapCa-1.AcB W1R1Hb,group.2um/saponite.or.talc
-2,sprlb06,690,Sepiolite SepNev-1.AcB W1R1Ha,group.2um/sepiolite
-2,splib06,5574,Calcite.80+Mont_Swy-1 GDS212 W1R1Ba,group.2um/calcite+0.2Na-mont
-2,splib06,5526,Calcite+.50Ca-Mont AMX6 W1R1Bb,group.2um/calcite+0.5Ca-mont
-2,splib06,5520,Calcite+.33Muscov AMX5 Ruby W1R1Ba,group.2um/carbonate_calcite+0.3muscovite
-2,sprlb06,30,Grass_dry+0.17%Na-Mont AMX35 W1R1Ba AREF,group.2um/organic_drygrass+.17Na-mont
-2,splib06,5688,Dolomite.5+Na-mont.5 AMX21 W1R1Bb,group.2um/carbonate_dolomite.5+Na-mont.5
-2,splib06,5544,Calcite.33+Ca-mont.67 AMX19 W1R1Bb,group.2um/carbonate_smectite_calcite.33+Ca-mont.67
-2,splib06,5580,Calcite.80wt+Kaol_CM9 GDS213 W1R1Ba,group.2um/carbonate_calcite+0.2kaolwxl
-2,splib06,5562,Calcite.7+Kaolwxl.3 AMX9 W1R1Ba,group.2um/carbonate_calcite0.7+kaol0.3
-2,splib06,1314,Clintonite NMNH126553 W1R1Bc,group.2um/phyllosilicate.clintonite
-2,splib06,3870,Palygorskite PFL-1 Attapulg W1R1Bb,group.2um/palygorskite
-2,splib06,5298,Zoisite HS347.3B W1R1Bb,group.2um/zoisite
-2,splib06,1626,Elbaite NMNH94217-1.c <74 W1R1Bb,group.2um/elbaite
-2,splib06,1824,Gibbsite WS214 W1R1Bb,group.2um/hydroxide_gibbsite
-2,splib06,3546,Niter GDS43 (K-Saltpeter) W1R1Ba,group.2um/nitrate_niter
-2,splib06,5040,Topaz Mt._Antero_#5 W1R1Bb,group.2um/topaz
-2,splib06,4278,Rhodochrosite HS338.3B W1R1Bb,group.2um/carbonate_rhodochrosite
-2,splib06,5268,Witherite HS273.3B W1R1Ba,group.2um/carbonate_witherite
-2,splib06,4026,Prehnite GDS613.a <60um =aa_,group.2um/prehnite
-2,splib06,3126,"Mizzonite BM1931,12 Scapolte W1R1Bc",group.2um/prehnite+muscovite
-2,splib06,3978,Pinnoite NMNH123943 W1R1Ba,group.2um/borate_pinnoite
-2,splib06,3996,Polyhalite NMNH92669-4 W1R1Ba,group.2um/polyhalite
-2,splib06,4368,Rivadavite NMNH170164 Amph W1R1Ba,group.2um/rivadavite
-2,splib06,2298,Howlite GDS155 W1R1Ba,group.2um/howlite
-2,splib06,5190,Ulexite HS441.3B W1R1Ba,group.2um/ulexite
-2,splib06,6114,White_Crust LV30 starkeyite W1R1Fc,group.2um/white.crust.starkeyite
-2,splib06,414,Analcime GDS1 Zeolite W1R1Ba,group.2um/zeolite_analcime
-2,splib06,834,Brucite HS247.3B W1R1Bc,group.2um/hydroxide_brucite
-2,splib06,942,Carnallite NMNH98011 W1R1Bb,group.2um/chloride_carnallite
-2,splib06,1320,Colemanite GDS143 W1R1Bb,group.2um/borate_colemanite
-2,splib06,1470,Datolite HS442.3B W1R1Bb,group.2um/datolite
-2,splib06,2310,Hydrogrossular NMNH120555 W1R1Bb,group.2um/hydrogrossular
-2,splib06,2862,Lepidolite NMNH88526-1 W1R1Ba,group.2um/micagrp_lepidolite
-2,splib06,2976,Margarite GDS106 W1R1Bc,group.2um/micagrp_margarite
-2,splib06,3012,Mascagnite GDS65.b (fr) W1R1Ba,group.2um/sulfate_mascagnite
-2,splib06,3114,Mirabilite GDS150 Na2SO4 W1R1Ba,group.2um/sulfate_mirabilite-wet_soil
-2,splib06,3474,Natrolite HS169.3B Zeolite W1R1Bb,group.2um/zeolite_natrolite
-2,splib06,4338,Richterite NMNH150800 HCl W1R1Bb,group.2um/richterite
-2,splib06,1152,Chrysotile ML99-12A Coar Fib W1R1Fb,group.2um/serpentine_chrysotile.coarse-fibrous
-2,splib06,1158,Chrysotile ML99-12C Fine Fib W1R1Fb,group.2um/serpentine_chrysotile.med-fine-fibrous
-2,splib06,1146,Chrysotile HS323.1B W1R1Ba,group.2um/serpentine_chrysotile.fine-fibrous
-2,splib06,1440,Cronstedtite M3542 =bb_,group.2um/serpentine_cronstedtite
-2,splib06,4380,Roscoelite EN124 W1R1Bb,group.2um/micagrp_illite.roscoelite
-2,splib06,4764,Strontianite HS272.3B W1R1Bb,group.2um/carbonate_strontianite
-2,splib06,4788,Syngenite GDS139 W1R1Ba,group.2um/sulfate_syngenite
-2,splib06,1134,Chrysocolla HS297.3B W1R1Bb,group.2um/chrysocolla
-2,splib06,720,Azurite WS316 W1R1Ba,group.2um/carbonate_azurite
-2,splib06,2964,Malachite HS254.3B W1R1Bb,group.2um/carbonate_malachite
-2,splib06,6522,Cyanide_Cadmium_Potassium W2R4Na RREF,group.2um/cyanide-CdK
-2,splib06,6528,Cyanide_Nickel_Potassium W2R4Na RREF,group.2um/cyanide-NiK
-2,splib06,6534,Cyanide_Trihydrate CT1 W1R1Ba,group.2um/cyanide-trihydrate
-2,splib06,6552,Cyanide_Potassium_Ferro W1R1Ba,group.2um/cyanide-KFe
-2,splib06,6540,Cyanide_Zinc_Potassium W1R1Ba,group.2um/cyanide-ZnK
-2,splib06,6690,Plastic GGA-54 Grnhouse Roof W1R1Ba,group.2um/organic_plastic.grnhs.roof
-2,splib06,6606,Montmorill+Benzene SWy 1ml W1R1Ba,group.2um/organic_benzene+montswy
-2,splib06,6624,Montmorill+Trichlor SWy 1ml W1R1Ba,group.2um/organic_trichlor+montswy
-2,splib06,6618,Montmorill+Toluene SWy .5ml W1R1Ba,group.2um/organic_toluene+montswy
-2,splib06,6630,Montmorill+Unleaded_Gas SWy W1R1Ba,group.2um/organic_unleaded.gas+montswy
-2,splib06,6612,Montmorill+TCE SWy saturated W1R1Ba,group.2um/organic_tce+montswy
-2,splib06,5310,Zunyite GDS-241B <150um W1R1B?,group.2um/zunyite
-2,splib06,7008,WTC_Dust_Debris WTC01-2 W1R1Fa,group.2um/sulfate-mix_gypsum.trace.dust+debris-WTC01-2
-2,splib06,7014,WTC_Dust_Debris WTC01-28 W1R1Fa,group.2um/sulfate-mix_gypsum.trace.dust+debris-WTC01-28
-2,splib06,6498,Coated_Steel_Girder WTC01-8 W1R1Fa,group.2um/chrysotile.gypsum.wtc01-8
-2,splib06,4008,Portlandite GDS525 Ca(OH)2 W1R1Fa,group.2um/portlandite
-2,sprlb06,234,Potassium Nitrate GDS43,group.2um/nitrate_potassium
-2,sprlb06,240,Sodium Nitrate GDS883,group.2um/nitrate_sodium
-2,sprlb06,624,Vermiculite GDS458 W1R1Hc,group.2um/micagrp_vermiculite_GDS458
-2,sprlb06,630,Vermiculite ALB4SA00 W1R1Hc,group.2um/micagrp_vermiculite_ALB4SA00
-2,sprlb06,636,Vermiculite WS682 W1R1Hc,group.2um/micagrp_vermiculite_WS682
-2,sprlb06,642,Vermiculite WS681 W1R1Hc,group.2um/micagrp_vermiculite_WS681
-2,sprlb06,1008,CO2+O2+CH4 TRANSM ModtranZ20 r06crj3a=,group.2um/methane-gas-2.37um-experimental
+,group,library,record,title,path
+0,1,splib06,6858.0,Plastic_Tarp GDS339 Green W1R1Fa,group.1um/organic_green_plastic_tarp_1um
+1,1,sprlb06,744.0,Hematite.02+Quartz.98 GDS76 W1R1Ha,group.1um/fe3+_hematite.fine.gr.gds76
+2,1,sprlb06,882.0,Goethite WS222 <250um MedGrn W1R1H_ AREF,group.1um/fe3+_goethite.medgr.ws222
+3,1,splib06,5736.0,Goethite0.02+Quartz GDS240 W1R1Ba,group.1um/fe3+_goethite+qtz.medgr.gds240
+4,1,splib06,10000.0,Goethite MPCMA2-B FineGr adj W1R1Bb,group.1um/fe3+_goethite.fingr.mpcma2
+5,1,sprlb06,10001.0,Goethite MPCMA2-C M-Crsgrad2 W1R1Hb AREF,group.1um/fe3+_goethite.medcoarsegr.mpcma2
+6,1,sprlb06,10002.0,Goethite WS222 coarse grain W1R1H_,group.1um/fe3+_goethite.coarsegr.ws222
+7,1,splib06,6168.0,Goethite_Thin_Film WS222 W1R1Ba,group.1um/fe3+_goethite.thincoat
+8,1,splib06,5730.0,Goeth+qtz.5+Jarosite.5 AMX11 W1R1BbS,group.1um/fe3+_goeth+jarosite
+9,1,sprlb06,738.0,Hematite GDS27 W1R1Ha,group.1um/fe3+_hematite.med.gr.gds27
+10,1,splib06,6198.0,Hematite_Thin_Film GDS27 W1R1Ba,group.1um/fe3+_hematite.thincoat
+11,1,splib06,2100.0,Hematite FE2602 W1R1Bb,group.1um/fe3+_hematite.fine.gr.fe2602
+12,1,sprlb06,906.0,Hematite WS161 W1R1Hb,group.1um/fe3+_hematite.fine.gr.ws161
+13,1,sprlb06,840.0,Hematite_Coatd_Qtzt BR93-25A W1R1Hb AREF,group.1um/fe3+_hematite.lg.gr.br25a
+14,1,splib06,6174.0,Hematite_Coatd_Qtz BR93-25B W1R1Bb,group.1um/fe3+_hematite.med.gr.br25b
+15,1,sprlb06,816.0,Hematite_Coatd_Qtzt BR93-25C W1R1Hb AREF,group.1um/fe3+_hematite.lg.gr.br25c
+16,1,splib06,3468.0,Nanohematite BR93-34B2 W1R1BbS,group.1um/fe3+_hematite.nano.BR34b2
+17,1,sprlb06,10003.0,nHematit+fg-Goethit 34B2+MPC W1R1Hb,group.1um/fe3+_hematite-nano+goethite-fg-amix
+18,1,sprlb06,918.0,Nanohematite FBR93-34B2b ed1 W1R1Hb,group.1um/fe3+_hematite.nano.BR34b2b
+19,1,sprlb06,822.0,Hematite_Coatd_Qtz BR93-34C W1R1Ha AREF,group.1um/fe3+_hematite.lg.gr.br34c
+20,1,sprlb06,732.0,Lepidocrosite GDS80 (Syn) W1R1Hb,group.1um/fe3+_goethite.lepidocrosite
+21,1,sprlb06,10004.0,Hematite-nano_KP58610 400nm r06av95a=a,group.1um/fe3+_hematite.nano.KP58610
+22,1,sprlb06,10005.0,Hematite-n0.03_KP58610+Qtz r06av95a=a,group.1um/fe3+_hematite.nano-0.3+qtz
+23,1,sprlb06,10006.0,Goethite-nano_KP943 70nm r06av95a=a,group.1um/fe3+_goethite.nano-70nm
+24,1,sprlb06,10007.0,Goethite-n0.50_KP943+Qtz r06av95a=a,group.1um/fe3+_goethite.nano0.5+qtz
+25,1,sprlb06,10008.0,Hematite.10+Goethite.90 hg1 r06av95a=a,group.1um/fe3+_hematite.1+goethite.9hg1
+26,1,sprlb06,10009.0,Hematite.20 Goethite.80 hg2 r06av95a=a,group.1um/fe3+_hematite.2+goethite.8hg2
+27,1,sprlb06,10010.0,Hematite.30 Goethite.70 hg3 r06av95a=a,group.1um/fe3+_hematite.3+goethite.7hg3
+28,1,sprlb06,10011.0,Hematite0.1+Goeth0.4+Qtz.5 r06av95a=aa,group.1um/fe3+_hematite.1+goeth.4+qtz
+29,1,sprlb06,10012.0,Hematite0.4+Goeth0.1+Qtz.5 r06av95a=a,group.1um/fe3+_hematite.4+goeth.1+qtz
+30,1,splib06,6042.0,Pyrite LV95-6A Weath on Tail W1R1Bb,group.1um/sulfide_pyrite
+31,1,splib06,4476.0,Schwertmannite BZ93-1 W1R1Bb,group.1um/fe3+_sulfate_schwertmannite
+32,1,splib06,6144.0,Blck_Mn_Coat_Tailngs LV95-3 W1R1Bb,group.1um/Mn-Coating
+33,1,splib06,5316.0,Acid_Mine_Dr Assemb1-Fe3+ W1R1Fb,group.1um/fe3+mix_AMD.assemb1
+34,1,splib06,5322.0,Acid_Mine_Dr Assemb2-Fe3+ W1R1Fb,group.1um/fe3+mix_AMD.assemb2
+35,1,splib06,10013.0,Ammonio-Jarosite SCR-NHJ s06av95a=,group.1um/fe3+_sulfate_nh3jarosite
+36,1,splib06,10014.0,"Jarosite GDS100 Na,Sy 90C s06av95a=a",group.1um/fe3+_sulfate_jarosite-na-gds100
+37,1,splib06,10015.0,"Jarosite GDS101 Na,Sy 200C s06av95a=a",group.1um/fe3+_sulfate_jarosite-na-gds101
+38,1,splib06,10016.0,Jarosite GDS98 K 90C Syn s06av95a=a,group.1um/fe3+_sulfate_jarosite-k-90c
+39,1,splib06,2568.0,Jarosite GDS99 K 200C Syn W1R1BaS,group.1um/fe3+_sulfate_kjarosite200
+40,1,splib06,10017.0,Jarosite JR2501 (K) s06av95a=b,group.1um/fe3+_sulfate_jarosite-K-JR2501
+41,1,splib06,10018.0,Jarosite NMNH95074-1 (Na) s06av95a=b,group.1um/fe3+_sulfate_jarosite-na-nmnh
+42,1,splib06,10019.0,"Jarosite SJ-1 H3O,10-20% s06av95a=b",group.1um/fe3+_sulfate_jarosite-H3O-SJ-1
+43,1,splib06,6210.0,Jarosite_on_Qtzite BR93-34A2 W1R1Bb,group.1um/fe3+_sulfate_jarosite_br34a2
+44,1,splib06,10020.0,Jarosite_Thin_Film GDS243 s06av95a=b,group.1um/fe3+_sulfate_jarosite-thinfilm
+45,1,splib06,5634.0,Chlorite+Muscovite CU93-65A W1R1Ba,group.1um/fe2+_chlor+muscphy
+46,1,sprlb06,900.0,Goethite CU91-252 coatedchip W1R1H_,group.1um/fe2+_goeth+musc
+47,1,splib06,5604.0,Chlor+Goethite CU93-4B Phyl W1R1Ba,group.1um/fe2+fe3+_chlor+goeth.propylzone
+48,1,splib06,1446.0,Cummingtonite HS294.3B W1R1Bc,group.1um/fe2+generic_nrw.cummingtonite
+49,1,splib06,72.0,Actinolite NMNHR16485 W1R1Bb,group.1um/fe2+generic_nrw.actinolite
+50,1,splib06,42.0,Actinolite HS22.3B W1R1Bb,group.1um/fe2+generic_nrw.hs-actinolite
+51,1,splib06,2334.0,Hypersthene NMNHC2368 W1R1Bb,group.1um/fe2+_pyroxene.hypersthene
+52,1,splib06,1548.0,Diopside NMNHR18685 ~160 Pyx W1R1Bb,group.1um/fe2+_pyroxene.diopside
+53,1,splib06,2502.0,Jadeite HS343.3B W1R1Bb,group.1um/fe2+generic_med.jadeite
+54,1,splib06,3966.0,Pigeonite HS199.3B W1R1Bb,group.1um/fe2+_pyroxene_clino_pigeonite
+55,1,splib06,1668.0,Epidote GDS26.a 75-200um W1R1Bb,group.1um/epidote
+56,1,splib06,5724.0,Fe-Hydroxide SU93-106 amorph W1R1Bb,group.1um/fe3+bearing1
+57,1,splib06,1740.0,"Ferrihydrite GDS75 Syn, F6 W1R1Bb",group.1um/fe3+_ferrihydrite
+58,1,splib06,3558.0,Nontronite NG-1.a W1R1Bb,group.1um/fe3+_smectite_nontronite
+59,1,splib06,5328.0,Actinolite-Hornfels BR93-5a W1R1Bc,group.1um/fe2+generic_brd.br5a_actinolite
+60,1,sprlb06,846.0,Magnetite_skarn BR93-5B W1R1Hb AREF,group.1um/fe2+fe3+mix_with_hematite_br5b
+61,1,splib06,5334.0,Actinolite-Tremolit BR93-22C W1R1Bb,group.1um/fe2+generic_brd.br22c_actinolite
+62,1,splib06,1656.0,Epidote BR93-33a W1R1Bb AREF,group.1um/fe2+generic_br33a_bioqtzmonz_epidote
+63,1,splib06,5490.0,Biotite-Chlorite_Mx BR93-36A W1R1Bb,group.1um/fe2+generic_brd.br36a_chlorite
+64,1,splib06,5460.0,Basalt_weathered BR93-43 W1R1Bb,group.1um/fe2+fe3+_hematite_weathering
+65,1,splib06,5454.0,Basalt_fresh BR93-46B W1R1Bb,group.1um/fe2+generic_basalt_br46b
+66,1,splib06,5340.0,Actinolite_Dolomit BR93-60B W1R1BbS,group.1um/fe2+generic_broad_br60b
+67,1,splib06,6036.0,Phlogopite_Sand_Mix BR93-20 W1R1Ba,group.1um/fe2+generic_vbroad_br20
+68,1,splib06,6942.0,Renyolds_TnlSldgWet SM93-15w W1R1Ba,group.1um/fe2+fe3+_water_RTsludge
+69,1,sprlb06,660.0,Clinochlore GDS158 Flagst W1R1Hb,group.1um/fe2+_chlorite.clinochlor
+70,1,splib06,1200.0,Clinochlore NMNH83369 W1R1Bb,group.1um/fe2+_chlorite.Felow.clinochlor
+71,1,splib06,4890.0,Thuringite SMR-15.c 32um W1R1Ba,group.1um/fe2+_chlorite.thuringite
+72,1,splib06,720.0,Azurite WS316 W1R1Ba,group.1um/copper_carbonate_azurite
+73,1,splib06,3990.0,Pitch_Limonite GDS104 Cu W1R1B?,group.1um/fe3+copper-hydroxide_pitchlimonite
+74,1,splib06,2964.0,Malachite HS254.3B W1R1Bb,group.1um/copper_carbonate_malachite
+75,1,splib06,5496.0,Blue_Efflorscnt_Min SU93-300 W1R1Bb,group.1um/copper_sulfate_bluefflor
+76,1,splib06,6594.0,Green_Slime SM93-14A Summitv W1R1Ba,group.1um/copper_precipitate_greenslime
+77,1,splib06,3696.0,Olivine HS285.4B Fo80 W1R1Bb,group.1um/fe2+_olivine-lrg-gr
+78,1,splib06,3666.0,Olivine GDS71.a Fo91 65um W1R1Bb,group.1um/fe2+_olivine-fine-gr
+79,1,splib06,4278.0,Rhodochrosite HS338.3B W1R1Bb,group.1um/carbonate_rhodochrosite
+80,1,splib06,4560.0,Siderite HS271.3B W1R1Ba,group.1um/fe2+generic_carbonate_siderite1
+81,1,splib06,4362.0,Riebeckite NMNH122689 Amph W1R1Ba,group.1um/fe2+generic_amphibole_riebeckite
+82,1,splib06,1386.0,Coquimbite GDS22 W1R1Bc,group.1um/fe3+fe2+_sulfate_coquimbite
+83,1,splib06,1374.0,Copiapite GDS21 W1R1Bb,group.1um/fe3+fe2+_sulfate_copiapite
+84,1,splib06,1134.0,Chrysocolla HS297.3B W1R1Bb,group.1um/copper_chrysocolla
+85,1,splib06,10021.0,Neodymium_Oxide GDS34 W1R1Ba,group.1um/ree_neodymium_oxide_g1
+86,1,splib06,10022.0,Samarium_Oxide GDS36 W1R1Ba,group.1um/ree_samarium_oxide_g1
+87,1,splib06,708.0,Axinite HS342.3B W1R1Bb,group.1um/fe2+generic_axinite
+88,1,splib06,4728.0,Staurolite HS188.3B W1R1Bb,group.1um/fe2+generic_staurolite
+89,1,splib06,216.0,Almandine WS479 Garnet W1R1Bb,group.1um/fe2+generic_almandine
+90,1,splib06,678.0,Augite NMNH120049 W1R1Bb,group.1um/fe2+_pyroxene_augite
+91,1,splib06,810.0,Bronzite HS9.3B Pyroxene W1R1Bc,group.1um/fe2+_pyroxene.bronzite
+92,1,splib06,858.0,Butlerite GDS25 W1R1Ba,group.1um/fe2+generic_sulfate_butlerite
+93,1,splib06,882.0,Bytownite HS106.3B Plagio W1R1Bc,group.1um/fe2+_feldspar.bytownite
+94,1,splib06,1002.0,Chalcopyrite HS431.3B W1R1Bb,group.1um/sulfide_copper_chalcopyrite
+95,1,splib06,1122.0,Chromite HS281.3B W1R1Bb,group.1um/fe2+_chromite
+96,1,splib06,1164.0,Cinnabar HS133.3B W1R1Bc,group.1um/sulfide_cinnabar
+97,1,splib06,1458.0,Cuprite HS127.3B W1R1Bb,group.1um/copper_oxide_cuprite
+98,1,splib06,6156.0,Desert_Varnish GDS141 W1R1Ba,group.1um/fe3+mn_desert.varnish1
+99,1,splib06,6162.0,Desert_Varnish GDS78A Rhy W1R1Ba,group.1um/fe3+mn_desert.varnish2
+100,1,splib06,1644.0,Enstatite NMNH128288 W1R1Bc,group.1um/fe2+_pyroxene_enstatite
+101,1,splib06,2088.0,Hedenbergite NMNH119197 W1R1Bb,group.1um/fe2+_pyroxene_hedenbergite
+102,1,splib06,2796.0,Lazurite HS418.3B W1R1Bb,group.1um/sulfate_lazurite
+103,1,splib06,2928.0,Maghemite GDS81 Syn (M-3) W1R1Bb,group.1um/fe3+_maghemite
+104,1,splib06,2940.0,Magnetite HS195.3B W1R1Bb,group.1um/magnetite
+105,1,splib06,4158.0,Pyrolusite HS138.3B W1R1Bb,group.1um/mn_oxide_pyrolusite
+106,1,splib06,3042.0,Microcline HS103.3B Feldspar W1R1Bc,group.1um/fe2+_feldspar_microcline
+107,1,splib06,132.0,Albite HS143.3B Plagioclase W1R1Bc,group.1um/fe2+_feldspar_albite
+108,1,splib06,3852.0,Orthoclase NMNH142137 Fe W1R1Bb,group.1um/fe2+_feldspar_orthoclase
+109,1,splib06,3882.0,Pectolite NMNH94865.a W1R1Bb,group.1um/inosilicate_pectolite
+110,1,splib06,4314.0,Rhodonite NMNHC6148 >250um W1R1Bb,group.1um/mn2+_rhodonite
+111,1,splib06,4776.0,Sulfur GDS94 Reagent W1R1Ba,group.1um/sulfur
+112,2,splib06,7128.0,Dry_Long_Grass AV87-2 W1R1Ba,group.2um/organic_vegetation-dry-grass-long
+113,2,splib06,7248.0,Grass_Golden_Dry GDS480 W1R1Fa,group.2um/organic_vegetation-dry-grass-golden
+114,2,splib06,6912.0,Plywood GDS365 Fresh Pine W1R1Fa,group.2um/organic_vegetation-dry-wood
+115,2,splib06,6864.0,Plastic_Tarp GDS340 Blu_Wovn W1R1Fa,group.2um/organic_plastic-tarp1
+116,2,splib06,6876.0,Plastic_Vinyl GDS372 White W1R1Fa,group.2um/organic_plastic-vinyl
+117,2,splib06,6558.0,Fiberglass GDS337 Grn Roofng W1R1Fa,group.2um/organic_fiberglass-roofing
+118,2,splib06,6936.0,Polystyrene GDS345 BluInsul W1R1Fa,group.2um/organic_plastic-polystyrene
+119,2,splib06,6816.0,Plastic_PETE GDS380 Clear W1R1Fa,group.2um/organic_plastic-pete
+120,2,splib06,6810.0,Plastic_PETE GDS379 TrnslBrn W1R1Fa,group.2um/organic_plastic-pete2
+121,2,splib06,6714.0,Plastic_HDPE GDS393 GlosWhTr W1R1Fa,group.2um/organic_plastic-hdpe.1
+122,2,splib06,6672.0,Painted_Aluminum GDS333 LgGr W1R1Fa,group.2um/organic_paint-1
+123,2,splib06,6834.0,Plastic_PETE GDS383 Clrbluis W1R1Fa,group.2um/organic_plastic-pete3
+124,2,splib06,6810.0,Plastic_PETE GDS379 TrnslBrn W1R1Fa,group.2um/organic_plastic-pete4
+125,2,splib06,300.0,Alunite GDS97 K Syn (150C) W2R4Na,group.2um/sulfate_kalun150c
+126,2,splib06,294.0,Alunite GDS96 K Syn (250C) W2R4Na,group.2um/sulfate_kalun250c
+127,2,splib06,324.0,Alunite RES-2 K Syn (450C) W2R4Na,group.2um/sulfate_kalun450c
+128,2,splib06,288.0,Alunite GDS95 Na Syn (150C) W2R4Na,group.2um/sulfate_naalun150c
+129,2,splib06,336.0,Alunite RES-4 Na Syn (300C) W2R4Na,group.2um/sulfate_naalun300c
+130,2,splib06,330.0,Alunite RES-3 Na Syn (450C) W2R4Na,group.2um/sulfate_naalun450c
+131,2,splib06,246.0,Alunite GDS82 Na82 W1R1Bb,group.2um/sulfate_na82alun100c
+132,2,splib06,5382.0,Alunite+Dickite MV99-6-26b W1R1Fc,group.2um/sulfate+kaolingrp_natroalun+dickite
+133,2,splib06,252.0,Alunite GDS83 Na63 W1R1Bb,group.2um/sulfate_na63alun300c
+134,2,splib06,342.0,Alunite RES-9 Summitv (400C) W2R4Nb,group.2um/sulfate_na40alun400c
+135,2,splib06,276.0,Alunite GDS84 Na03 W2R4Na,group.2um/sulfate_alunNa03
+136,2,splib06,348.0,Alunite RES10 NA56% Syn 450C W2R4Na,group.2um/sulfate_alunNa56450c
+137,2,splib06,354.0,Alunite RES12 NA78% Syn 450C W2R4NaIS,group.2um/sulfate_alunNa78.450c
+138,2,splib06,5394.0,Alunite0.35K+.65Na CU91-217H W2R4Nb,group.2um/sulfate_alun35K65Na.low
+139,2,splib06,5418.0,Alunite0.73K+.27Na CU91-217D W2R4Na,group.2um/sulfate_alun73K27Na.low
+140,2,splib06,5412.0,Alunite0.66K+.34Na CU91-217A W2R4Nb,group.2um/sulfate_alun66K34Na.low
+141,2,splib06,5976.0,Muscovite CU91-250A med Al W2R4NbS,group.2um/micagrp_muscovite-med-Al
+142,2,sprlb06,1038.0,Calcite.33+Kaol.33+Mus AMXr2 W1R1Ba,group.2um/calcite.33+kaol.33+mus-AMXr2
+143,2,sprlb06,654.0,Muscovite GDS113 Ruby >37um W1R1Hb,group.2um/micagrp_muscovite-medhigh-Al
+144,2,splib06,3876.0,Paragonite GDS109 W1R1Ba,group.2um/micagrp_paragonite
+145,2,sprlb06,714.0,Illite IMt-1.b <2um W1R1BaS,group.2um/micagrp_illite
+146,2,sprlb06,726.0,Illite GDS4.2 Marblehead_WI W1R1H_,group.2um/micagrp_illite.gds4
+147,2,splib06,3306.0,Muscovite CU93-1 low-Al Phyl W2R4Nb,group.2um/micagrp_muscovite-low-Al
+148,2,splib06,3372.0,Muscovite GDS116 Tanzania W1R1Ba,group.2um/micagrp_muscoviteFerich
+149,2,sprlb06,606.0,Kaolinite CM9 (wxl) W1R1Hb,group.2um/kaolgrp_kaolinite_wxl
+150,2,sprlb06,672.0,Kaolinite KGa-2 (pxl) W1R1Hb,group.2um/kaolgrp_kaolinite_pxl
+151,2,sprlb06,684.0,Halloysite NMNH106237 W1R1Ha,group.2um/kaolgrp_halloysite
+152,2,splib06,3462.0,Nacrite GDS88 s06crj3a=c,group.2um/kaolgrp_nacrite
+153,2,sprlb06,708.0,Dickite NMNH106242 W1R1Bb,group.2um/kaolgrp_dickite
+154,2,sprlb06,618.0,Gypsum HS333.3B (Selenite) W1R1Ha,group.2um/sulfate_gypsum
+155,2,splib06,5868.0,Kaolin_Smect H89-FR-2 .5Kaol W1R1Bb,group.2um/kaolin.5+smect.5
+156,2,splib06,5880.0,Kaolin_Smect H89-FR-5 .3Kaol W1R1Bb,group.2um/kaolin.3+smect.7
+157,2,sprlb06,588.0,Montmorillonite SWy-1 W1R1Hb,group.2um/smectite_montmorillonite_na_highswelling
+158,2,sprlb06,54.0,Montmorillonite_Fe GDS759A,group.2um/smectite_montmorillonite_fe_swelling
+159,2,sprlb06,600.0,Montmorillonite SAz-1 W1R1Hb,group.2um/smectite_montmorillonite_ca_swelling
+160,2,sprlb06,60.0,HyBasaltGlassMLUT03-9CMarP&T,group.2um/sioh_hydrated_basaltic_glass
+161,2,sprlb06,66.0,Kieserite Batch4 GDS671,group.2um/sulfate_kieserite
+162,2,sprlb06,150.0,Szomolnokite NMNH104303 UT,group.2um/sulfate_szomolnokite
+163,2,sprlb06,192.0,Szomolnokite GDS874 Heat275C,group.2um/sulfate_szomolnokite_heated
+164,2,splib06,10023.0,Bloedite GDS147 s06crj3a=a,group.2um/sulfate-bloedite
+165,2,sprlb06,96.0,Perchlorate_Mg GDS851.2 220K,group.2um/perchlorate_mg
+166,2,sprlb06,144.0,Perchlorate_Na GDS857 230C r06crj3a=_,group.2um/perchlorate_na
+167,2,splib06,5466.0,Beidellite+Montmor GDS123 =b,group.2um/smectite_beidellite_gds123
+168,2,splib06,5478.0,Beidellite+Montmor GDS124 =b,group.2um/smectite_beidellite_gds124
+169,2,splib06,990.0,Chalcedony CU91-6A W1R1Ba,group.2um/sioh_chalcedony
+170,2,splib06,1488.0,Diaspore HS416.3B W1R1Bb,group.2um/hydroxide_diaspore
+171,2,splib06,4188.0,Pyrophyllite PYS1A fine gr W1R1Ba,group.2um/pyrophyllite
+172,2,splib06,6054.0,Pyrophyl.25+wxlKaol.75 AMX17,group.2um/kaol.75+pyroph.25
+173,2,splib06,6060.0,Pyrophyl.50+Ca-Mont.50 AMX16 W1R1Ba,group.2um/pyroph.5+mont0.5
+174,2,splib06,5358.0,Alun366+.50PyroPYS1A GDS222 W1R1Bb,group.2um/pyroph.5+alunit.5
+175,2,splib06,5370.0,Alunite+Pyrophyl SD1093A W1R1Bb,group.2um/alunite+pyrophyl
+176,2,splib06,6048.0,Pyrophyl+Muscovite JH_PYRM1 W1R1Fb,group.2um/pyroph+tr.musc
+177,2,splib06,5988.0,Muscovite+Pyrophyl JH_PYRP1 W1R1Fb,group.2um/musc+pyroph
+178,2,splib06,5352.0,Alun0.3+Musc0.4+Pyro0.3 AMX1 W1R1Ba,group.2um/alunite+musc+pyroph
+179,2,splib06,5406.0,Alunite0.5+Kaol_KGa-1 AMX3 W1R1Bb,group.2um/alunite.5+kaol.5
+180,2,splib06,5910.0,Kaolwxl.75+Alun_HS295 AMX14 W1R1Bb,group.2um/kaol.75+alun.25
+181,2,splib06,5820.0,Kalun+kaol+gth mv2-ar3 W1R1Fb,group.2um/Kalun+kaol.intmx
+182,2,splib06,5364.0,Alun_Na+Kaol+Hemat MV00-11a W1R1Fc,group.2um/Na-alun+kaol.intmx
+183,2,splib06,5832.0,Kaol.5+MuscCU91-250A AMX13 W1R1Bb,group.2um/kaolin.5+muscov.medAl
+184,2,splib06,5838.0,Kaol_Wxl+0.5Musc_Ruby AMX12 W1R1Ba,group.2um/kaolin.5+muscov.medhighAl
+185,2,sprlb06,870.0,Kaol+Musc_intimate CU93-5C W1R1Ha AREF,group.2um/kaolin+musc.intimat
+186,2,sprlb06,876.0,Muscov+Jaros CU93-314 coatng W1R1Hb,group.2um/musc+jarosite.intimat
+187,2,splib06,5748.0,Gyp+jar+ill BRCM1 Marysvale W1R1Fb,group.2um/sulfate-mix_gypsum+jar+illite.intmix
+188,2,splib06,5766.0,Gyp.5+Kjar.3+hAlmsc.2 AMX24 W1R1Ba,group.2um/sulfate-mix_gyp+jar+musc.amix
+189,2,splib06,5760.0,Gyp.4+jr20+msc.2+dic.2 AMX23 W1R1Ba,group.2um/sulfate-mix_gyp+jar+musc+dick.amix
+190,2,splib06,5754.0,Gyp.3+jr.1+msc.4+dic.2 AMX22 W1R1Ba,group.2um/musc+gyp+jar+dick.amix
+191,2,splib06,5670.0,Dic.4+msc.3+gyp.2+jr.1 AMX20 W1R1Ba,group.2um/dick+musc+gyp+jar.amix
+192,2,splib06,5388.0,Alunite.5+MuscCU91-250A AMX4 W1R1Ba,group.2um/alunite.5+musc.5
+193,2,splib06,5346.0,Alun.33+Kaol.33+Musc.33 AMX2 W1R1Ba,group.2um/alunite.33+kaol.33+musc.33
+194,2,splib06,5982.0,Muscovite+Chlorite CU91-253D W2R4Na,group.2um/muscovite+chlorite
+195,2,sprlb06,786.0,Ammonio-Illite/Smectit GDS87 W1R1Hb,group.2um/smectite_ammonillsmec
+196,2,splib06,846.0,Buddingtonite GDS85 D-206 W1R1Bb,group.2um/feldspar_buddingtonite_ammonium
+197,2,splib06,5502.0,Buddingtnt+Na-Mont CU93-260B W2R4Nb,group.2um/feldspar_buddington.namont
+198,2,splib06,5502.0,Buddingtnt+Na-Mont CU93-260B W2R4Nb,group.2um/feldspar_buddington.namont2
+199,2,splib06,5436.0,Alunite_NH4+Jaro NMNH145596A W1R1Bb,group.2um/sulfate_ammonalunite
+200,2,splib06,390.0,Ammonio-Jarosite SCR-NHJ W1R1Ba,group.2um/sulfate_ammonjarosite
+201,2,sprlb06,612.0,Dolomite HS102.3B W1R1Hb,group.2um/carbonate_dolomite
+202,2,splib06,72.0,Actinolite NMNHR16485 W1R1Bb,group.2um/actinolite
+203,2,splib06,402.0,Amphibole NMNH78662 W1R1Bb,group.2um/amphibole
+204,2,splib06,774.0,Biotite HS28.3B W1R1Bb,group.2um/micagrp_biotite
+205,2,sprlb06,912.0,Biotite-phlogopite P23-5 Sam W1R1H_,group.2um/micagrp_biotite-phlogopite
+206,2,splib06,5664.0,Chlorite_Serpentine BR93-22B W1R1Bb,group.2um/chlorite-skarn
+207,2,splib06,1080.0,Chlorite SMR-13.b 60-104um W1R1Ba,group.2um/chlorite
+208,2,sprlb06,252.0,Prehnite+.50Chlorite AMIX,group.2um/prehnite+.50chlorite
+209,2,sprlb06,258.0,Prehnite+.67Chlorite AMIX,group.2um/prehnite+.67chlorite
+210,2,sprlb06,264.0,Prehnite+.75Chlorite AMIX,group.2um/prehnite+.75chlorite
+211,2,sprlb06,276.0,Aragonite GDS898 Moracco,group.2um/carbonate_aragonite
+212,2,sprlb06,660.0,Clinochlore GDS158 Flagst W1R1Hb,group.2um/chlorite_clinochlore
+213,2,splib06,1212.0,Clinochlore NMNH83369 =bb,group.2um/chlorite_clinochlore.nmnh83369
+214,2,sprlb06,648.0,Clinochlore_Fe GDS157.b W1R1Ha,group.2um/chlorite_clinochlore.fe.gds157
+215,2,splib06,1260.0,Clinochlore_Fe SC-CCa-1.b =aa_,group.2um/chlorite_clinochlore.fe.sc-cca-1
+216,2,splib06,1338.0,Cookeite CAr-1.a 104-150um =bb_,group.2um/chlorite_cookeite-car-1.a
+217,2,splib06,1368.0,Cookeite CAr-1.c <30um =cc_,group.2um/chlorite_cookeite-car-1.c
+218,2,splib06,4872.0,Thuringite SMR-15.b 32um W1R1Ba,group.2um/chlorite_thuringite
+219,2,splib06,1668.0,Epidote GDS26.a 75-200um W1R1Bb,group.2um/epidote
+220,2,splib06,2274.0,Hornblende_Fe HS115.3B W1R1Bc,group.2um/hornblende
+221,2,splib06,2538.0,Jarosite GDS24 Na W1R1Bb,group.2um/sulfate_jarosite-Na
+222,2,splib06,2568.0,Jarosite GDS99 K 200C Syn W1R1Ba,group.2um/sulfate_jarosite-K
+223,2,splib06,2604.0,"Jarosite SJ-1 H3O,10-20% W1R1Bb",group.2um/sulfate_jarosite-lowT
+224,2,splib06,3930.0,Phlogopite HS23.3B W1R1Bb,group.2um/phlogopite
+225,2,splib06,5142.0,Tremolite HS18.3 W1R1Bc,group.2um/tremolite.or.talc
+226,2,splib06,4800.0,Talc GDS23 74-250um fr W1R1Ba,group.2um/talc.crsgrnd
+227,2,splib06,4830.0,Talc WS659 W1R1Bb,group.2um/talc.fngrnd
+228,2,splib06,5538.0,Calcite+Talc PC99-1G W1R1Fc,group.2um/talc+calcite.parkcity
+229,2,splib06,5682.0,Dolomit+Calcite+Talc PC99-1E W1R1Fc,group.2um/talc+carbonate.parkcity
+230,2,splib06,5568.0,Calcite.8+Ca-Montmor.2 AMX15 W1R1BbS,group.2um/carbonate_calcite+0.2Ca-mont
+231,2,splib06,5922.0,Magnesite+Hydroma HS47.3B W1R1Ba,group.2um/carbonate_magnesite
+232,2,sprlb06,666.0,Calcite WS272 W1R1Ha,group.2um/carbonate_calcite
+233,2,splib06,5532.0,Calcite+Dolomite.5 AMX8 W1R1Bb,group.2um/carbonate_calcite+dolomite.5
+234,2,splib06,5694.0,Dolomite.50+Ca-Montmor AMX10 W1R1Bb,group.2um/carbonate_dolo+.5ca-mont
+235,2,splib06,5514.0,Calc.25+dolo.25+mont.5 AMX18 W1R1Bb,group.2um/calcite.25+dolom.25+Na-mont.5
+236,2,splib06,5508.0,Calc.25+Dolo.25+Ca-Mon AMX7 W1R1Bb,group.2um/carbonate_calcite.25+dolom.25+Ca-mont.5
+237,2,splib06,4560.0,Siderite HS271.3B W1R1Ba,group.2um/carbonate_siderite
+238,2,splib06,3558.0,Nontronite NG-1.a W1R1Bb,group.2um/smectite_nontronite_swelling
+239,2,sprlb06,696.0,Hectorite SHCa-1.Ac-B W1R1Hb,group.2um/clay_hectorite
+240,2,sprlb06,702.0,Saponite SapCa-1.AcB W1R1Hb,group.2um/saponite.or.talc
+241,2,sprlb06,690.0,Sepiolite SepNev-1.AcB W1R1Ha,group.2um/sepiolite
+242,2,splib06,5574.0,Calcite.80+Mont_Swy-1 GDS212 W1R1Ba,group.2um/calcite+0.2Na-mont
+243,2,splib06,5526.0,Calcite+.50Ca-Mont AMX6 W1R1Bb,group.2um/calcite+0.5Ca-mont
+244,2,splib06,5520.0,Calcite+.33Muscov AMX5 Ruby W1R1Ba,group.2um/carbonate_calcite+0.3muscovite
+245,2,sprlb06,30.0,Grass_dry+0.17%Na-Mont AMX35 W1R1Ba AREF,group.2um/organic_drygrass+.17Na-mont
+246,2,splib06,5688.0,Dolomite.5+Na-mont.5 AMX21 W1R1Bb,group.2um/carbonate_dolomite.5+Na-mont.5
+247,2,splib06,5544.0,Calcite.33+Ca-mont.67 AMX19 W1R1Bb,group.2um/carbonate_smectite_calcite.33+Ca-mont.67
+248,2,splib06,5580.0,Calcite.80wt+Kaol_CM9 GDS213 W1R1Ba,group.2um/carbonate_calcite+0.2kaolwxl
+249,2,splib06,5562.0,Calcite.7+Kaolwxl.3 AMX9 W1R1Ba,group.2um/carbonate_calcite0.7+kaol0.3
+250,2,splib06,1314.0,Clintonite NMNH126553 W1R1Bc,group.2um/phyllosilicate.clintonite
+251,2,splib06,3870.0,Palygorskite PFL-1 Attapulg W1R1Bb,group.2um/palygorskite
+252,2,splib06,5298.0,Zoisite HS347.3B W1R1Bb,group.2um/zoisite
+253,2,splib06,1626.0,Elbaite NMNH94217-1.c <74 W1R1Bb,group.2um/elbaite
+254,2,splib06,1824.0,Gibbsite WS214 W1R1Bb,group.2um/hydroxide_gibbsite
+255,2,splib06,3546.0,Niter GDS43 (K-Saltpeter) W1R1Ba,group.2um/nitrate_niter
+256,2,splib06,5040.0,Topaz Mt._Antero_#5 W1R1Bb,group.2um/topaz
+257,2,splib06,4278.0,Rhodochrosite HS338.3B W1R1Bb,group.2um/carbonate_rhodochrosite
+258,2,splib06,5268.0,Witherite HS273.3B W1R1Ba,group.2um/carbonate_witherite
+259,2,splib06,4026.0,Prehnite GDS613.a <60um =aa_,group.2um/prehnite
+260,2,splib06,3126.0,"Mizzonite BM1931,12 Scapolte W1R1Bc",group.2um/prehnite+muscovite
+261,2,splib06,3978.0,Pinnoite NMNH123943 W1R1Ba,group.2um/borate_pinnoite
+262,2,splib06,3996.0,Polyhalite NMNH92669-4 W1R1Ba,group.2um/polyhalite
+263,2,splib06,4368.0,Rivadavite NMNH170164 Amph W1R1Ba,group.2um/rivadavite
+264,2,splib06,2298.0,Howlite GDS155 W1R1Ba,group.2um/howlite
+265,2,splib06,5190.0,Ulexite HS441.3B W1R1Ba,group.2um/ulexite
+266,2,splib06,6114.0,White_Crust LV30 starkeyite W1R1Fc,group.2um/white.crust.starkeyite
+267,2,splib06,414.0,Analcime GDS1 Zeolite W1R1Ba,group.2um/zeolite_analcime
+268,2,splib06,834.0,Brucite HS247.3B W1R1Bc,group.2um/hydroxide_brucite
+269,2,splib06,942.0,Carnallite NMNH98011 W1R1Bb,group.2um/chloride_carnallite
+270,2,splib06,1320.0,Colemanite GDS143 W1R1Bb,group.2um/borate_colemanite
+271,2,splib06,1470.0,Datolite HS442.3B W1R1Bb,group.2um/datolite
+272,2,splib06,2310.0,Hydrogrossular NMNH120555 W1R1Bb,group.2um/hydrogrossular
+273,2,splib06,2862.0,Lepidolite NMNH88526-1 W1R1Ba,group.2um/micagrp_lepidolite
+274,2,splib06,2976.0,Margarite GDS106 W1R1Bc,group.2um/micagrp_margarite
+275,2,splib06,3012.0,Mascagnite GDS65.b (fr) W1R1Ba,group.2um/sulfate_mascagnite
+276,2,splib06,3114.0,Mirabilite GDS150 Na2SO4 W1R1Ba,group.2um/sulfate_mirabilite-wet_soil
+277,2,splib06,3474.0,Natrolite HS169.3B Zeolite W1R1Bb,group.2um/zeolite_natrolite
+278,2,splib06,4338.0,Richterite NMNH150800 HCl W1R1Bb,group.2um/richterite
+279,2,splib06,1152.0,Chrysotile ML99-12A Coar Fib W1R1Fb,group.2um/serpentine_chrysotile.coarse-fibrous
+280,2,splib06,1158.0,Chrysotile ML99-12C Fine Fib W1R1Fb,group.2um/serpentine_chrysotile.med-fine-fibrous
+281,2,splib06,1146.0,Chrysotile HS323.1B W1R1Ba,group.2um/serpentine_chrysotile.fine-fibrous
+282,2,splib06,1440.0,Cronstedtite M3542 =bb_,group.2um/serpentine_cronstedtite
+283,2,splib06,4380.0,Roscoelite EN124 W1R1Bb,group.2um/micagrp_illite.roscoelite
+284,2,splib06,4764.0,Strontianite HS272.3B W1R1Bb,group.2um/carbonate_strontianite
+285,2,splib06,4788.0,Syngenite GDS139 W1R1Ba,group.2um/sulfate_syngenite
+286,2,splib06,1134.0,Chrysocolla HS297.3B W1R1Bb,group.2um/chrysocolla
+287,2,splib06,720.0,Azurite WS316 W1R1Ba,group.2um/carbonate_azurite
+288,2,splib06,2964.0,Malachite HS254.3B W1R1Bb,group.2um/carbonate_malachite
+289,2,splib06,6522.0,Cyanide_Cadmium_Potassium W2R4Na RREF,group.2um/cyanide-CdK
+290,2,splib06,6528.0,Cyanide_Nickel_Potassium W2R4Na RREF,group.2um/cyanide-NiK
+291,2,splib06,6534.0,Cyanide_Trihydrate CT1 W1R1Ba,group.2um/cyanide-trihydrate
+292,2,splib06,6552.0,Cyanide_Potassium_Ferro W1R1Ba,group.2um/cyanide-KFe
+293,2,splib06,6540.0,Cyanide_Zinc_Potassium W1R1Ba,group.2um/cyanide-ZnK
+294,2,splib06,6690.0,Plastic GGA-54 Grnhouse Roof W1R1Ba,group.2um/organic_plastic.grnhs.roof
+295,2,splib06,6606.0,Montmorill+Benzene SWy 1ml W1R1Ba,group.2um/organic_benzene+montswy
+296,2,splib06,6624.0,Montmorill+Trichlor SWy 1ml W1R1Ba,group.2um/organic_trichlor+montswy
+297,2,splib06,6618.0,Montmorill+Toluene SWy .5ml W1R1Ba,group.2um/organic_toluene+montswy
+298,2,splib06,6630.0,Montmorill+Unleaded_Gas SWy W1R1Ba,group.2um/organic_unleaded.gas+montswy
+299,2,splib06,6612.0,Montmorill+TCE SWy saturated W1R1Ba,group.2um/organic_tce+montswy
+300,2,splib06,5310.0,Zunyite GDS-241B <150um W1R1B?,group.2um/zunyite
+301,2,splib06,7008.0,WTC_Dust_Debris WTC01-2 W1R1Fa,group.2um/sulfate-mix_gypsum.trace.dust+debris-WTC01-2
+302,2,splib06,7014.0,WTC_Dust_Debris WTC01-28 W1R1Fa,group.2um/sulfate-mix_gypsum.trace.dust+debris-WTC01-28
+303,2,splib06,6498.0,Coated_Steel_Girder WTC01-8 W1R1Fa,group.2um/chrysotile.gypsum.wtc01-8
+304,2,splib06,4008.0,Portlandite GDS525 Ca(OH)2 W1R1Fa,group.2um/portlandite
+305,2,sprlb06,234.0,Potassium Nitrate GDS43,group.2um/nitrate_potassium
+306,2,sprlb06,240.0,Sodium Nitrate GDS883,group.2um/nitrate_sodium
+307,2,sprlb06,624.0,Vermiculite GDS458 W1R1Hc,group.2um/micagrp_vermiculite_GDS458
+308,2,sprlb06,630.0,Vermiculite ALB4SA00 W1R1Hc,group.2um/micagrp_vermiculite_ALB4SA00
+309,2,sprlb06,636.0,Vermiculite WS682 W1R1Hc,group.2um/micagrp_vermiculite_WS682
+310,2,sprlb06,642.0,Vermiculite WS681 W1R1Hc,group.2um/micagrp_vermiculite_WS681
+311,2,sprlb06,1008.0,CO2+O2+CH4 TRANSM ModtranZ20 r06crj3a=,group.2um/methane-gas-2.37um-experimental
