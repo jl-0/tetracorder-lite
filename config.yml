@@ -68,5 +68,6 @@ aggregate:
   reflib: ${convolve.output.reflib}-envi
   reslib: ${convolve.output.reslib}-envi
   output_as: ["nc", "tif"]
+  reference: tetrapy/data/v6.00a5-part.csv
 emit_fmt: # TODO
   enabled: False

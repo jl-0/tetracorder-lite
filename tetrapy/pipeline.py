@@ -153,5 +153,5 @@ def aggregate(c: Box) -> None:
         reflib      = c.aggregate.reflib,
         reslib      = c.aggregate.reslib,
         output_as   = c.aggregate.output_as,
-        # matrix      = c.aggregate.matrix, TODO: Implement using the matrix for the mineral IDs
+        reference   = c.aggregate.reference,
     )

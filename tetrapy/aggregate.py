@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 
-import click
 import numpy as np
+import pandas as pd
 import spectral.io.envi as envi
 import xarray as xr
 from scipy.interpolate import interp1d
@@ -24,7 +24,7 @@ DTYPES = {1: "u1", 2: "i2", 4: "f4", 5: "f8", 12: "u2"}
 Logger = logging.getLogger(__name__)
 
 
-def save(da: xr.DataArray, file: str) -> None:
+def save(da: xr.DataArray, file: str | Path) -> None:
     """
     Write a product to disk, dispatching on the file extension.
 
@@ -32,7 +32,7 @@ def save(da: xr.DataArray, file: str) -> None:
     ----------
     da : xarray.DataArray
         The product to write.
-    file : str
+    file : str or Path
         Destination path. ``.nc`` is written as NetCDF and ``.tif`` as a GeoTIFF
         (via ``rioxarray``); any other extension is logged as an error and skipped.
     """
@@ -249,7 +249,8 @@ def aggregate(
     group: int,
     rfl: xr.DataArray | None = None,
     uncert: xr.DataArray | None = None,
-    libs: dict | None = None,
+    libs: dict[str, dict] | None = None,
+    ref: pd.DataFrame | None = None,
 ) -> tuple[xr.DataArray | None, xr.DataArray | None]:
     """
     Aggregate one tetracorder group into band-depth / mineral-id maps.
@@ -273,15 +274,22 @@ def aggregate(
         for uncertainty.
     uncert : xarray.DataArray, optional
         Observed reflectance uncertainty, same shape/ordering as ``rfl``.
-    libs : dict, optional
+    libs : dict[str, dict], optional
         Library id -> ``{"records": [...], "rfl": ndarray}`` as produced by
         :func:`read_library`. Its presence is what enables the uncertainty band.
+    ref : pandas.DataFrame, optional
+        Reference matrix mapping material ``title`` to a stable ``index``. When
+        given, the mineral-id band uses that index instead of the running block
+        counter; a material missing from the matrix is assigned a negative id and
+        logged.
 
     Returns
     -------
     tuple[xarray.DataArray | None, xarray.DataArray | None]
         ``(mins, minuncert)``, each ``(band=2, y, x)``, or ``(None, None)`` if the
-        group had no valid input.
+        group had no valid input. ``mins`` carries the scaled band depth (band 0) and
+        mineral id (band 1); ``minuncert`` carries the band-depth uncertainty (band 0)
+        and fit (band 1).
     """
     Logger.debug(f"Aggregating group {group}")
     blocks = decoder.get_groups([group])
@@ -341,13 +349,22 @@ def aggregate(
         depth = depth / 255.0 * 0.5
         fit = fit / 255.0 * 0.5
 
-        # Band Depth
+        # Band 0: Band Depth
         mins[0] = mins[0].where(~valid, depth)
 
-        # Mineral ID
-        mins[1] = mins[1].where(~valid, i)
+        # Band 1: Mineral ID
+        idx = i
+        if ref is not None:
+            query = ref.query(f"title == @name")
+            if not query.empty:
+                idx = int(query["index"].iloc[0])
+            else:
+                idx = -i
+                Logger.warning(f"[{i:03}/{t:03}] ? Reference matrix does not contain an index for {name}, setting ID to {idx}")
 
-        # Uncertainty
+        mins[1] = mins[1].where(~valid, idx)
+
+        # Band 2: Uncertainty
         if libs:
             lib = libs[block["library"]]
             rec = block["record"]
@@ -367,7 +384,7 @@ def aggregate(
             else:
                 Logger.warning(f"[{i:03}/{t:03}] * Library record {rec} not found in {block['library']}, cannot calculate uncertainty for {name}")
 
-        # Fit
+        # Band 3: Fit
         minuncert[1] = minuncert[1].where(~valid, fit)
 
         c += 1
@@ -387,6 +404,7 @@ def build(
     rfluncert: str | None = None,
     reflib: str | None = None,
     reslib: str | None = None,
+    ref: str | None = None,
 ) -> tuple[xr.DataArray, xr.DataArray]:
     """
     Aggregate groups 1 and 2 into the L2B mineral / uncertainty products.
@@ -413,6 +431,10 @@ def build(
     reflib, reslib : str, optional
         Paths to the convolved reference (``splib06``) and research (``sprlb06``)
         ENVI libraries. Only read when uncertainty is being calculated.
+    ref : str, optional
+        Path to a reference matrix CSV (with ``title`` and ``index`` columns). When
+        given, it is read into a DataFrame and passed to :func:`aggregate` so the
+        mineral-id band uses each material's stable ``index``.
 
     \b
     Returns
@@ -422,6 +444,9 @@ def build(
         regardless of whether they were written to disk.
     """
     tc = TetraDecoder(tetracorder)
+
+    if ref:
+        ref = pd.read_csv(ref)
 
     libs = None
     if None not in (rfl, rfluncert, reflib, reslib):
@@ -439,8 +464,8 @@ def build(
             "splib06": read_library(reflib),
         }
 
-    mins1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs)
-    mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs)
+    mins1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs, ref)
+    mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs, ref)
 
     # Bands: Depth 1, Min ID 1, Depth 2, Min ID 2
     mins = xr.concat([mins1, mins2], "band")
@@ -464,28 +489,3 @@ def build(
         save(uncert, out_minuncert)
 
     return mins, uncert
-
-
-@click.command("aggregate", help=build.__doc__, no_args_is_help=True)
-@click.option("-o", "--output")
-@click.option("-om", "--out_min")
-@click.option("-ou", "--out_minuncert")
-@click.option("-oa", "--output_as", multiple=True, default=["nc"], type=click.Choice(["nc", "tif"]))
-@click.option("-t", "--tetracorder")
-@click.option("-r", "--rfl")
-@click.option("-u", "--rfluncert")
-@click.option("-rl", "--reflib", default="/conv/reflib-envi")
-@click.option("-rs", "--reslib", default="/conv/reslib-envi")
-def main(**kw) -> None:
-    op1 = kw["output"]
-    op2 = kw["out_min"] and kw["out_minuncert"]
-    if not op1 and not op2:
-        raise ValueError("Must provide -o OR (-oa AND -ou)")
-
-    build(**kw)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-
-    main()
