@@ -5,55 +5,15 @@ Tetracorder's expert system file is a plain-text description of every material i
 maps: which library spectrum identifies it, the spectral features (continuum
 endpoints) that define it, and the fit/depth constraints applied.
 """
-import csv
+import logging
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
-
-def decode(*args, **kwargs) -> List[dict]:
-    """
-    Convenience wrapper: decode an expert system file and return its material records.
-
-    Constructs a :class:`TetraDecoder` (which parses the file on init) and returns
-    its :attr:`~TetraDecoder.blocks` list. All arguments are forwarded verbatim to
-    :class:`TetraDecoder`.
-
-    Parameters
-    ----------
-    *args, **kwargs
-        Passed through to :class:`TetraDecoder` (e.g. ``path``, ``groups``).
-
-    Returns
-    -------
-    list[dict]
-        Decoded material records for the kept groups (:attr:`TetraDecoder.blocks`).
-        See :meth:`TetraDecoder.parse_block` for the per-record schema.
-    """
-    return TetraDecoder(*args, **kwargs).blocks
+import pandas as pd
 
 
-def export_csv(*args, file: str, **kwargs) -> None:
-    """
-    Convenience wrapper: decode an expert system file and write the records to CSV.
-
-    Constructs a :class:`TetraDecoder` and calls :meth:`~TetraDecoder.export_csv` on
-    it, writing to ``file``. All other positional and keyword arguments are forwarded
-    verbatim to :class:`TetraDecoder`.
-
-    Parameters
-    ----------
-    *args, **kwargs
-        Passed through to :class:`TetraDecoder` (e.g. ``path``, ``groups``).
-    file : str
-        Destination path for the CSV file.
-
-    See Also
-    --------
-    TetraDecoder.export_csv : Underlying method, incl. the ``groups`` / ``columns``
-        options for controlling which records and fields are written.
-    """
-    TetraDecoder(*args, **kwargs).export_csv(file)
+Logger = logging.getLogger(__name__)
 
 
 class TetraDecoder:
@@ -328,31 +288,36 @@ class TetraDecoder:
             return [apply(v) for v in val]
         return apply(val)
 
-    def export_csv(
-        self,
-        file: str,
+    def table(self,
         groups: Optional[Iterable[int]] = None,
         columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
-    ) -> None:
+        pandas: bool = True
+    ) -> Union[pd.DataFrame, List[list]]:
         """
-        Write the decoded records to a CSV file, one row per material.
+        Collect the decoded records into a tabular form, one row per material.
 
-        Emits a header row of ``columns`` followed by one row per material across both
-        :attr:`blocks` and :attr:`ignored` whose group is in ``groups``, so records
-        outside :attr:`only` can be exported by widening ``groups``.
+        Selects one row per material across both :attr:`blocks` and :attr:`ignored`
+        whose group is in ``groups`` (so records outside :attr:`only` can be included
+        by widening ``groups``), keeping only the fields named in ``columns``.
 
         Parameters
         ----------
-        file : str
-            Destination path for the CSV file.
         groups : Iterable[int], optional
             Group numbers to include. Defaults to :attr:`only` (the groups that were
             decoded into :attr:`blocks`).
         columns : tuple[str, ...], optional
-            Record keys to emit as columns, in order; also used as the header row.
-            Every named key must be present on each included record (see
-            :meth:`parse_block` for available keys). Defaults to
-            ``("group", "library", "record", "title", "path")``.
+            Record keys to emit as columns, in order. Every named key must be present
+            on each included record (see :meth:`parse_block` for available keys).
+            Defaults to ``("group", "library", "record", "title", "path")``.
+        pandas : bool, default=True
+            If True, return a :class:`pandas.DataFrame`. If False, return a list of
+            rows with ``columns`` as the leading header row.
+
+        Returns
+        -------
+        pandas.DataFrame or list[list]
+            A DataFrame of the selected records when ``pandas`` is True; otherwise a
+            list of rows whose first element is the ``columns`` header.
         """
         if groups is None:
             groups = self.only
@@ -362,9 +327,109 @@ class TetraDecoder:
             if block["group"] in groups:
                 data.append([block[c] for c in columns])
 
-        with open(file, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerows(data)
+        if pandas:
+            return pd.DataFrame(data[1:], columns=columns)
+        return data
+
+    def match_ref(
+        self,
+        matrix: Union[str, Path],
+        nu: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
+        """
+        Align the decoded records to a reference matrix's stable ``index`` column.
+
+        Merges the ``index`` column from an existing reference matrix CSV onto the
+        decoded table, matching on ``record`` / ``library`` so each material keeps the
+        index it had in the reference. Records with no match in the reference are
+        treated as new and assigned fresh indices continuing past the reference's max,
+        and the additions are logged.
+
+        Parameters
+        ----------
+        matrix : str or Path
+            Path to the reference matrix CSV. It must contain ``record``, ``library``,
+            and ``index`` columns (column names are matched case-insensitively).
+        nu : pandas.DataFrame, optional
+            The table to align. Defaults to :meth:`table` (the decoded records). Must
+            contain ``record`` and ``library`` columns.
+
+        Returns
+        -------
+        pandas.DataFrame
+            ``nu`` with a leading ``index`` column carrying the reference indices, and
+            newly-assigned indices for records absent from the reference.
+        """
+        og = pd.read_csv(matrix)
+
+        if nu is None:
+            nu = self.table()
+
+        # Backwards compatibility that used Capitalized columns
+        og = og.rename(columns={c: c.lower() for c in og})
+
+        # Merge using record/library
+        nu = nu.merge(
+            og[["record", "library", "index"]],
+            on=["record", "library"],
+            how="left",
+        )
+        nu["index"] = nu["index"].astype("Int64")
+
+        # Reorder index to the first column
+        nu.insert(0, "index", nu.pop("index"))
+
+        # Update index of missing entries
+        nul = nu["index"].isnull()
+
+        off = nu["index"].max() + 1
+        rng = range(off, off + nul.sum())
+
+        new = nu[nul]
+        fmt = new.set_index("index").to_string(index=False)
+        Logger.info(f"{len(new)} records are new:\n{fmt}")
+        Logger.info(f"Setting these as {rng}")
+
+        nu.loc[nul, "index"] = rng
+
+        return nu
+
+    def export_csv(
+        self,
+        file: str,
+        groups: Optional[Iterable[int]] = None,
+        columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
+        reference: Optional[Union[str, Path]] = None,
+    ) -> None:
+        """
+        Write the decoded records to a CSV file, one row per material.
+
+        Emits one row per material across both :attr:`blocks` and :attr:`ignored`
+        whose group is in ``groups``, so records outside :attr:`only` can be exported
+        by widening ``groups``.
+
+        Parameters
+        ----------
+        file : str
+            Destination path for the CSV file.
+        groups : Iterable[int], optional
+            Group numbers to include. Defaults to :attr:`only` (the groups that were
+            decoded into :attr:`blocks`).
+        columns : tuple[str, ...], optional
+            Record keys to emit as columns, in order. Every named key must be present
+            on each included record (see :meth:`parse_block` for available keys).
+            Defaults to ``("group", "library", "record", "title", "path")``.
+        reference : str or Path, optional
+            Path to a reference matrix CSV. When given, a stable ``index`` column is
+            added by aligning to it via :meth:`match_ref` (matching on
+            ``record`` / ``library``).
+        """
+        df = self.table(groups, columns, pandas=True)
+
+        if reference:
+            df = self.match_ref(reference, nu=df)
+
+        df.to_csv(file)
 
     @staticmethod
     def parse_variables(file: str) -> Dict[str, str]:

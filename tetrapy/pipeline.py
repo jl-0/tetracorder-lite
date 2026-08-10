@@ -33,7 +33,7 @@ def export_matrix(c: Box) -> None:
     """
     from tetrapy.tetracorder import TetraDecoder
 
-    tetracorder = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
+    tetracorder = Path(f"{c.tetracorder.root}/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
 
     Logger.info("Exporting matrix")
     TetraDecoder(
@@ -41,8 +41,9 @@ def export_matrix(c: Box) -> None:
         groups      = c.export_matrix.groups,
         raise_casts = False,
     ).export_csv(
-        file    = c.export_matrix.file,
-        columns = c.export_matrix.columns,
+        file      = c.export_matrix.file,
+        columns   = c.export_matrix.columns,
+        reference = c.export_matrix.reference,
     )
 
 
@@ -79,7 +80,7 @@ def sensor(c: Box) -> None:
     """
     from tetrapy import sensor
 
-    tetracorder = Path(f"/root/tetracorder/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
+    tetracorder = Path(f"{c.tetracorder.root}/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
 
     Logger.info("Integrating sensor")
     sensor.build(

@@ -60,11 +60,11 @@ def cli() -> None:
 @click.pass_context
 @Config
 @Section
-def run(**kwargs) -> None:
+def run(ctx, **kwargs) -> None:
     """\
     Execute the full tetrapy pipeline from a YAML config
     """
-    c = init(**kwargs)
+    c = init(ctx=ctx, **kwargs)
 
     if c.export_matrix.enabled:
         pl.export_matrix(c)
@@ -95,8 +95,8 @@ def run(**kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def export_matrix(**kwargs) -> None:
-    c = init(**kwargs)
+def export_matrix(ctx, **kwargs) -> None:
+    c = init(ctx=ctx, **kwargs)
     pl.export_matrix(c)
 
 
@@ -104,8 +104,8 @@ def export_matrix(**kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def convolve(**kwargs) -> None:
-    c = init(**kwargs)
+def convolve(ctx, **kwargs) -> None:
+    c = init(ctx=ctx, **kwargs)
     pl.convolve(c)
 
 
@@ -113,8 +113,8 @@ def convolve(**kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def sensor(**kwargs) -> None:
-    c = init(**kwargs)
+def sensor(ctx, **kwargs) -> None:
+    c = init(ctx=ctx, **kwargs)
     pl.sensor(c)
 
 
@@ -122,8 +122,8 @@ def sensor(**kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def setup(**kwargs) -> None:
-    c = init(**kwargs)
+def setup(ctx, **kwargs) -> None:
+    c = init(ctx=ctx, **kwargs)
     pl.setup(c)
 
 
@@ -131,8 +131,8 @@ def setup(**kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def tetrun(**kwargs) -> None:
-    c = init(**kwargs)
+def tetrun(ctx, **kwargs) -> None:
+    c = init(ctx=ctx, **kwargs)
     pl.tetrun(c)
 
 
@@ -140,9 +140,21 @@ def tetrun(**kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def aggregate(**kwargs) -> None:
-    c = init(**kwargs)
+def aggregate(ctx, **kwargs) -> None:
+    c = init(ctx=ctx, **kwargs)
     pl.aggregate(c)
+
+
+@cli.command(context_settings=CS)
+@click.pass_context
+@Config
+@Section
+def preview(ctx, **kwargs) -> None:
+    """\
+    Previews the final, interpolated configuration
+    """
+    c = init(ctx=ctx, **kwargs)
+    Logger.info(f"Configuration:\n{c.to_yaml()}")
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ data:
 # Tetracorder settings
 #
 tetracorder:
+  root: /root/tetracorder
   davinci: True
   version: 6.00a
   sensor: ${sensor.name}
@@ -30,14 +31,15 @@ export_matrix:
   file: /output/matrix.csv
   groups: [1, 2]
   columns: [group, library, record, title, path]
+  reference: emit-sds-l2b/data/mineral_grouping_matrix_20230503.csv
 convolve:
   enabled: True
-  reflib: /root/tetracorder/sl1/usgs/library06.conv/splib06b
-  reslib: /root/tetracorder/sl1/usgs/library06.conv/sprlb06b
+  reflib: ${tetracorder.root}/sl1/usgs/library06.conv/splib06b
+  reslib: ${tetracorder.root}/sl1/usgs/library06.conv/sprlb06b
   output:
     reflib: /conv/reflib
     reslib: /conv/reslib
-  name: ${tetracorder.sensor.name}
+  name: ${sensor.name}
 sensor:
   enabled: True
   name: tetrapy
