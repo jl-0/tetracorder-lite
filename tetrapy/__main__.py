@@ -88,6 +88,9 @@ def run(ctx, **kwargs) -> None:
     if c.aggregate.enabled:
         pl.aggregate(c)
 
+    if c.daac.enabled:
+        pl.daac(c)
+
     Logger.info("Done")
 
 
@@ -143,6 +146,15 @@ def tetrun(ctx, **kwargs) -> None:
 def aggregate(ctx, **kwargs) -> None:
     c = init(ctx=ctx, **kwargs)
     pl.aggregate(c)
+
+
+@cli.command(context_settings=CS, help=pl.daac.__doc__)
+@click.pass_context
+@Config
+@Section
+def daac(ctx, **kwargs) -> None:
+    c = init(ctx=ctx, **kwargs)
+    pl.daac(c)
 
 
 @cli.command(context_settings=CS)

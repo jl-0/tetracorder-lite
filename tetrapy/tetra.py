@@ -8,7 +8,7 @@ convolution in :mod:`tetrapy.conv`:
   post-setup patches).
 - :func:`exec_tetrun` — execute the configured run via ``cmd.runtet``.
 - :func:`convolve` / :func:`make_convolution` — convolve the reference and research
-  master libraries onto a scene's grid and export ENVI copies for the aggregator.
+  master libraries onto a scene's grid, writing convolved specpr libraries.
 
 Wiring a convolved library into the command tree is handled separately by
 :mod:`tetrapy.sensor`.
@@ -26,7 +26,6 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from tetrapy import convolve as cv
 from tetrapy import conv
 from tetrapy import utils
 
@@ -192,11 +191,10 @@ def make_convolution(
     output: Path,
 ) -> Path:
     """
-    Convolve one master library onto a scene grid and export it as ENVI.
+    Convolve one master library onto a scene grid, writing a convolved specpr library.
 
-    Builds the convolved specpr library at ``{output}/{lib}`` (via
-    :func:`tetrapy.conv.build_library`) and writes a matching ``.envi`` copy
-    (via :func:`tetrapy.convolve.export_envi`).
+    Builds the convolved specpr library at ``{output}`` via
+    :func:`tetrapy.conv.build_library`.
 
     Parameters
     ----------
@@ -207,12 +205,12 @@ def make_convolution(
     rfl : str or Path
         Path to the scene reflectance raster supplying the target grid.
     output : Path
-        Output directory; the specpr library is written to ``output/{lib}``.
+        Output path the convolved specpr library is written to.
 
     Returns
     -------
     Path
-        Path to the convolved specpr library (``{output}/{lib}``).
+        Path to the convolved specpr library (``output``).
     """
     Logger.info(f"Convolving {lib}: {file}")
 
@@ -224,12 +222,6 @@ def make_convolution(
     )
 
     Logger.debug(f"  Saved to: {output}")
-
-    envi = output.with_name(f"{output.name}-envi")
-    cv.export_envi(
-        str(output),
-        str(envi)
-    )
 
     return output
 
@@ -246,9 +238,8 @@ def convolve(
 
     Takes the unconvolved reference (``reflib``) and research (``reslib``) master
     libraries and convolves each onto the target instrument grid read from the
-    scene's ENVI header (``{rfl}.hdr``). For each library it writes the convolved
-    specpr result plus a matching ENVI export (``{out}-envi``) for the downstream
-    aggregator.
+    scene's ENVI header (``{rfl}.hdr``), writing a convolved specpr library for each.
+    These libraries are read directly by the downstream aggregator.
 
     Wiring the convolved libraries into the tetracorder command tree is a separate
     step, handled by :mod:`tetrapy.sensor` (the ``sensor`` pipeline stage).
@@ -263,11 +254,9 @@ def convolve(
         Path to the EMIT reflectance file (the data, not the .hdr). Its companion
         ``.hdr`` supplies the target wavelength/FWHM grid for convolution.
     out_ref : str, default="/conv/reflib"
-        Output path for the convolved reference specpr library. Its ENVI export is
-        written alongside as ``{out_ref}-envi``.
+        Output path for the convolved reference specpr library.
     out_res : str, default="/conv/reslib"
-        Output path for the convolved research specpr library. Its ENVI export is
-        written alongside as ``{out_res}-envi``.
+        Output path for the convolved research specpr library.
 
     Returns
     -------
@@ -280,7 +269,7 @@ def convolve(
 
     Notes
     -----
-    The ENVI exports are suitable for use with the L2B aggregator
+    The convolved specpr libraries are read directly by the L2B aggregator
     (``tetrapy aggregate``).
     """
     if not (reflib := Path(reflib)).exists():

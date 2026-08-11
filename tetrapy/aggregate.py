@@ -3,10 +3,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import spectral.io.envi as envi
 import xarray as xr
 from scipy.interpolate import interp1d
 
+from tetrapy.conv import SpecprFile
 from tetrapy.tetracorder import TetraDecoder
 
 import warnings
@@ -17,9 +17,6 @@ warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 
 # rasterio/GDAL emit a flood of DEBUG records; keep them at WARNING and up
 logging.getLogger("rasterio").setLevel(logging.WARNING)
-
-# ENVI "data type" -> numpy dtype (only the types the convolved libraries use)
-DTYPES = {1: "u1", 2: "i2", 4: "f4", 5: "f8", 12: "u2"}
 
 Logger = logging.getLogger(__name__)
 
@@ -51,37 +48,32 @@ def save(da: xr.DataArray, file: str | Path) -> None:
 
 def read_library(path: str) -> dict[str, list[int] | np.ndarray]:
     """
-    Read an ENVI spectral library into records and reflectance.
+    Read a convolved specpr library into records and reflectance.
 
-    Reads the raw binary directly (rather than via ``spectral``'s ``SpectralLibrary``,
-    which rejects headers whose ``spectra names`` count disagrees with ``lines``).
+    Reads every spectrum from the convolved specpr library directly, keyed by its
+    absolute record number (the same number the expert system references), so the
+    uncertainty calculation can look up a block's reference spectrum by record.
 
     Parameters
     ----------
     path : str
-        Path to the ENVI library binary (its ``.hdr`` sits alongside).
+        Path to the convolved specpr library (as written by :mod:`tetrapy.conv`).
 
     Returns
     -------
     dict
         ``{"records": list[int], "rfl": ndarray}`` where ``rfl`` is the reflectance
         array shaped ``(n_records, n_bands)`` and ``records`` are the library record
-        numbers in row order.
+        numbers in row order. Deleted channels carry the specpr ``-1.23e34`` sentinel.
     """
-    hdr = envi.read_envi_header(path + ".hdr")
+    lib = SpecprFile.open(path)
 
-    lines = int(hdr["lines"])
-    samples = int(hdr["samples"])
-
-    dtype = DTYPES[int(hdr["data type"])]
-    order = ">" if int(hdr.get("byte order", 0)) == 1 else "<"
-
-    data = np.fromfile(path, dtype=np.dtype(f"{order}{dtype}"))
-    data = data.reshape(lines, samples).astype(np.float32)
+    records = list(lib.spectra())
+    rfl = np.stack([lib.read_spectrum(recno) for recno in records])
 
     return {
-        "records": [int(r) for r in hdr["record"]],
-        "rfl": data,
+        "records": records,
+        "rfl": rfl,
     }
 
 
@@ -430,7 +422,7 @@ def build(
         must be given to enable band-depth uncertainty calculation.
     reflib, reslib : str, optional
         Paths to the convolved reference (``splib06``) and research (``sprlb06``)
-        ENVI libraries. Only read when uncertainty is being calculated.
+        specpr libraries. Only read when uncertainty is being calculated.
     ref : str, optional
         Path to a reference matrix CSV (with ``title`` and ``index`` columns). When
         given, it is read into a DataFrame and passed to :func:`aggregate` so the

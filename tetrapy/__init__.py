@@ -10,7 +10,7 @@ Modules
 tetra
     Core tetracorder workflow functions (setup, execution, expert system patching,
     group aggregation).
-convolve
+conv
     Pure Python spectral library convolution (no Fortran/specpr dependencies).
 utils
     Utility functions for command formatting and argument processing.
@@ -23,14 +23,13 @@ Run tetracorder mineral identification:
     >>> tetra.exec_tetrun(output="/output/tetracorder")
 
 Build a convolved spectral library:
-    >>> from tetrapy import convolve
-    >>> convolve.build_convolved_library(
-    ...     master="/spectral-lib/splib06b",
-    ...     template="/root/sl1/usgs/library06.conv/s06emitc",
-    ...     output="/output/s06emit_convolved",
-    ...     envi_header="/data/r.hdr"
+    >>> from tetrapy import conv
+    >>> conv.build_library(
+    ...     master_path="/spectral-lib/splib06b",
+    ...     out_path="/output/reflib",
+    ...     rfl="/data/rfl",
     ... )
 """
 
 __version__ = "0.1.0"
-__all__ = ["tetra", "convolve", "utils"]
+__all__ = ["tetra", "conv", "utils"]

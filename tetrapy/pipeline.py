@@ -10,7 +10,8 @@ The individual stages are also exposed as standalone ``tetrapy`` subcommands (se
 
 Stage order, as run by ``tetrapy run``:
 ``export_matrix`` -> ``convolve`` -> ``sensor`` -> ``setup`` -> ``tetrun`` ->
-``aggregate``. Each stage is gated by its own ``enabled`` flag in the config.
+``aggregate`` -> ``daac``. Each stage is gated by its own ``enabled`` flag in the
+config.
 """
 
 import logging
@@ -54,8 +55,8 @@ def convolve(c: Box) -> None:
     Reads the target wavelength/FWHM grid from the reflectance ENVI header
     (``{data.rfl}.hdr``) and Gaussian-convolves the unconvolved reference
     (``convolve.reflib``) and research (``convolve.reslib``) master libraries onto
-    it, writing convolved specpr libraries plus matching ENVI exports to
-    ``convolve.output.{reflib,reslib}`` for the downstream sensor/aggregate stages.
+    it, writing convolved specpr libraries to ``convolve.output.{reflib,reslib}``
+    for the downstream sensor/aggregate stages.
     """
     from tetrapy import tetra
 
@@ -140,7 +141,7 @@ def aggregate(c: Box) -> None:
     Decodes the group 1 / group 2 material outputs from the tetracorder run at
     ``aggregate.tetracorder`` and combines them into the L2B mineral and uncertainty
     stacks, written to ``aggregate.output`` in each of the ``aggregate.output_as``
-    formats (NetCDF and/or GeoTIFF). The convolved ENVI libraries
+    formats (NetCDF and/or GeoTIFF). The convolved specpr libraries
     (``aggregate.reflib`` / ``aggregate.reslib``) supply reference spectra for the
     band-depth uncertainty calculation.
     """
@@ -154,4 +155,32 @@ def aggregate(c: Box) -> None:
         reslib      = c.aggregate.reslib,
         output_as   = c.aggregate.output_as,
         reference   = c.aggregate.reference,
+    )
+
+
+def daac(c: Box) -> None:
+    """
+    Convert the L2B mineral / uncertainty products into LP DAAC NetCDF files.
+
+    Reads the aggregate products (``daac.abun`` / ``daac.abununcert``) and writes the
+    two DAAC-compatible NetCDF products (``daac.out_abun`` / ``daac.out_abununcert``)
+    via :mod:`emit_utils`. The optional EMIT L1B inputs (``daac.loc`` / ``daac.glt`` /
+    ``daac.primary``) add a ``location`` group and the full acquisition/spatial global
+    attributes; the reference matrix (``daac.reference``) is embedded as the abundance
+    product's ``mineral_metadata`` group.
+    """
+    from tetrapy import daac
+
+    Logger.info("Executing daac")
+    daac.build(
+        abun                      = c.daac.abun,
+        abununcert                = c.daac.abununcert,
+        out_abun                  = c.daac.out_abun,
+        out_abununcert            = c.daac.out_abununcert,
+        loc                       = c.daac.loc or None,
+        glt                       = c.daac.glt or None,
+        primary                   = c.daac.primary or None,
+        version                   = c.daac.version,
+        software_delivery_version = c.daac.software_delivery_version,
+        reference                 = c.daac.reference or None,
     )
