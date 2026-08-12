@@ -183,9 +183,6 @@ def build_library(
     log : callable, default=print
         Sink for progress messages.
     """
-    out_path = Path(out_path)
-    out_path.mkdir(exist_ok=True, parents=True)
-
     grid = read_grid(rfl)
     master = SpecprFile.open(master_path)
     index = index_master(master)

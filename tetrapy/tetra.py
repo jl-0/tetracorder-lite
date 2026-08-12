@@ -214,6 +214,8 @@ def make_convolution(
     """
     Logger.info(f"Convolving {lib}: {file}")
 
+    Path(output).parent.mkdir(exist_ok=True, parents=True)
+
     conv.build_library(
         master_path = str(file),
         out_path = str(output),
