@@ -3,6 +3,7 @@
 *.swp
 
 # Ignore files with these names
+.sync.json
 .DS_Store
 .idea
 .buildinfo

@@ -29,6 +29,7 @@ tetracorder:
 log:
   level: DEBUG
   file: ${output}/logs/tetrapy.log
+  append: False # Reset the log file
 export_matrix:
   enabled: False
   file: /output/matrix.csv

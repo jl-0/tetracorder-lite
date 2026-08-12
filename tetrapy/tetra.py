@@ -213,6 +213,8 @@ def exec_tetrun(
         stdout = subprocess.PIPE,
         stderr = subprocess.STDOUT,
         text   = True,
+        encoding = "utf-8",
+        errors   = "replace",  # Replace invalid UTF-8 bytes with � instead of crashing
         bufsize = 1,
     )
 
@@ -245,7 +247,7 @@ def exec_tetrun(
             # Update panel with buffered lines
             live.update(
                 Panel(
-                    Text("\n".join(buffer), style="dim"),
+                    Text("\n".join(buffer)),
                     title=f"Tetracorder Output (last {limit} lines)",
                     border_style="dim"
                 )
