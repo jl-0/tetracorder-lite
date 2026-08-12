@@ -380,7 +380,7 @@ def aggregate(
         minuncert[1] = minuncert[1].where(~valid, fit)
 
         c += 1
-        Logger.debug(f"[{i:03}/{t:03}] + <ID: {idx}> Added {name}")
+        Logger.debug(f"[{i:03}/{t:03}] + [ID: {idx}] Added {name}")
 
     Logger.debug(f"{c}/{t} ({c / t:.1%}) Blocks successfully aggregated")
     return mins, minuncert
