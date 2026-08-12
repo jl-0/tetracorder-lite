@@ -5,6 +5,8 @@ import click
 from rich.console import Console
 from rich.logging import RichHandler
 
+from tetrapy.config import load
+
 
 Console = Console(record=True)
 Logger = logging.getLogger(__name__)

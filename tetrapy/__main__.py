@@ -4,13 +4,12 @@ from pathlib import Path
 
 import click
 from box import Box
-
+from rich.progress import track
 
 from tetrapy import (
     init,
     pipeline as pl
 )
-from tetrapy.config import load
 
 
 Logger = logging.getLogger(__name__)
@@ -41,31 +40,24 @@ def run(ctx, **kwargs) -> None:
     c = init(ctx=ctx, **kwargs)
 
     Logger.info("Beginning pipeline")
+    steps = [
+        "export_matrix",
+        "convolve",
+        "sensor",
+        "setup",
+        "tetrun",
+        "aggregate",
+        "daac",
+    ]
+    steps = [step for step in steps if c[step].enabled]
 
-    if c.export_matrix.enabled:
-        pl.export_matrix(c)
-
-    if c.convolve.enabled:
-        pl.convolve(c)
-
-    if c.sensor.enabled:
-        pl.sensor(c)
-
-    if c.setup.enabled:
-        pl.setup(c)
+    for step in track(steps, description="Executing pipeline"):
+        if c[step].enabled:
+            getattr(pl, step)(c)
 
     # Save config after setup (tetracorder initializes the directory)
     if (out := Path(c.output)).exists():
         c.to_yaml(filename=out / "config.yml")
-
-    if c.tetrun.enabled:
-        pl.tetrun(c)
-
-    if c.aggregate.enabled:
-        pl.aggregate(c)
-
-    if c.daac.enabled:
-        pl.daac(c)
 
     Logger.info("Done")
 
