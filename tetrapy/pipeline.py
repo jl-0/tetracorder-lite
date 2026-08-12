@@ -49,7 +49,7 @@ def run(c: Box) -> None:
         task = progress.add_task("Executing pipeline", total=len(steps))
         for step in steps:
             progress.update(task, description=f"Executing: {step}")
-            getattr(pl, step)(c)
+            pl[step](c)
             progress.advance(task)
 
     # Save config after setup (tetracorder initializes the directory)
