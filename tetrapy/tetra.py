@@ -114,8 +114,9 @@ def setup_tetrun(
     if "6" in version:
         path = out / f"cmds.start.t{version}"
         text = path.read_text()
+        geom = f"{'' if geology else 'no'}geology\nmode"
         path.write_text(
-            text.replace("GGGGGGEOLOGY", "geology" if geology else "nogeology")
+            text.replace("mode", geom)
         )
 
     if cores:
