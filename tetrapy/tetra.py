@@ -123,12 +123,24 @@ def setup_tetrun(
     if stash.exists():
         stash.rename(out / "logs")
 
-    # Remove erroneous 'time' command in the script
+    # Patch cmd.runtet script
     path = out / "cmd.runtet"
     if path.exists():
-        path.write_text(
-            path.read_text().replace("time", "")
+        text = path.read_text()
+
+        # Remove erroneous 'time' command
+        text = text.replace("time", "")
+
+        # Remove redirect to tetracorder.out so output flows to stdout
+        text = text.replace("> tetracorder.out 2>&1", "2>&1")
+        text = text.replace('> tetracorder.out', '')
+
+        # Update grep to read from stdin via process substitution since tetracorder.out is no longer written
+        text = text.replace(
+            'grep  -a DISABLED tetracorder.out > AAA.info/disabled-materials.txt',
+            '# disabled-materials.txt not generated (output captured by Python logger)'
         )
+        path.write_text(text)
         Logger.debug(f"Patched {path}")
 
     # v6 cmd file needs to set the geology parameter
@@ -200,13 +212,24 @@ def exec_tetrun(
         bufsize = 1,
     )
 
+    # Capture DISABLED lines for disabled-materials.txt
+    disabled = []
     for line in proc.stdout:
         line = line.rstrip("\n")
         Logger.debug(line)
+        if "DISABLED" in line:
+            disabled.append(line)
 
     code = proc.wait()
     if code:
         raise subprocess.CalledProcessError(code, cmd)
+
+    # Write disabled materials file if we captured any
+    if disabled:
+        output = Path(output) / "AAA.info"
+        output.mkdir(exist_ok=True)
+        (output / "disabled-materials.txt").write_text("\n".join(disabled) + "\n")
+        Logger.debug(f"Wrote {len(disabled_lines)} disabled material entries to {output}")
 
 
 def make_convolution(
