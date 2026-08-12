@@ -123,17 +123,21 @@ def interp(val: str, rel: Box, full: Box) -> Any:
         otherwise the substituted string (or ``val`` unchanged if it had no refs).
     """
     if matches := Interp.findall(val):
-        for k in matches:
-            r = "${" + k + "}"
-            if k.startswith("."):
-                v = rel[k]
+        for key in matches:
+            if key.startswith("."):
                 Logger.debug("Using relative pathing")
+                ref = rel
             else:
-                v = full[k]
                 Logger.debug("Using full pathing")
+                ref = full
 
-            val = val.replace(r, str(v))
-            Logger.debug(f"Replaced {r!r} with {v!r}")
+            new = ref[key]
+            if isinstance(new, str) and "${" in new:
+                new = interp(new, rel, full) # TODO: Recursion guard
+
+            fmt = "${" + key + "}"
+            val = val.replace(fmt, str(new))
+            Logger.debug(f"Replaced {fmt!r} with {new!r}")
         try:
             val = ast.literal_eval(val)
         except:
