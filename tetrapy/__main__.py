@@ -7,6 +7,7 @@ from box import Box
 from rich.progress import track
 
 from tetrapy import (
+    Console,
     init,
     pipeline as pl
 )
@@ -51,9 +52,8 @@ def run(ctx, **kwargs) -> None:
     ]
     steps = [step for step in steps if c[step].enabled]
 
-    for step in track(steps, description="Executing pipeline"):
-        if c[step].enabled:
-            getattr(pl, step)(c)
+    for step in track(steps, description="Executing pipeline", console=Console):
+        getattr(pl, step)(c)
 
     # Save config after setup (tetracorder initializes the directory)
     if (out := Path(c.output)).exists():
