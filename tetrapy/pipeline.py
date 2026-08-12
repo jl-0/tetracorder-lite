@@ -47,7 +47,10 @@ def run(c: Box) -> None:
 
     with Progress(*Progress.get_default_columns(), console=Console) as progress:
         task = progress.add_task("Executing pipeline", total=len(steps))
-        for step in steps:
+        for i, step in enumerate(steps):
+            if i > 0:
+                Console.rule(style="dim")
+
             progress.update(task, description=f"Executing: {step}")
             pl[step](c)
             progress.advance(task)
