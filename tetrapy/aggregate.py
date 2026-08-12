@@ -396,7 +396,7 @@ def build(
     rfluncert: str | None = None,
     reflib: str | None = None,
     reslib: str | None = None,
-    ref: str | None = None,
+    reference: str | None = None,
 ) -> tuple[xr.DataArray, xr.DataArray]:
     """
     Aggregate groups 1 and 2 into the L2B mineral / uncertainty products.
@@ -423,7 +423,7 @@ def build(
     reflib, reslib : str, optional
         Paths to the convolved reference (``splib06``) and research (``sprlb06``)
         specpr libraries. Only read when uncertainty is being calculated.
-    ref : str, optional
+    reference : str, optional
         Path to a reference matrix CSV (with ``title`` and ``index`` columns). When
         given, it is read into a DataFrame and passed to :func:`aggregate` so the
         mineral-id band uses each material's stable ``index``.
@@ -437,8 +437,8 @@ def build(
     """
     tc = TetraDecoder(tetracorder)
 
-    if ref:
-        ref = pd.read_csv(ref)
+    if reference:
+        reference = pd.read_csv(reference)
 
     libs = None
     if None not in (rfl, rfluncert, reflib, reslib):
@@ -456,8 +456,8 @@ def build(
             "splib06": read_library(reflib),
         }
 
-    mins1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs, ref)
-    mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs, ref)
+    mins1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs, reference)
+    mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs, reference)
 
     # Bands: Depth 1, Min ID 1, Depth 2, Min ID 2
     mins = xr.concat([mins1, mins2], "band")
