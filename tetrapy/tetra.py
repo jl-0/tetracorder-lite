@@ -105,8 +105,6 @@ def setup_tetrun(
     ]
     proc = subprocess.Popen(
         cmd,
-        cwd    = output,
-        env    = env,
         stdout = subprocess.PIPE,
         stderr = subprocess.STDOUT,
         text   = True,
