@@ -182,8 +182,9 @@ def exec_tetrun(
             if "davinci" not in path
         ])
 
+    cmd = ["bash", "cmd.runtet", mode, rfl]
     proc = subprocess.Popen(
-        ["bash", "cmd.runtet", mode, rfl],
+        cmd,
         cwd    = output,
         env    = env,
         stdout = subprocess.PIPE,
