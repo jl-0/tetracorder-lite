@@ -12,6 +12,8 @@ output: /output/tetracorder # Directory must not exist unless setup.autoremove i
 data:
   rfl: /data/rfl # Data, not header
   rfluncert: /data/rfluncert # Data, not header
+  loc: /data/loc
+  glt: /data/glt
 #
 # Tetracorder settings
 #
@@ -65,9 +67,19 @@ aggregate:
   enabled: True
   tetracorder: ${output}
   output: ${output}/l2b/
-  reflib: ${convolve.output.reflib}-envi
-  reslib: ${convolve.output.reslib}-envi
+  reflib: ${convolve.output.reflib}
+  reslib: ${convolve.output.reslib}
   output_as: ["nc", "tif"]
   reference: tetrapy/data/v6.00a5-part.csv
-emit_fmt: # TODO
+daac:
   enabled: False
+  abun: ${aggregate.output}/min.nc
+  abununcert: ${aggregate.output}/minuncert.nc
+  out_abun: ${aggregate.output}/abun.nc
+  out_abununcert: ${aggregate.output}/abununcert.nc
+  loc: ${data.loc} # EMIT L1B location ENVI (optional, adds location group)
+  glt: ${data.glt} # EMIT L1B glt ENVI (optional, adds location group)
+  primary: # EMIT primary ENVI for full global attrs (optional)
+  version: V001
+  software_delivery_version: unknown
+  reference: ${aggregate.reference}
