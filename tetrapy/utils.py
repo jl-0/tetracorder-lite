@@ -56,6 +56,8 @@ def log_elapse(func):
     """
     @wraps(func) # Preserves the original function's metadata
     def wrapper(*args, **kwargs):
+        Logger.debug(f"Beginning {func.__name__}")
+
         beg = time.perf_counter()
         ret = func(*args, **kwargs)
         end = time.perf_counter()

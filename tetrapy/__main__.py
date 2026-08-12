@@ -4,10 +4,8 @@ from pathlib import Path
 
 import click
 from box import Box
-from rich.progress import track
 
 from tetrapy import (
-    Console,
     init,
     pipeline as pl
 )
@@ -39,27 +37,7 @@ def run(ctx, **kwargs) -> None:
     Execute the full tetrapy pipeline from a YAML config
     """
     c = init(ctx=ctx, **kwargs)
-
-    Logger.info("Beginning pipeline")
-    steps = [
-        "export_matrix",
-        "convolve",
-        "sensor",
-        "setup",
-        "tetrun",
-        "aggregate",
-        "daac",
-    ]
-    steps = [step for step in steps if c[step].enabled]
-
-    for step in track(steps, description="Executing pipeline", console=Console):
-        getattr(pl, step)(c)
-
-    # Save config after setup (tetracorder initializes the directory)
-    if (out := Path(c.output)).exists():
-        c.to_yaml(filename=out / "config.yml")
-
-    Logger.info("Done")
+    pl.run(c)
 
 
 @cli.command(context_settings=CS, help=pl.export_matrix.__doc__)

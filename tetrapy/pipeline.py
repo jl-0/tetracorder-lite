@@ -18,11 +18,42 @@ import logging
 from pathlib import Path
 
 from box import Box
+from rich.progress import Progress
 
-from tetrapy import utils
+from tetrapy import (
+    Console,
+    utils
+)
 
 
 Logger = logging.getLogger(__name__)
+
+
+@utils.log_elapse
+def run(c: Box) -> None:
+    """
+    """
+    steps = [
+        "export_matrix",
+        "convolve",
+        "sensor",
+        "setup",
+        "tetrun",
+        "aggregate",
+        "daac",
+    ]
+    steps = [step for step in steps if c[step].enabled]
+
+    with Progress(*Progress.get_default_columns(), console=Console) as progress:
+        task = progress.add_task("Executing pipeline", total=len(steps))
+        for step in steps:
+            progress.update(task, description=f"Executing: {step}")
+            getattr(pl, step)(c)
+            progress.advance(task)
+
+    # Save config after setup (tetracorder initializes the directory)
+    if (out := Path(c.output)).exists():
+        c.to_yaml(filename=out / "config.yml")
 
 
 @utils.log_elapse
@@ -39,7 +70,6 @@ def export_matrix(c: Box) -> None:
 
     tetracorder = Path(f"{c.tetracorder.root}/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
 
-    Logger.info("Exporting matrix")
     TetraDecoder(
         path        = tetracorder,
         groups      = c.export_matrix.groups,
@@ -49,7 +79,6 @@ def export_matrix(c: Box) -> None:
         columns   = c.export_matrix.columns,
         reference = c.export_matrix.reference,
     )
-    Logger.debug("Finished matrix")
 
 
 @utils.log_elapse
@@ -65,7 +94,6 @@ def convolve(c: Box) -> None:
     """
     from tetrapy import tetra
 
-    Logger.info("Executing convolve")
     tetra.convolve(
         rfl     = c.data.rfl,
         reflib  = c.convolve.reflib,
@@ -73,7 +101,6 @@ def convolve(c: Box) -> None:
         out_ref = c.convolve.output.reflib,
         out_res = c.convolve.output.reslib,
     )
-    Logger.debug("Finished convolve")
 
 
 @utils.log_elapse
@@ -90,13 +117,11 @@ def sensor(c: Box) -> None:
 
     tetracorder = Path(f"{c.tetracorder.root}/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
 
-    Logger.info("Integrating sensor")
     sensor.build(
         path   = tetracorder,
         sensor = c.sensor,
         rfl    = c.data.rfl,
     )
-    Logger.debug("Finished sensor")
 
 
 @utils.log_elapse
@@ -112,7 +137,6 @@ def setup(c: Box) -> None:
     """
     from tetrapy import tetra
 
-    Logger.info("Executing setup")
     tetra.setup_tetrun(
         tetracorder = c.tetracorder.root,
         version     = c.tetracorder.version,
@@ -123,7 +147,6 @@ def setup(c: Box) -> None:
         geology     = c.setup.geology,
         args        = c.setup.args,
     )
-    Logger.debug("Finished setup")
 
 
 @utils.log_elapse
@@ -136,7 +159,6 @@ def tetrun(c: Box) -> None:
     """
     from tetrapy import tetra
 
-    Logger.info("Executing tetrun")
     tetra.exec_tetrun(
         davinci = c.tetracorder.davinci,
         mode    = c.tetracorder.mode,
@@ -144,7 +166,6 @@ def tetrun(c: Box) -> None:
         output  = c.output,
         args    = c.tetrun.args,
     )
-    Logger.debug("Finished tetrun")
 
 
 @utils.log_elapse
@@ -161,7 +182,6 @@ def aggregate(c: Box) -> None:
     """
     from tetrapy import aggregate
 
-    Logger.info("Executing aggregate")
     aggregate.build(
         tetracorder = c.aggregate.tetracorder,
         output      = c.aggregate.output,
@@ -170,7 +190,6 @@ def aggregate(c: Box) -> None:
         output_as   = c.aggregate.output_as,
         reference   = c.aggregate.reference,
     )
-    Logger.debug("Finished aggregate")
 
 
 @utils.log_elapse
@@ -187,7 +206,6 @@ def daac(c: Box) -> None:
     """
     from tetrapy import daac
 
-    Logger.info("Executing daac")
     daac.build(
         abun                      = c.daac.abun,
         abununcert                = c.daac.abununcert,
@@ -200,4 +218,3 @@ def daac(c: Box) -> None:
         software_delivery_version = c.daac.software_delivery_version,
         reference                 = c.daac.reference or None,
     )
-    Logger.debug("Finished daac")
