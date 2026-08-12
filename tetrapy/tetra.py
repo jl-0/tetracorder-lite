@@ -34,6 +34,7 @@ Logger = logging.getLogger(__name__)
 
 
 def setup_tetrun(
+    tetracorder: str = "/root/tetracorder",
     version: str = "6.00a",
     output: str = "/output/tetracorder",
     sensor: str = "emit_c",
@@ -42,7 +43,6 @@ def setup_tetrun(
     geology: bool = False,
     cores: Optional[int] = os.cpu_count(),
     args: List[str] = ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"],
-    rm: bool = False,
 ) -> None:
     """
     Call the tetracorder cmd-setup-tetrun script to initialize a tetracorder run.
@@ -56,7 +56,9 @@ def setup_tetrun(
     version : str, default="6.00a"
         Tetracorder version to use (e.g., "6.00a", "5.00").
     output : str, default="/output/tetracorder"
-        Output directory path. Must not exist unless rm=True.
+        Output directory path. If it already exists, all contents except the
+        ``logs/`` subdirectory are removed so ``cmd-setup-tetrun`` sees a fresh
+        directory while preserving any log file already written there.
     sensor : str, default="emit_c"
         Sensor identifier for spectral library selection (e.g., "emit_c", "aviris").
     mode : str, default="cube"
@@ -69,13 +71,6 @@ def setup_tetrun(
         Number of CPU cores to use. Written to TETNCPU.txt.
     args : List[str], default=["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"]
         Additional arguments to pass to cmd-setup-tetrun script.
-    rm : bool, default=False
-        If True, removes the output directory before setup for a clean start.
-
-    Raises
-    ------
-    AssertionError
-        If output directory already exists and rm=False.
 
     Notes
     -----
@@ -85,23 +80,41 @@ def setup_tetrun(
     - Configures CPU core count in TETNCPU.txt
     """
     out = Path(output)
-    if rm and out.exists():
-        shutil.rmtree(output)
-
+    # cmd-setup-tetrun refuses to run if the output directory already exists
+    # (it errors and exits), yet earlier stages (e.g. logging) may have already
+    # initialized it. Move logs/ aside, remove the directory so the script can
+    # recreate it, then restore logs/. The move is a rename (not a copy) so an
+    # open log FileHandler keeps writing to the same inode across the swap.
+    stash = out.with_name(f"{out.name}.logs.stash")
+    logs = out / "logs"
     if out.exists():
-        raise ValueError("Tetracorder's cmd-setup-tetrun requires the output directory to not exist")
+        if logs.exists():
+            if stash.exists():
+                shutil.rmtree(stash)
+            logs.rename(stash)
+        shutil.rmtree(out)
 
-    cmd = [
-        "bash",
-        f"/t1/tetracorder.cmds/tetracorder{version}.cmds/cmd-setup-tetrun",
-        output,
-        sensor,
-        mode,
-        rfl,
-        *args
-    ]
+    proc = subprocess.Popen(
+        cmd,
+        cwd    = output,
+        env    = env,
+        stdout = subprocess.PIPE,
+        stderr = subprocess.STDOUT,
+        text   = True,
+        bufsize = 1,
+    )
 
-    subprocess.run(cmd, check=True)
+    for line in proc.stdout:
+        line = line.rstrip("\n")
+        Logger.debug(line)
+
+    code = proc.wait()
+    if code:
+        raise subprocess.CalledProcessError(code, cmd)
+
+    # Restore logs/ into the freshly created output directory.
+    if stash.exists():
+        stash.rename(out / "logs")
 
     # Remove erroneous 'time' command in the script
     path = out / "cmd.runtet"
@@ -109,6 +122,7 @@ def setup_tetrun(
         path.write_text(
             path.read_text().replace("time", "")
         )
+        Logger.debug(f"Patched {path}")
 
     # v6 cmd file needs to set the geology parameter
     if "6" in version:
@@ -118,13 +132,14 @@ def setup_tetrun(
         path.write_text(
             text.replace("mode", geom)
         )
+        Logger.debug(f"Patching {path}")
 
     if cores:
         path = out / "TETNCPU.txt"
         if path.exists():
             path.write_text(str(cores))
 
-    Logger.info("\nAlternatively, use `tetrapy tetrun` to execute with defaults")
+    Logger.info("Alternatively, use `tetrapy tetrun [config.yml]` to execute with the config")
 
 
 def exec_tetrun(
@@ -167,22 +182,23 @@ def exec_tetrun(
             if "davinci" not in path
         ])
 
-    cmd = [
-        "bash",
-        "cmd.runtet",
-        mode,
-        rfl
-    ]
+    proc = subprocess.Popen(
+        ["bash", "cmd.runtet", mode, rfl],
+        cwd    = output,
+        env    = env,
+        stdout = subprocess.PIPE,
+        stderr = subprocess.STDOUT,
+        text   = True,
+        bufsize = 1,
+    )
 
-    log = Path(output) / "tetrun.log"
-    with log.open("w") as f:
-        subprocess.run(cmd,
-            cwd = output,
-            env = env,
-            stdout = f,
-            stderr = subprocess.STDOUT,
-            check = True,
-        )
+    for line in proc.stdout:
+        line = line.rstrip("\n")
+        Logger.debug(line)
+
+    code = proc.wait()
+    if code:
+        raise subprocess.CalledProcessError(code, cmd)
 
 
 def make_convolution(

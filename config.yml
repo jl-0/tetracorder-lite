@@ -8,7 +8,7 @@
 #
 # I/O
 #
-output: /output/tetracorder # Directory must not exist unless setup.autoremove is enabled
+output: /output/tetracorder # Existing contents are cleared at setup (logs/ preserved)
 data:
   rfl: /data/rfl # Data, not header
   rfluncert: /data/rfluncert # Data, not header
@@ -28,6 +28,7 @@ tetracorder:
 #
 log:
   level: DEBUG
+  file: ${output}/logs/tetrapy.log
 export_matrix:
   enabled: False
   file: /output/matrix.csv
@@ -57,7 +58,6 @@ sensor:
   reslib: ${convolve.output.reslib}
 setup:
   enabled: True
-  autoremove: True
   geology: False
   args: ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"]
 tetrun:

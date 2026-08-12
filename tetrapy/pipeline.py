@@ -19,10 +19,13 @@ from pathlib import Path
 
 from box import Box
 
+from tetrapy import utils
+
 
 Logger = logging.getLogger(__name__)
 
 
+@utils.log_elapse
 def export_matrix(c: Box) -> None:
     """
     Decode the tetracorder expert system and export its material matrix to CSV.
@@ -46,8 +49,10 @@ def export_matrix(c: Box) -> None:
         columns   = c.export_matrix.columns,
         reference = c.export_matrix.reference,
     )
+    Logger.debug("Finished matrix")
 
 
+@utils.log_elapse
 def convolve(c: Box) -> None:
     """
     Convolve the reference + research master libraries onto the scene's grid.
@@ -68,8 +73,10 @@ def convolve(c: Box) -> None:
         out_ref = c.convolve.output.reflib,
         out_res = c.convolve.output.reslib,
     )
+    Logger.debug("Finished convolve")
 
 
+@utils.log_elapse
 def sensor(c: Box) -> None:
     """
     Integrate the convolved library into the tetracorder command tree.
@@ -89,32 +96,37 @@ def sensor(c: Box) -> None:
         sensor = c.sensor,
         rfl    = c.data.rfl,
     )
+    Logger.debug("Finished sensor")
 
 
+@utils.log_elapse
 def setup(c: Box) -> None:
     """
     Configure a tetracorder run (``cmd-setup-tetrun``).
 
     Invokes the tetracorder setup script to initialize the output directory for the
     configured version/mode/sensor and scene reflectance, applying the post-setup
-    patches (geology flag, CPU count, ``cmd.runtet`` fixups). ``setup.autoremove``
-    clears the output directory first, which the setup script requires to be absent.
+    patches (geology flag, CPU count, ``cmd.runtet`` fixups). Any pre-existing
+    output directory contents are cleared first (except ``logs/``), which the
+    setup script requires to be absent.
     """
     from tetrapy import tetra
 
     Logger.info("Executing setup")
     tetra.setup_tetrun(
-        version = c.tetracorder.version,
-        mode    = c.tetracorder.mode,
-        rfl     = c.data.rfl,
-        output  = c.output,
-        sensor  = c.tetracorder.sensor,
-        geology = c.setup.geology,
-        args    = c.setup.args,
-        rm      = c.setup.autoremove,
+        tetracorder = c.tetracorder.root,
+        version     = c.tetracorder.version,
+        mode        = c.tetracorder.mode,
+        rfl         = c.data.rfl,
+        output      = c.output,
+        sensor      = c.tetracorder.sensor,
+        geology     = c.setup.geology,
+        args        = c.setup.args,
     )
+    Logger.debug("Finished setup")
 
 
+@utils.log_elapse
 def tetrun(c: Box) -> None:
     """
     Execute a previously-configured tetracorder run (``cmd.runtet``).
@@ -132,8 +144,10 @@ def tetrun(c: Box) -> None:
         output  = c.output,
         args    = c.tetrun.args,
     )
+    Logger.debug("Finished tetrun")
 
 
+@utils.log_elapse
 def aggregate(c: Box) -> None:
     """
     Aggregate tetracorder outputs into L2B mineral / uncertainty products.
@@ -156,8 +170,10 @@ def aggregate(c: Box) -> None:
         output_as   = c.aggregate.output_as,
         reference   = c.aggregate.reference,
     )
+    Logger.debug("Finished aggregate")
 
 
+@utils.log_elapse
 def daac(c: Box) -> None:
     """
     Convert the L2B mineral / uncertainty products into LP DAAC NetCDF files.
@@ -184,3 +200,4 @@ def daac(c: Box) -> None:
         software_delivery_version = c.daac.software_delivery_version,
         reference                 = c.daac.reference or None,
     )
+    Logger.debug("Finished daac")

@@ -5,7 +5,11 @@ from pathlib import Path
 import click
 from box import Box
 
-from tetrapy import pipeline as pl
+
+from tetrapy import (
+    init,
+    pipeline as pl
+)
 from tetrapy.config import load
 
 
@@ -16,36 +20,6 @@ CS = dict(
 )
 Config = click.argument("config")
 Section = click.option("-s", "--section", help="Subsection of the yaml to load rather than the whole file")
-
-
-def init(config: str, section: str, ctx: click.Context) -> Box:
-    """
-    Load, patch, and interpolate the config, then configure logging.
-
-    Shared by every command: reads the YAML at ``config`` (optionally narrowed to
-    ``section``), applies the CLI overrides carried on ``ctx``, resolves ``${...}``
-    interpolation, and sets the root log level from ``log.level``.
-
-    Parameters
-    ----------
-    config : str
-        Path to the config YAML file.
-    section : str
-        Subsection of the config to load, or a falsy value for the whole file.
-    ctx : click.Context
-        Click context whose extra args supply the dotted ``--key value`` overrides.
-
-    Returns
-    -------
-    box.Box
-        The fully resolved configuration.
-    """
-    config = load(config, section, ctx=ctx, interp=True)
-
-    lvl = getattr(logging, config.log.get("level", "INFO"))
-    logging.basicConfig(level=lvl)
-
-    return config
 
 
 @click.group()
@@ -65,6 +39,8 @@ def run(ctx, **kwargs) -> None:
     Execute the full tetrapy pipeline from a YAML config
     """
     c = init(ctx=ctx, **kwargs)
+
+    Logger.info("Beginning pipeline")
 
     if c.export_matrix.enabled:
         pl.export_matrix(c)

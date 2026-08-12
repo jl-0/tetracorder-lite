@@ -127,7 +127,7 @@ RUN cd tetracorder/specpr &&\
     cd src.specpr/common && make && cd - &&\
     # psplotdaemon does not compile due to unresolved errors, skip it
     sed -i "234,245 s/^/#/" AAA.INSTALL.specpr+support-progs-linux-upgrade.1.7.sh &&\
-    yes "" | ./AAA.INSTALL.specpr+support-progs-linux-upgrade.1.7.sh install
+    yes "" | bash AAA.INSTALL.specpr+support-progs-linux-upgrade.1.7.sh install
 
 # Install tetracorder
 RUN cd tetracorder &&\
@@ -135,7 +135,7 @@ RUN cd tetracorder &&\
     sed -i "398,416 s/^/#/" AAA.INSTALL.spectroscopy-os-setup-linux.sh &&\
     # Comment out forced installs
     sed -i "231,254 s/^/#/" AAA.INSTALL.spectroscopy-os-setup-linux.sh &&\
-    yes "y" | ./AAA.INSTALL.spectroscopy-os-setup-linux.sh install &&\
+    yes "y" | bash AAA.INSTALL.spectroscopy-os-setup-linux.sh install &&\
     # Build tetracorder
     cd tetracorder &&\
     ## Build cube spectrum mode
