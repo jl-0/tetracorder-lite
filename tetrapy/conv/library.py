@@ -187,7 +187,7 @@ def build_library(
     master = SpecprFile.open(master_path)
     index = index_master(master)
     convolver = Convolver(grid.wavelengths, grid.fwhm)
-    family = FAMILIES.get(Path(master_path).name, out_path.name)
+    family = FAMILIES.get(Path(master_path).name, Path(out_path).name)
 
     log(f"[{family}] grid: {grid.nbands} bands "
         f"{grid.wavelengths[0] * 1000:.1f}-{grid.wavelengths[-1] * 1000:.1f} nm; "
