@@ -26,8 +26,11 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from tetrapy import conv
-from tetrapy import utils
+from rich.live import Live
+from rich.panel import Panel
+from rich.text import Text
+
+from tetrapy import conv, utils, Console
 
 
 Logger = logging.getLogger(__name__)
@@ -136,10 +139,11 @@ def setup_tetrun(
         text = text.replace('> tetracorder.out', '')
 
         # Update grep to read from stdin via process substitution since tetracorder.out is no longer written
-        text = text.replace(
-            'grep  -a DISABLED tetracorder.out > AAA.info/disabled-materials.txt',
-            '# disabled-materials.txt not generated (output captured by Python logger)'
-        )
+        # text = text.replace(
+        #     'grep  -a DISABLED tetracorder.out > AAA.info/disabled-materials.txt',
+        #     '# disabled-materials.txt not generated (output captured by Python logger)'
+        # )
+
         path.write_text(text)
         Logger.debug(f"Patched {path}")
 
@@ -212,24 +216,51 @@ def exec_tetrun(
         bufsize = 1,
     )
 
-    # Capture DISABLED lines for disabled-materials.txt
+    # Write tetracorder output to dedicated file and display in live panel
+    output = Path(output)
+    log = output / "tetracorder.out"
+
     disabled = []
-    for line in proc.stdout:
-        line = line.rstrip("\n")
-        Logger.debug(line)
-        if "DISABLED" in line:
-            disabled.append(line)
+    buffer = []
+    limit = 20  # Keep only last N lines visible
+
+    with Live(
+        Panel(Text("Starting tetracorder...", style="dim"), title="Tetracorder Output", border_style="dim"),
+        console=Console,
+        refresh_per_second=4,  # Limit refresh rate for performance
+    ) as live, open(log, "w") as file:
+        for line in proc.stdout:
+            file.write(line)
+            file.flush()
+
+            line = line.rstrip("\n")
+            if "DISABLED" in line:
+                disabled.append(line)
+
+            # Keep rolling buffer of last N lines
+            buffer.append(line)
+            if len(buffer) > limit:
+                buffer.pop(0)
+
+            # Update panel with buffered lines
+            live.update(
+                Panel(
+                    Text("\n".join(buffer), style="dim"),
+                    title=f"Tetracorder Output (last {limit} lines)",
+                    border_style="dim"
+                )
+            )
 
     code = proc.wait()
     if code:
         raise subprocess.CalledProcessError(code, cmd)
 
-    # Write disabled materials file if we captured any
-    if disabled:
-        output = Path(output) / "AAA.info"
-        output.mkdir(exist_ok=True)
-        (output / "disabled-materials.txt").write_text("\n".join(disabled) + "\n")
-        Logger.debug(f"Wrote {len(disabled_lines)} disabled material entries to {output}")
+    # # Write disabled materials file if we captured any
+    # if disabled:
+    #     output = output / "AAA.info"
+    #     output.mkdir(exist_ok=True)
+    #     (output / "disabled-materials.txt").write_text("\n".join(disabled) + "\n")
+    #     Logger.debug(f"Wrote {len(disabled)} disabled material entries to {output}")
 
 
 def make_convolution(
