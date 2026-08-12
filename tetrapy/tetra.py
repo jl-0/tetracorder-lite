@@ -158,11 +158,11 @@ def exec_tetrun(
     All output from the tetracorder run is captured in tetrun.log within the
     output directory for debugging and verification purposes.
     """
-    env = os.environ["PATH"].copy()
+    env = os.environ.copy()
     if not davinci:
-        env = ":".join([
+        env["PATH"] = ":".join([
             path
-            for path in env.split(":")
+            for path in env["PATH"].split(":")
             if "davinci" not in path
         ])
 

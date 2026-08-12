@@ -183,11 +183,14 @@ def build_library(
     log : callable, default=print
         Sink for progress messages.
     """
+    out_path = Path(out_path)
+    out_path.mkdir(exist_ok=True, parents=True)
+
     grid = read_grid(rfl)
     master = SpecprFile.open(master_path)
     index = index_master(master)
     convolver = Convolver(grid.wavelengths, grid.fwhm)
-    family = FAMILIES.get(Path(master_path).name, Path(out_path).name)
+    family = FAMILIES.get(Path(master_path).name, out_path.name)
 
     log(f"[{family}] grid: {grid.nbands} bands "
         f"{grid.wavelengths[0] * 1000:.1f}-{grid.wavelengths[-1] * 1000:.1f} nm; "
