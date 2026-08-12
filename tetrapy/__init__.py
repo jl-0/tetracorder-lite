@@ -38,8 +38,8 @@ def init(config: str, section: str, ctx: click.Context):
         )
     ]
 
-    if file:
-        file = Path(file)
+    if c.log.file:
+        file = Path(c.log.file)
         file.parent.mkdir(parents=True, exist_ok=True)
 
         fh = logging.FileHandler(file, mode="w" if c.log.reset else "a")
