@@ -33,6 +33,7 @@ Logger = logging.getLogger(__name__)
 def run(c: Box) -> None:
     """
     """
+    pl = globals()
     steps = [
         "export_matrix",
         "convolve",
