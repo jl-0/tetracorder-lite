@@ -55,7 +55,7 @@ def init(config: str, section: str, ctx: click.Context):
     level = getattr(logging, level)
 
     logging.basicConfig(
-        level=lvl,
+        level=level,
         handlers=handlers,
         format="%(message)s",
         datefmt="[%X]",
