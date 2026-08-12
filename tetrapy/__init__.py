@@ -1,12 +1,19 @@
 import logging
+import warnings
 from pathlib import Path
 
 import click
+from rasterio.errors import NotGeoreferencedWarning
 from rich.console import Console
 from rich.logging import RichHandler
 
 from tetrapy.config import load
 
+# Very spammy, just turn them off
+warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
+
+# rasterio/GDAL emit a flood of DEBUG records; keep them at WARNING and up
+logging.getLogger("rasterio").setLevel(logging.WARNING)
 
 Console = Console(record=True)
 Logger = logging.getLogger(__name__)

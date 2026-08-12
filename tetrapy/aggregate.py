@@ -9,14 +9,6 @@ from scipy.interpolate import interp1d
 from tetrapy.conv import SpecprFile
 from tetrapy.tetracorder import TetraDecoder
 
-import warnings
-from rasterio.errors import NotGeoreferencedWarning
-
-# Very spammy, just turn them off
-warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
-
-# rasterio/GDAL emit a flood of DEBUG records; keep them at WARNING and up
-logging.getLogger("rasterio").setLevel(logging.WARNING)
 
 Logger = logging.getLogger(__name__)
 

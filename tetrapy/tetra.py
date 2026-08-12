@@ -238,7 +238,6 @@ def make_convolution(
         master_path = str(file),
         out_path = str(output),
         rfl = str(rfl),
-        log = Logger.debug,
     )
 
     Logger.debug(f"  Saved to: {output}")
