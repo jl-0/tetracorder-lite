@@ -44,7 +44,7 @@ FIRST_SPECTRUM = 30      # first convolved spectrum
 PADS_PER_SPECTRUM = 4    # trailing padding records after each spectrum
 
 # Family tag written into each convolved title, keyed by master library filename.
-FAMILIES = {"splib06b": "s06emitc", "sprlb06b": "r06emitc"}
+FAMILIES = {"splib06b": "s06tetra", "sprlb06b": "r06tetra"}
 
 
 @dataclass

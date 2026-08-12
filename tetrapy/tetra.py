@@ -94,6 +94,15 @@ def setup_tetrun(
             logs.rename(stash)
         shutil.rmtree(out)
 
+    cmd = [
+        "bash",
+        f"{tetracorder}/tetracorder.cmds/tetracorder{version}.cmds/cmd-setup-tetrun",
+        output,
+        sensor,
+        mode,
+        rfl,
+        *args
+    ]
     proc = subprocess.Popen(
         cmd,
         cwd    = output,
