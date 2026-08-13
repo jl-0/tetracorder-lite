@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 # rasterio/GDAL emit a flood of DEBUG records; keep them at WARNING and up
 logging.getLogger("rasterio").setLevel(logging.WARNING)
 
-Console = Console(record=True)
+Console = Console(record=True, force_terminal=True, force_interactive=True)
 Logger = logging.getLogger(__name__)
 
 
