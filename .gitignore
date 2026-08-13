@@ -26,6 +26,7 @@ site/
 
 # Ignore local testing directories
 local/
+configs/
 
 # Unconvolved master spectral libraries (splib06b / sprlb06b) are small (~24 MB
 # total) and are now COMMITTED under tetracorder/sl1/usgs/library06.conv/ so they

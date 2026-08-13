@@ -138,12 +138,6 @@ def setup_tetrun(
         text = text.replace("> tetracorder.out 2>&1", "2>&1")
         text = text.replace('> tetracorder.out', '')
 
-        # Update grep to read from stdin via process substitution since tetracorder.out is no longer written
-        # text = text.replace(
-        #     'grep  -a DISABLED tetracorder.out > AAA.info/disabled-materials.txt',
-        #     '# disabled-materials.txt not generated (output captured by Python logger)'
-        # )
-
         path.write_text(text)
         Logger.debug(f"Patched {path}")
 
@@ -208,14 +202,14 @@ def exec_tetrun(
     cmd = ["bash", "cmd.runtet", mode, rfl]
     proc = subprocess.Popen(
         cmd,
-        cwd    = output,
-        env    = env,
+        cwd = output,
+        env = env,
+        text = True,
         stdout = subprocess.PIPE,
         stderr = subprocess.STDOUT,
-        text   = True,
-        encoding = "utf-8",
-        errors   = "replace",  # Replace invalid UTF-8 bytes with � instead of crashing
+        errors = "replace",
         bufsize = 1,
+        encoding = "utf-8",
     )
 
     # Write tetracorder output to dedicated file and display in live panel
@@ -256,13 +250,6 @@ def exec_tetrun(
     code = proc.wait()
     if code:
         raise subprocess.CalledProcessError(code, cmd)
-
-    # # Write disabled materials file if we captured any
-    # if disabled:
-    #     output = output / "AAA.info"
-    #     output.mkdir(exist_ok=True)
-    #     (output / "disabled-materials.txt").write_text("\n".join(disabled) + "\n")
-    #     Logger.debug(f"Wrote {len(disabled)} disabled material entries to {output}")
 
 
 def make_convolution(
