@@ -104,11 +104,9 @@ def _read_bands(path: str | Path) -> np.ndarray:
         The ``band_data`` variable as a ``(band, y, x)`` array.
     """
     path = Path(path)
-    if path.suffix == ".nc":
-        da = xr.open_dataset(path)["band_data"]
-    else:
-        da = xr.open_dataset(path, engine="rasterio")["band_data"]
-    return da.load().values
+    engine = None if path.suffix == ".nc" else "rasterio"
+    with xr.open_dataset(path, engine=engine) as ds:
+        return ds["band_data"].load().values
 
 
 def _write_product(

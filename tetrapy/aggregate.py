@@ -303,8 +303,10 @@ def aggregate(
             Logger.debug(f"[{i:03}/{t:03}] - Fit file not found for {name}")
             continue
 
-        # Load the data in
-        depth = xr.open_dataset(depth, engine="rasterio")["band_data"].squeeze()
+        # GDAL raises a (harmless) exception if not closed like this
+        with xr.open_dataset(depth, engine="rasterio") as ds:
+            depth = ds["band_data"].squeeze().load()
+
         valid = depth > 0
         if not valid.any():
             Logger.debug(f"[{i:03}/{t:03}] - No valid data for {name}")
@@ -327,7 +329,8 @@ def aggregate(
             )
             minuncert = xr.zeros_like(mins)
 
-        fit = xr.open_dataset(fit, engine="rasterio")["band_data"].squeeze()
+        with xr.open_dataset(fit, engine="rasterio") as ds:
+            fit = ds["band_data"].squeeze().load()
 
         # Apply scaling factor
         depth = depth / 255.0 * 0.5
@@ -437,11 +440,11 @@ def build(
         Logger.info("Loading reflectance products")
 
         # Transpose to stay consistent with the tetracorder products
-        rfl = xr.open_dataset(rfl, engine="rasterio")["band_data"]
-        rfl = rfl.transpose("y", "x", "band").load()
+        with xr.open_dataset(rfl, engine="rasterio") as ds:
+            rfl = ds["band_data"].transpose("y", "x", "band").load()
 
-        rfluncert = xr.open_dataset(rfluncert, engine="rasterio")
-        rfluncert = rfluncert["band_data"].transpose("y", "x", "band").load()
+        with xr.open_dataset(rfluncert, engine="rasterio") as ds:
+            rfluncert = ds["band_data"].transpose("y", "x", "band").load()
 
         libs = {
             "sprlb06": read_library(reslib),

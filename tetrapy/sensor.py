@@ -264,7 +264,8 @@ def build(path: Path, sensor: Box, rfl: Union[str, Path]) -> None:
     if not (reslib := Path(sensor.reslib)).exists():
         raise FileNotFoundError(f"Research library not found: {reslib}")
 
-    nchans = xr.open_dataset(rfl, engine="rasterio").band.size
+    with xr.open_dataset(rfl, engine="rasterio") as ds:
+        nchans = ds.band.size
 
     text = RESTART.format(
         name   = sensor.name,
