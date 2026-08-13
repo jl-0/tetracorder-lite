@@ -1,250 +1,228 @@
-"""Build a complete convolved specpr library directly from a master library.
+"""
+Build a complete convolved specpr library from an unconvolved master.
 
-No convolution recipe is needed: everything the USGS ``.cmds`` recipe used to
-supply is already present in each master spectrum's own header --
-
-    recipe ``recnum``  == the spectrum record itself (walked in record order)
-    recipe ``inwave``  == the header's ``irwav`` (native wavelength record)
-    recipe ``inres``   == the "Bandpass (FWHM)" record paired to that wavelength
-                          record by matching channel count (``itchan``)
-    recipe ``title``   == the header's ``ititl``
-
-so the recipe was fully redundant with the master.  This module discovers the
-spectra, pairs each with its native wave/FWHM grids, convolves onto the target
-grid, and writes a specpr library reproducing the shipped ``s06emitc`` layout.
-
-Reproduces the record layout of the shipped ``s06emitc``:
+No convolution "recipe" is needed: everything the USGS ``.cmds`` recipe supplied is
+already in each master spectrum's own header. Every data record whose title is not a
+``Wavelengths``/``Bandpass`` grid is a spectrum; its native wavelength and bandpass
+grids are the master grid records that share its channel count. This module discovers
+the spectra, convolves each onto the target grid read from a scene's ENVI header, and
+writes a specpr library reproducing the shipped ``s06emitc`` layout::
 
     rec 0        ASCII label
-    rec 1-5      text banner records
-    rec 6-7      output wavelengths (microns)   <- target grid
-    rec 8-11     padding
-    rec 12-13    output resolution (FWHM, microns)
-    rec 14-17    padding
-    rec 18-19    channel-number reference spectrum
-    rec 20-29    padding
-    rec 30..     one 6-record block per spectrum:
-                     head + continuation (285 ch) + 4 text pads
+    rec 1-5      text banner
+    rec 6-11     output wavelengths (microns) + padding
+    rec 12-17    output resolution (FWHM, microns) + padding
+    rec 18-29    channel-number reference spectrum + padding
+    rec 30..     one 6-record block per spectrum (head + continuation + 4 pads)
 
-Record numbering is significant -- Tetracorder fit-scripts reference the library by
-absolute record number -- so every spectrum occupies a fixed slot in master order.
+Record numbering is significant -- Tetracorder's fit scripts reference the library by
+absolute record number -- so every spectrum occupies a fixed slot in master order and
+spectra whose native grids are missing become deleted-data placeholders rather than
+being dropped.
 """
 
-from __future__ import annotations
-
+import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Dict, List, Union
 
 import numpy as np
 
-from . import convolve
-from .envi import TargetGrid, read_grid
-from .specpr import (DELETED, Record, SpecprFile, SpecprWriter, default_label,
-                     text_pad_record)
+from tetrapy.conv.convolve import Convolver
+from tetrapy.conv.specpr import DELETED, SpecprFile, SpecprWriter
 
+NM_PER_UM = 1000.0
 USERNM = "tetracnv"
-WAVE_RECNO = 6           # output wavelength grid record number
-RES_RECNO = 12           # output resolution grid record number
-FIRST_SPECTRUM = 30      # first convolved-spectrum record number
-PADS_PER_SPECTRUM = 4    # trailing [sppad] records after each spectrum
 
-# master header records whose title starts with one of these are grid records
-# (wavelength / bandpass sets), not spectra
-GRID_TITLE_PREFIXES = ("Wavelengths", "Bandpass")
+WAVE_RECNO = 6           # output wavelength grid
+RES_RECNO = 12           # output resolution grid
+CHAN_RECNO = 18          # channel-number reference spectrum
+FIRST_SPECTRUM = 30      # first convolved spectrum
+PADS_PER_SPECTRUM = 4    # trailing padding records after each spectrum
+
+# Family tag written into each convolved title, keyed by master library filename.
+FAMILIES = {"splib06b": "s06emitc", "sprlb06b": "r06emitc"}
 
 
 @dataclass
-class BuildStats:
-    n_spectra: int
-    n_placeholders: int
-    n_records: int
+class TargetGrid:
+    """Output wavelengths and FWHM (both microns) for the convolved library."""
+
+    wavelengths: np.ndarray
+    fwhm: np.ndarray
+
+    @property
+    def nbands(self) -> int:
+        return self.wavelengths.size
 
 
-def _title_tag(master_title: str, family: str) -> str:
-    """Derive the output title ``<name> <family>=<tag>`` from a master title.
-
-    Master titles look like ``Acmite NMNH133746 Pyroxene   W1R1Ba AREF``.  The tag
-    is the trailing lowercase/underscore run of the code token (the second-to-last
-    whitespace token): ``W1R1Ba`` -> ``a``, ``W9R4Nbbb`` -> ``bbb``,
-    ``W5R4Nbb_`` -> ``bb_``.  The spectrum name is the remaining tokens, whitespace
-    collapsed.  Titles already carrying ``<family>=`` are passed through unchanged.
+def read_grid(rfl: Union[str, Path]) -> TargetGrid:
     """
-    if f"{family}=" in master_title:
-        return master_title
-    toks = master_title.split()
-    if len(toks) < 2:
-        return master_title
-    code = toks[-2]
-    upper_positions = [i for i, ch in enumerate(code) if ch.isupper()]
-    tag = code[upper_positions[-1] + 1:] if upper_positions else code
-    name = " ".join(toks[:-2])
-    return f"{name} {family}={tag}"
+    Read the target wavelength/FWHM grid from a scene's ENVI header.
+
+    ``rfl`` is the reflectance data path; its companion ``.hdr`` supplies the grid.
+    EMIT headers store nanometers, so values are converted to microns unless the
+    header declares micron units.
+    """
+    hdr = Path(rfl)
+    if hdr.suffix != ".hdr":
+        hdr = hdr.with_suffix(hdr.suffix + ".hdr")
+    text = hdr.read_text(errors="replace")
+
+    wavelengths = _parse_vector(text, "wavelength")
+    fwhm = _parse_vector(text, "fwhm")
+    if wavelengths.size != fwhm.size:
+        raise ValueError(f"{hdr}: wavelength/fwhm length mismatch")
+
+    units = re.search(r"^\s*wavelength units\s*=\s*(\S+)", text, re.IGNORECASE | re.MULTILINE)
+    is_nm = units is None or units.group(1).lower().startswith(("nan", "nm"))
+    scale = NM_PER_UM if is_nm else 1.0
+
+    return TargetGrid(wavelengths=wavelengths / scale, fwhm=fwhm / scale)
 
 
-def _fit_title(text: str) -> str:
-    return text[:40].ljust(40)
-
-
-def _channel_numbers(nbands: int) -> np.ndarray:
-    return np.arange(1, nbands + 1, dtype=np.float32)
+def _parse_vector(text: str, key: str) -> np.ndarray:
+    """Extract an ENVI ``key = { a, b, ... }`` numeric vector."""
+    m = re.search(rf"^\s*{key}\s*=\s*\{{(.*?)\}}", text,
+                  re.IGNORECASE | re.DOTALL | re.MULTILINE)
+    if not m:
+        raise ValueError(f"ENVI header has no '{key}' field")
+    return np.array([float(p) for p in m.group(1).split(",") if p.strip()], dtype=np.float64)
 
 
 @dataclass
 class MasterIndex:
-    """Discovered structure of a master library: spectra and native grids."""
+    """The spectra of a master library and their native grid records."""
 
-    spectra: list[int]                 # record numbers of spectra, in master order
-    bandpass_for_wave: dict[int, int]  # wavelength record -> paired bandpass record
+    spectra: List[int]                    # spectrum record numbers, in master order
+    wave_by_channels: Dict[int, int]      # channel count -> wavelength record
+    band_by_channels: Dict[int, int]      # channel count -> bandpass record
 
 
 def index_master(master: SpecprFile) -> MasterIndex:
-    """Scan a master library, separating spectra from wavelength/bandpass grids.
-
-    Grid records are recognised by their title prefix ("Wavelengths"/"Bandpass").
-    Each wavelength record is paired with the bandpass record that shares its
-    channel count, reproducing the recipe's ``inwave``/``inres`` pairing.
     """
-    wave_recs: list[int] = []
-    band_recs: list[int] = []
-    spectra: list[int] = []
+    Scan a master library, separating spectra from wavelength/bandpass grids.
 
-    for i in range(1, master.nrecords):
-        rec = master.record(i)
-        if rec.rtype != 0:
-            continue                    # only data headers start a record group
-        title = rec.title.rstrip()
+    Grid records are recognised by their title prefix and keyed by channel count so
+    each spectrum can be paired with the native grids it shares a channel count with
+    (matching the recipe's ``inwave``/``inres`` selection).
+    """
+    spectra: List[int] = []
+    wave_by_channels: Dict[int, int] = {}
+    band_by_channels: Dict[int, int] = {}
+
+    for recno in master.spectra():
+        rec = master.record(recno)
+        title = rec.title
         if title.startswith("Wavelengths"):
-            wave_recs.append(i)
+            wave_by_channels.setdefault(rec.itchan, recno)
         elif title.startswith("Bandpass"):
-            band_recs.append(i)
+            band_by_channels.setdefault(rec.itchan, recno)
         else:
-            spectra.append(i)
+            spectra.append(recno)
 
-    band_by_itchan: dict[int, int] = {}
-    for b in band_recs:
-        band_by_itchan[master.record(b).itchan] = b
-
-    bandpass_for_wave: dict[int, int] = {}
-    for w in wave_recs:
-        itchan = master.record(w).itchan
-        if itchan in band_by_itchan:
-            bandpass_for_wave[w] = band_by_itchan[itchan]
-
-    return MasterIndex(spectra=spectra, bandpass_for_wave=bandpass_for_wave)
+    return MasterIndex(spectra, wave_by_channels, band_by_channels)
 
 
-def _write_header_block(writer: SpecprWriter, grid: TargetGrid,
-                        family: str) -> None:
-    """Emit records 1-29: banner, output wave/res grids, channel-number spectrum."""
+def _title(text: str) -> str:
+    return text[:40].ljust(40)
+
+
+def _convolved_title(master_title: str, family: str) -> str:
+    """
+    Derive the convolved title ``<name> <family>=<tag>`` from a master title.
+
+    Master titles look like ``Acmite NMNH133746 Pyroxene   W1R1Ba AREF``: the tag is
+    the trailing lowercase/underscore run of the code token (second-to-last token),
+    so ``W1R1Ba`` -> ``a`` and ``W5R4N___`` -> ``___``.
+    """
+    tokens = master_title.split()
+    if len(tokens) < 2:
+        return master_title
+    code = tokens[-2]
+    uppers = [i for i, ch in enumerate(code) if ch.isupper()]
+    tag = code[uppers[-1] + 1:] if uppers else code
+    return f"{' '.join(tokens[:-2])} {family}={tag}"
+
+
+def _write_grid_records(writer: SpecprWriter, grid: TargetGrid) -> None:
+    """Emit records 6-29: the output wavelength/resolution/channel-number grids."""
     nb = grid.nbands
 
-    # rec 1-5: text banner
-    writer.append(text_pad_record())
-    writer.append(text_pad_record())
-    writer.append(text_pad_record())
-    writer.append(text_pad_record())
-    writer.append(text_pad_record())
+    def emit(recno: int, title: str, values: np.ndarray, pads: int) -> None:
+        assert writer.next_recno == recno, (writer.next_recno, recno)
+        writer.append_spectrum(
+            values=values.astype(np.float32), title=_title(title), itchan=nb,
+            irwav=WAVE_RECNO, irespt=RES_RECNO, usernm=USERNM)
+        writer.append_pads(pads)
 
-    # rec 6-7: output wavelengths (microns)
-    assert writer.next_recno == WAVE_RECNO, writer.next_recno
-    writer.append_spectrum(
-        icflag_head=16, title=_fit_title(f"Wavelengths in microns {nb} ch"),
-        usernm=USERNM, itchan=nb, irwav=WAVE_RECNO, irespt=RES_RECNO,
-        values=grid.wavelengths_um.astype(np.float32))
-    writer.append_pads(4)
-
-    # rec 12-13: output resolution (FWHM, microns)
-    assert writer.next_recno == RES_RECNO, writer.next_recno
-    writer.append_spectrum(
-        icflag_head=16, title=_fit_title(f"Resolution in microns {nb} ch"),
-        usernm=USERNM, itchan=nb, irwav=WAVE_RECNO, irespt=RES_RECNO,
-        values=grid.fwhm_um.astype(np.float32))
-    writer.append_pads(4)
-
-    # rec 18-19: channel-number reference spectrum
-    assert writer.next_recno == 18, writer.next_recno
-    writer.append_spectrum(
-        icflag_head=16, title=_fit_title(f"Data value = channel number ({nb} ch)"),
-        usernm=USERNM, itchan=nb, irwav=WAVE_RECNO, irespt=RES_RECNO,
-        values=_channel_numbers(nb))
-    writer.append_pads(10)
-
+    emit(WAVE_RECNO, f"Wavelengths in microns {nb} ch", grid.wavelengths, 4)
+    emit(RES_RECNO, f"Resolution  in microns {nb} ch", grid.fwhm, 4)
+    emit(CHAN_RECNO, f"Data value = channel number ({nb} ch)",
+         np.arange(1, nb + 1, dtype=np.float32), 10)
     assert writer.next_recno == FIRST_SPECTRUM, writer.next_recno
 
 
-def _deleted_spectrum(nbands: int) -> np.ndarray:
-    return np.full(nbands, DELETED, dtype=np.float32)
-
-
-def build_library(master_path, hdr_path, out_path, *,
-                  family: str = "s06emitc", log=print) -> BuildStats:
-    """Convolve every spectrum in a master library onto the target grid and write a
-    complete specpr library to ``out_path``.
+def build_library(
+    master_path: Union[str, Path],
+    out_path: Union[str, Path],
+    rfl: Union[str, Path],
+    log: Callable[[str], None] = print,
+) -> None:
+    """
+    Convolve every spectrum in a master library onto a scene grid and write it out.
 
     Parameters
     ----------
-    master_path : the unconvolved master specpr library (``splib06b`` / ``sprlb06b``)
-    hdr_path    : ENVI ``.hdr`` supplying the target wavelength/FWHM grid
-    out_path    : output specpr library path
-    family      : output title family tag (``s06emitc`` / ``r06emitc``)
+    master_path : str or Path
+        Unconvolved master specpr library (``splib06b`` / ``sprlb06b``).
+    out_path : str or Path
+        Destination path for the convolved specpr library.
+    rfl : str or Path
+        Scene reflectance data path; its ``.hdr`` supplies the target grid.
+    log : callable, default=print
+        Sink for progress messages.
     """
-    grid = read_grid(hdr_path)
+    grid = read_grid(rfl)
     master = SpecprFile.open(master_path)
     index = index_master(master)
+    convolver = Convolver(grid.wavelengths, grid.fwhm)
+    family = FAMILIES.get(Path(master_path).name, Path(out_path).name)
+
+    log(f"[{family}] grid: {grid.nbands} bands "
+        f"{grid.wavelengths[0] * 1000:.1f}-{grid.wavelengths[-1] * 1000:.1f} nm; "
+        f"master: {len(index.spectra)} spectra")
+
+    writer = SpecprWriter()
+    writer.append_pads(5)                # rec 1-5: text banner
+    _write_grid_records(writer, grid)
+
     nb = grid.nbands
-
-    log(f"[{family}] grid: {nb} bands "
-        f"{grid.wavelengths_um[0]*1000:.1f}-{grid.wavelengths_um[-1]*1000:.1f} nm; "
-        f"master: {index.spectra and len(index.spectra)} spectra, "
-        f"{len(index.bandpass_for_wave)} native grids")
-
-    writer = SpecprWriter(default_label())
-    _write_header_block(writer, grid, family)
-
-    grid_cache: dict[int, np.ndarray] = {}
-
-    def native(recno: int) -> np.ndarray:
-        if recno not in grid_cache:
-            grid_cache[recno] = master.read_spectrum(recno).astype(np.float64)
-        return grid_cache[recno]
-
-    n_placeholders = 0
-    for idx, recno in enumerate(index.spectra):
+    placeholders = 0
+    for recno in index.spectra:
         head = master.record(recno)
-        title = _fit_title(_title_tag(head.title, family))
-        inwave = head.irwav
-        inres = index.bandpass_for_wave.get(inwave)
+        title = _title(_convolved_title(head.title, family))
+        wave_rec = index.wave_by_channels.get(head.itchan)
+        band_rec = index.band_by_channels.get(head.itchan)
 
-        # A spectrum whose native grids can't be resolved becomes a deleted-data
-        # placeholder so downstream record numbering is preserved.
-        try:
-            if inres is None:
-                raise ValueError(f"no bandpass grid paired to wave record {inwave}")
-            in_wave = native(inwave)
-            in_fwhm = native(inres)
-            in_spec = master.read_spectrum(recno).astype(np.float64)
-        except (IndexError, ValueError) as exc:
-            log(f"[{family}] spectrum {idx} rec{recno} title={head.title.rstrip()!r}: "
-                f"cannot read native grids ({exc}) -> placeholder")
+        if wave_rec is None or band_rec is None:
+            # Preserve record numbering with a deleted-data placeholder.
+            log(f"[{family}] rec{recno} {head.title!r}: no native grid for "
+                f"{head.itchan} ch -> placeholder")
             writer.append_spectrum(
-                icflag_head=16, title=title, usernm=USERNM, itchan=nb,
-                irwav=WAVE_RECNO, irespt=RES_RECNO, values=_deleted_spectrum(nb))
-            writer.append_pads(PADS_PER_SPECTRUM)
-            n_placeholders += 1
-            continue
-
-        convolved = convolve.convolve_spectrum(
-            in_wave, in_fwhm, in_spec, grid.wavelengths_um, grid.fwhm_um)
-
-        icflag_head = head.icflag & ~3    # keep master's high flag bits
-        writer.append_spectrum(
-            icflag_head=icflag_head, title=title, usernm=USERNM, itchan=nb,
-            irwav=WAVE_RECNO, irespt=RES_RECNO, values=convolved,
-            ihist=f"f17: convolved r{recno} Gaussian", template=head)
+                values=np.full(nb, DELETED, dtype=np.float32), title=title,
+                itchan=nb, irwav=WAVE_RECNO, irespt=RES_RECNO, usernm=USERNM)
+            placeholders += 1
+        else:
+            convolved = convolver.convolve(
+                master.read_spectrum(wave_rec),
+                master.read_spectrum(band_rec),
+                master.read_spectrum(recno))
+            writer.append_spectrum(
+                values=convolved, title=title, itchan=nb, icflag=head.icflag,
+                irwav=WAVE_RECNO, irespt=RES_RECNO, usernm=USERNM, template=head)
         writer.append_pads(PADS_PER_SPECTRUM)
 
     writer.write(out_path)
-    stats = BuildStats(n_spectra=len(index.spectra), n_placeholders=n_placeholders,
-                       n_records=writer.next_recno)
-    log(f"[{family}] wrote {out_path}: {stats.n_records} records "
-        f"({stats.n_spectra} spectra, {stats.n_placeholders} placeholders)")
-    return stats
+    log(f"[{family}] wrote {out_path}: {writer.next_recno} records "
+        f"({len(index.spectra)} spectra, {placeholders} placeholders)")

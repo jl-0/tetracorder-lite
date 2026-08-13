@@ -1,42 +1,85 @@
+##
+## Config to be used by ``tetrapy run``
+## Reminder: Container paths
+## Options can be overridden via CLI: --output ... --data.rfl ... --tetrun.args ["band", 10, ...]
+## Syntax ${...} will interpolate values from other parts of the config
+## Example: tetrapy run config.yml --data.rfl /data/emit20230728t214153_rfl --data.rfluncert /data/emit20230728t214153_uncert
+##
 #
-# Config to be used by ``tetrapy run``
-# Reminder: Container paths
-# Options can be overridden via CLI: --output ... --data.rfl ... --tetrun.args ["band", 10, ...]
-# Syntax ${...} will interpolate values from other parts of the config
-# Example: tetrapy run config.yml --data.rfl /data/emit20230728t214153/emit20230728t214153_rfl --data.rfluncert /data/emit20230728t214153/emit20230728t214153_uncert
+# I/O
 #
 output: /output/tetracorder # Directory must not exist unless setup.autoremove is enabled
 data:
   rfl: /data/rfl # Data, not header
   rfluncert: /data/rfluncert # Data, not header
+  loc: /data/loc
+  glt: /data/glt
+#
+# Tetracorder settings
+#
 tetracorder:
+  root: /root/tetracorder
+  davinci: True
   version: 6.00a
+  sensor: ${sensor.name}
   mode: cube
 #
 # Pipeline
 #
+log:
+  level: DEBUG
+export_matrix:
+  enabled: False
+  file: /output/matrix.csv
+  groups: [1, 2]
+  columns: [group, library, record, title, path]
+  reference: emit-sds-l2b/data/mineral_grouping_matrix_20230503.csv
 convolve:
   enabled: True
-  reflib: /root/tetracorder/sl1/usgs/library06.conv/splib06b
-  reslib: /root/tetracorder/sl1/usgs/library06.conv/sprlb06b
-  output: /conv/
-  integrate: True
-  name: ${setup.sensor}
+  reflib: ${tetracorder.root}/sl1/usgs/library06.conv/splib06b
+  reslib: ${tetracorder.root}/sl1/usgs/library06.conv/sprlb06b
+  output:
+    reflib: /conv/reflib
+    reslib: /conv/reslib
+  name: ${sensor.name}
+sensor:
+  enabled: True
+  name: tetrapy
+  deleted_channels: "1t4 75t79 99t106 128t148 188t214 218 219t221 226 280t285c"
+  enable:
+    groups: [1-5, 18, 20-22, 37-38]
+    cases: [1-6]
+  colors:
+    - BASE     23 23 23  base-image.jpg    # base grayscale image
+    - COLOR1   38 23 11  color-visRGB.jpg  # visible color channels
+    - COLOR2  246 85 18  color-vir.jpg     # false color vis-IR
+  reflib: ${convolve.output.reflib}
+  reslib: ${convolve.output.reslib}
 setup:
   enabled: True
   autoremove: True
-  sensor: tetrapy
-  geology: True
+  geology: False
   args: ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"]
 tetrun:
-  enabled: False
+  enabled: True
   args: ["band", "20", "gif"]
 aggregate:
-  enabled: False
+  enabled: True
   tetracorder: ${output}
   output: ${output}/l2b/
-  reflib: ${convolve.output}/reflib.envi
-  reslib: ${convolve.output}/reslib.envi
+  reflib: ${convolve.output.reflib}
+  reslib: ${convolve.output.reslib}
   output_as: ["nc", "tif"]
-emit_fmt: # TODO
+  reference: tetrapy/data/v6.00a5-part.csv
+daac:
   enabled: False
+  abun: ${aggregate.output}/min.nc
+  abununcert: ${aggregate.output}/minuncert.nc
+  out_abun: ${aggregate.output}/abun.nc
+  out_abununcert: ${aggregate.output}/abununcert.nc
+  loc: ${data.loc} # EMIT L1B location ENVI (optional, adds location group)
+  glt: ${data.glt} # EMIT L1B glt ENVI (optional, adds location group)
+  primary: # EMIT primary ENVI for full global attrs (optional)
+  version: V001
+  software_delivery_version: unknown
+  reference: ${aggregate.reference}

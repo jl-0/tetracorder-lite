@@ -1,7 +1,9 @@
 import ast
 import logging
 import re
+from typing import Any, Optional, Union
 
+import click
 from box import Box, BoxList
 
 
@@ -9,7 +11,12 @@ Logger = logging.getLogger(__name__)
 Interp = re.compile(r"\${([^}]+)}")
 
 
-def load(config, section=None, ctx=None, interp=True):
+def load(
+    config: str,
+    section: Optional[str] = None,
+    ctx: Optional[click.Context] = None,
+    interp: bool = True,
+) -> Box:
     """
     Loads a config from a yaml file
 
@@ -43,9 +50,25 @@ def load(config, section=None, ctx=None, interp=True):
     return config
 
 
-def patch(config, ctx):
+def patch(config: Box, ctx: click.Context) -> Box:
     """
-    Patches the config with options from the CLI, such as "--log.level debug"
+    Patch the config in place with dotted ``--key value`` options from the CLI.
+
+    Scans ``ctx.args`` for ``--dotted.key value`` pairs, parses each value as a
+    Python literal (falling back to a string), and merges them into ``config`` using
+    Box dot-notation, so e.g. ``--tetrun.args '["band", 10]'`` overrides a nested key.
+
+    Parameters
+    ----------
+    config : box.Box
+        The loaded config to override.
+    ctx : click.Context
+        Click context whose ``args`` carry the extra ``--key value`` overrides.
+
+    Returns
+    -------
+    box.Box
+        The same ``config``, updated with the overrides.
     """
     args = ctx.args
 
@@ -75,26 +98,46 @@ def patch(config, ctx):
     return config.merge_update(conv)
 
 
-def interp(val: str, rel: Box, full: Box):
+def interp(val: str, rel: Box, full: Box) -> Any:
     """
-    Interpolates flags in a string with values from the config
+    Interpolate ``${...}`` references in a single string against the config.
 
-    Format: ${.key} or ${key}
-    If the key starts with a dot, it is relative to the subsection the original key is in
-    If not, it uses the full section to find the key
+    Format: ``${.key}`` or ``${key}``. A leading dot makes the key relative to the
+    subsection the original value lives in (``rel``); otherwise it resolves from the
+    top of the config (``full``). After substitution the result is parsed as a Python
+    literal when possible, so a fully-substituted string can become e.g. an int/list.
+
+    Parameters
+    ----------
+    val : str
+        The value to interpolate.
+    rel : box.Box
+        The subsection used to resolve relative (``${.key}``) references.
+    full : box.Box
+        The full config used to resolve absolute (``${key}``) references.
+
+    Returns
+    -------
+    Any
+        The interpolated value; a literal (int/list/...) when it parses as one,
+        otherwise the substituted string (or ``val`` unchanged if it had no refs).
     """
     if matches := Interp.findall(val):
-        for k in matches:
-            r = "${" + k + "}"
-            if k.startswith("."):
-                v = rel[k]
+        for key in matches:
+            if key.startswith("."):
                 Logger.debug("Using relative pathing")
+                ref = rel
             else:
-                v = full[k]
                 Logger.debug("Using full pathing")
+                ref = full
 
-            val = val.replace(r, str(v))
-            Logger.debug(f"Replaced {r!r} with {v!r}")
+            new = ref[key]
+            if isinstance(new, str) and "${" in new:
+                new = interp(new, rel, full) # TODO: Recursion guard
+
+            fmt = "${" + key + "}"
+            val = val.replace(fmt, str(new))
+            Logger.debug(f"Replaced {fmt!r} with {new!r}")
         try:
             val = ast.literal_eval(val)
         except:
@@ -104,9 +147,27 @@ def interp(val: str, rel: Box, full: Box):
     return val
 
 
-def interpolate(box, orig=None, rel=None):
+def interpolate(
+    box: Union[Box, BoxList],
+    orig: Optional[Box] = None,
+    rel: Optional[Box] = None,
+) -> None:
     """
-    Interpolates flags in a string with values from the config
+    Recursively interpolate every ``${...}`` reference in a config tree in place.
+
+    Walks ``box`` (a Box or BoxList), replacing each string value via :func:`interp`.
+    ``orig`` is the full config used for absolute references; ``rel`` is the current
+    subsection used for relative ones. Both default to ``box`` itself on the first
+    call and are threaded down as the walk descends into subsections.
+
+    Parameters
+    ----------
+    box : box.Box or box.BoxList
+        The config node to interpolate; mutated in place.
+    orig : box.Box, optional
+        Full config for absolute references. Defaults to ``box`` on the first call.
+    rel : box.Box, optional
+        Subsection for relative references. Defaults to ``orig``.
     """
     if orig is None:
         orig = Box(box, box_dots=True, default_box=True)
@@ -115,19 +176,13 @@ def interpolate(box, orig=None, rel=None):
         rel = orig
 
     if isinstance(box, BoxList):
-        for i, val in enumerate(box):
-            if isinstance(val, Box):
-                interpolate(val, orig, rel)
-            elif isinstance(val, BoxList):
-                interpolate(val, orig, rel)
-            elif isinstance(val, str):
-                box[i] = interp(val, rel, orig)
+        items = enumerate(box)
     else:
         rel = Box(box, box_dots=True, default_box=True)
-        for key, val in box.items():
-            if isinstance(val, Box):
-                interpolate(val, orig)
-            elif isinstance(val, BoxList):
-                interpolate(val, orig, rel)
-            elif isinstance(val, str):
-                box[key] = interp(val, rel, orig)
+        items = box.items()
+
+    for key, val in items:
+        if isinstance(val, (Box, BoxList)):
+            interpolate(val, orig, rel)
+        elif isinstance(val, str):
+            box[key] = interp(val, rel, orig)
