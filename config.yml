@@ -8,7 +8,10 @@
 #
 # I/O
 #
-output: /output/tetracorder # Existing contents are cleared at setup (logs/ preserved)
+output:
+  base: /output/test
+  tetracorder: ${output.base}/tetracorder
+  tetrapy: ${output.base}/aggregate
 data:
   rfl: /data/rfl # Data, not header
   rfluncert: /data/rfluncert # Data, not header
@@ -28,11 +31,11 @@ tetracorder:
 #
 log:
   level: DEBUG
-  file: ${output}/logs/tetrapy.log
+  file: ${output.tetrapy}/tetrapy.log
   append: False # False == Reset the log file
 export_matrix:
   enabled: False
-  file: /output/matrix.csv
+  file: ${output.tetrapy}/matrix.csv
   groups: [1, 2]
   columns: [group, library, record, title, path]
   reference: emit-sds-l2b/data/mineral_grouping_matrix_20230503.csv
@@ -66,8 +69,8 @@ tetrun:
   args: ["band", "20", "gif"]
 aggregate:
   enabled: True
-  tetracorder: ${output}
-  output: ${output}/l2b/
+  tetracorder: ${output.tetracorder}
+  output: ${output.tetrapy}
   reflib: ${convolve.output.reflib}
   reslib: ${convolve.output.reslib}
   output_as: ["nc", "tif"]

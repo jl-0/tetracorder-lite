@@ -68,4 +68,8 @@ def init(config: str, section: str, ctx: click.Context):
         datefmt="[%X]",
     )
 
+    output = Path(c.output.tetrapy)
+    output.mkdir(exist_ok=True, parents=True)
+    c.to_yaml(filename=output / "config.yml")
+
     return c

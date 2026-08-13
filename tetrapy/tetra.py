@@ -83,18 +83,7 @@ def setup_tetrun(
     - Configures CPU core count in TETNCPU.txt
     """
     out = Path(output)
-    # cmd-setup-tetrun refuses to run if the output directory already exists
-    # (it errors and exits), yet earlier stages (e.g. logging) may have already
-    # initialized it. Move logs/ aside, remove the directory so the script can
-    # recreate it, then restore logs/. The move is a rename (not a copy) so an
-    # open log FileHandler keeps writing to the same inode across the swap.
-    stash = out.with_name(f"{out.name}.logs.stash")
-    logs = out / "logs"
     if out.exists():
-        if logs.exists():
-            if stash.exists():
-                shutil.rmtree(stash)
-            logs.rename(stash)
         shutil.rmtree(out)
 
     cmd = [
@@ -121,10 +110,6 @@ def setup_tetrun(
     code = proc.wait()
     if code:
         raise subprocess.CalledProcessError(code, cmd)
-
-    # Restore logs/ into the freshly created output directory.
-    if stash.exists():
-        stash.rename(out / "logs")
 
     # Patch cmd.runtet script
     path = out / "cmd.runtet"

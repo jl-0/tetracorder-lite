@@ -15,6 +15,7 @@ config.
 """
 
 import logging
+import subprocess
 from pathlib import Path
 
 from box import Box
@@ -55,9 +56,9 @@ def run(c: Box) -> None:
             pl[step](c)
             progress.advance(task)
 
-    # Save config after setup (tetracorder initializes the directory)
-    if (out := Path(c.output)).exists():
-        c.to_yaml(filename=out / "config.yml")
+    # REVIEW: Is this the most appropriate location?
+    subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetracorder], check=True)
+    subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetrapy], check=True)
 
 
 @utils.log_elapse
@@ -146,7 +147,7 @@ def setup(c: Box) -> None:
         version     = c.tetracorder.version,
         mode        = c.tetracorder.mode,
         rfl         = c.data.rfl,
-        output      = c.output,
+        output      = c.output.tetracorder,
         sensor      = c.tetracorder.sensor,
         geology     = c.setup.geology,
         args        = c.setup.args,
@@ -167,7 +168,7 @@ def tetrun(c: Box) -> None:
         davinci = c.tetracorder.davinci,
         mode    = c.tetracorder.mode,
         rfl     = c.data.rfl,
-        output  = c.output,
+        output  = c.output.tetracorder,
         args    = c.tetrun.args,
     )
 
