@@ -188,12 +188,12 @@ def aggregate(c: Box) -> None:
     from tetrapy import aggregate
 
     aggregate.build(
-        tetracorder = c.aggregate.tetracorder,
-        output      = c.aggregate.output,
-        reflib      = c.aggregate.reflib,
-        reslib      = c.aggregate.reslib,
-        output_as   = c.aggregate.output_as,
-        reference   = c.aggregate.reference,
+        tetracorder   = c.aggregate.tetracorder,
+        reflib        = c.aggregate.reflib,
+        reslib        = c.aggregate.reslib,
+        reference     = c.aggregate.reference,
+        out_min       = c.aggregate.out_min,
+        out_minuncert = c.aggregate.out_minuncert,
     )
 
 
@@ -202,8 +202,8 @@ def daac(c: Box) -> None:
     """
     Convert the L2B mineral / uncertainty products into LP DAAC NetCDF files.
 
-    Reads the aggregate products (``daac.abun`` / ``daac.abununcert``) and writes the
-    two DAAC-compatible NetCDF products (``daac.out_abun`` / ``daac.out_abununcert``)
+    Reads the aggregate products (``daac.in_min`` / ``daac.in_minuncert``) and writes the
+    two DAAC-compatible NetCDF products (``daac.out_min`` / ``daac.out_minuncert``)
     via :mod:`emit_utils`. The optional EMIT L1B inputs (``daac.loc`` / ``daac.glt`` /
     ``daac.primary``) add a ``location`` group and the full acquisition/spatial global
     attributes; the reference matrix (``daac.reference``) is embedded as the abundance
@@ -212,14 +212,14 @@ def daac(c: Box) -> None:
     from tetrapy import daac
 
     daac.build(
-        abun                      = c.daac.abun,
-        abununcert                = c.daac.abununcert,
-        out_abun                  = c.daac.out_abun,
-        out_abununcert            = c.daac.out_abununcert,
-        loc                       = c.daac.loc or None,
-        glt                       = c.daac.glt or None,
-        primary                   = c.daac.primary or None,
-        version                   = c.daac.version,
+        in_min        = c.daac.in_min,
+        in_minuncert  = c.daac.in_minuncert,
+        out_min       = c.daac.out_min,
+        out_minuncert = c.daac.out_minuncert,
+        loc           = c.daac.loc,
+        glt           = c.daac.glt,
+        primary       = c.daac.primary,
+        version       = c.daac.version,
+        reference     = c.daac.reference,
         software_delivery_version = c.daac.software_delivery_version,
-        reference                 = c.daac.reference or None,
     )

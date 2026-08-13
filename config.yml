@@ -73,14 +73,15 @@ aggregate:
   output: ${output.tetrapy}
   reflib: ${convolve.output.reflib}
   reslib: ${convolve.output.reslib}
-  output_as: ["nc", "tif"]
+  out_min: ${output.tetrapy}/agg.nc # Supports .nc or .tif
+  out_minuncert: ${output.tetrapy}/agg-uncert.nc # Supports .nc or .tif
   reference: tetrapy/data/v6.00a5-part.csv
 daac:
   enabled: False
-  abun: ${aggregate.output}/min.nc
-  abununcert: ${aggregate.output}/minuncert.nc
-  out_abun: ${aggregate.output}/abun.nc
-  out_abununcert: ${aggregate.output}/abununcert.nc
+  in_min: ${aggregate.out_min}
+  in_minuncert: ${aggregate.out_minuncert}
+  out_min: ${output.tetrapy}/daac.nc
+  out_minuncert: ${output.tetrapy}/daac-uncert.nc
   loc: ${data.loc} # EMIT L1B location ENVI (optional, adds location group)
   glt: ${data.glt} # EMIT L1B glt ENVI (optional, adds location group)
   primary: # EMIT primary ENVI for full global attrs (optional)

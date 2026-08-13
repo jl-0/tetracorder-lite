@@ -383,10 +383,8 @@ def aggregate(
 
 def build(
     tetracorder: str,
-    output: str | None = None,
     out_min: str | None = None,
     out_minuncert: str | None = None,
-    output_as: str | list[str] = "nc",
     rfl: str | None = None,
     rfluncert: str | None = None,
     reflib: str | None = None,
@@ -401,17 +399,9 @@ def build(
     ----------
     tetracorder : str
         Path to the tetracorder output directory (holding the expert system file).
-    output : str or None
-        Directory to write the products into as ``min.<ext>`` / ``minuncert.<ext>``,
-        one file per format in ``output_as``. Takes precedence over ``out_min`` /
-        ``out_minuncert``; pass ``None`` to use those instead.
     out_min, out_minuncert : str or None
-        Explicit output paths for the mineral and uncertainty products. Used only
-        when ``output`` is ``None``, and only if both are given.
-    output_as : str or list[str], default "nc"
-        Which format(s) to write into ``output`` — any of ``"nc"`` (NetCDF) and
-        ``"tif"`` (GeoTIFF). Ignored when writing to ``out_min`` / ``out_minuncert``,
-        where the extension of each path decides the format.
+        Explicit output paths for the mineral and uncertainty products. Take
+        precedence over ``output``; the extension of each path decides its format.
     rfl, rfluncert : str, optional
         Paths to the observed reflectance and reflectance-uncertainty rasters. Both
         must be given to enable band-depth uncertainty calculation.
@@ -463,16 +453,9 @@ def build(
     uncert["band"] = range(1, 5)
 
     # Save products
-    if output:
-        output = Path(output)
-        if "nc" in output_as:
-            save(mins, output / "min.nc")
-            save(uncert, output / "minuncert.nc")
-        if "tif" in output_as:
-            save(mins, output / "min.tif")
-            save(uncert, output / "minuncert.tif")
-    elif out_min and out_minuncert:
+    if out_min:
         save(mins, out_min)
+    if out_minuncert:
         save(uncert, out_minuncert)
 
     return mins, uncert
