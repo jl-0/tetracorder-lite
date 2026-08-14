@@ -13,14 +13,15 @@ from tetrapy.tetracorder import TetraDecoder
 Logger = logging.getLogger(__name__)
 
 
-def save(da: xr.DataArray, file: str | Path) -> None:
+def save(ds: xr.Dataset, file: str | Path) -> None:
     """
     Write a product to disk, dispatching on the file extension.
 
     Parameters
     ----------
-    da : xarray.DataArray
-        The product to write.
+    ds : xarray.Dataset
+        The product to write, holding named band variables over the
+        ``downtrack``/``crosstrack`` dimensions.
     file : str or Path
         Destination path. ``.nc`` is written as NetCDF and ``.tif`` as a GeoTIFF
         (via ``rioxarray``); any other extension is logged as an error and skipped.
@@ -30,10 +31,11 @@ def save(da: xr.DataArray, file: str | Path) -> None:
 
     if file.suffix == ".nc":
         Logger.info(f"Saving {file}")
-        da.to_netcdf(file)
+        ds.to_netcdf(file)
     elif file.suffix == ".tif":
         Logger.info(f"Saving {file}")
-        da.rio.to_raster(file)
+        # GeoTIFF has no concept of named dimensions; point rioxarray at ours.
+        ds.rio.set_spatial_dims(x_dim=dims.x, y_dim=dims.y).rio.to_raster(file)
     else:
         Logger.error(f"File extension unrecognized, must be either .nc or .tif, got: {file.suffix}")
 
@@ -235,7 +237,7 @@ def aggregate(
     uncert: xr.DataArray | None = None,
     libs: dict[str, dict] | None = None,
     ref: pd.DataFrame | None = None,
-) -> tuple[xr.DataArray | None, xr.DataArray | None]:
+) -> tuple[xr.Dataset | None, xr.Dataset | None]:
     """
     Aggregate one tetracorder group into band-depth / mineral-id maps.
 
@@ -269,12 +271,26 @@ def aggregate(
 
     Returns
     -------
-    tuple[xarray.DataArray | None, xarray.DataArray | None]
-        ``(mins, minuncert)``, each ``(band=2, y, x)``, or ``(None, None)`` if the
-        group had no valid input. ``mins`` carries the scaled band depth (band 0) and
-        mineral id (band 1); ``minuncert`` carries the band-depth uncertainty (band 0)
-        and fit (band 1).
+    tuple[xarray.Dataset | None, xarray.Dataset | None]
+        ``(mins, minuncert)`` over the ``(downtrack, crosstrack)`` dimensions, or
+        ``(None, None)`` if the group had no valid input. ``mins`` carries the scaled
+        band depth (``group_{group}_band_depth``) and mineral id
+        (``group_{group}_mineral_id``); ``minuncert`` carries the band-depth
+        uncertainty (``group_{group}_band_depth_unc``) and fit (``group_{group}_fit``).
     """
+    # Variable names
+    class names:
+        depth = f"group_{group}_band_depth"
+        minid = f"group_{group}_mineral_id"
+        uncert = f"group_{group}_band_depth_unc"
+        fit = f"group_{group}_fit"
+
+    # Dimension names
+    dims = dict(
+        y = "downtrack"
+        x = "crosstrack"
+    )
+
     Logger.debug(f"Aggregating group {group}")
     blocks = decoder.get_groups([group])
 
@@ -305,41 +321,30 @@ def aggregate(
 
         # GDAL raises a (harmless) exception if not closed like this
         with xr.open_dataset(depth, engine="rasterio") as ds:
-            depth = ds["band_data"].squeeze().load()
+            depth = ds["band_data"].squeeze().load().rename(dims)
 
         valid = depth > 0
         if not valid.any():
             Logger.debug(f"[{i:03}/{t:03}] - No valid data for {name}")
             continue
 
-        # Copy shape from first valid input
+        # Copy shape (and downtrack/crosstrack coords) from first valid input
         if mins is None:
-            y = depth.y
-            x = depth.x
-            mins = xr.DataArray(
-                np.zeros((2, y.size, x.size)),
-                dims=("band", "y", "x"),
-                coords={
-                    "band": range(2),
-                    "y": y,
-                    "x": x,
-
-                },
-                name="band_data",
-            )
-            minuncert = xr.zeros_like(mins)
+            template = xr.zeros_like(depth, dtype=float)
+            mins = xr.Dataset({names.depth: template, names.minid: template.copy()})
+            minuncert = xr.Dataset({names.uncert: template.copy(), names.fit: template.copy()})
 
         with xr.open_dataset(fit, engine="rasterio") as ds:
-            fit = ds["band_data"].squeeze().load()
+            fit = ds["band_data"].squeeze().load().rename(dims)
 
         # Apply scaling factor
         depth = depth / 255.0 * 0.5
         fit = fit / 255.0 * 0.5
 
-        # Band 0: Band Depth
-        mins[0] = mins[0].where(~valid, depth)
+        # Band Depth
+        mins[names.depth] = mins[names.depth].where(~valid, depth)
 
-        # Band 1: Mineral ID
+        # Mineral ID
         idx = i
         if ref is not None:
             query = ref.query(f"title == @name")
@@ -349,9 +354,9 @@ def aggregate(
                 idx = -i
                 Logger.warning(f"[{i:03}/{t:03}] ? Reference matrix does not contain an index for {name}, setting ID to {idx}")
 
-        mins[1] = mins[1].where(~valid, idx)
+        mins[names.minid] = mins[names.minid].where(~valid, idx)
 
-        # Band 2: Uncertainty
+        # Uncertainty
         if libs:
             lib = libs[block["library"]]
             rec = block["record"]
@@ -367,12 +372,12 @@ def aggregate(
                 full = xr.zeros_like(valid, dtype=float)
                 full.data[valid] = unc
 
-                minuncert[0] = minuncert[0].where(~valid, full)
+                minuncert[names.uncert] = minuncert[names.uncert].where(~valid, full)
             else:
                 Logger.warning(f"[{i:03}/{t:03}] * Library record {rec} not found in {block['library']}, cannot calculate uncertainty for {name}")
 
-        # Band 3: Fit
-        minuncert[1] = minuncert[1].where(~valid, fit)
+        # Fit
+        minuncert[names.fit] = minuncert[names.fit].where(~valid, fit)
 
         c += 1
         Logger.debug(f"[{i:03}/{t:03}] + [ID: {idx}] Added {name}")
@@ -416,9 +421,12 @@ def build(
     \b
     Returns
     -------
-    tuple[xarray.DataArray, xarray.DataArray]
-        The 4-band abundance and uncertainty stacks (group 1 then group 2). Returned
-        regardless of whether they were written to disk.
+    tuple[xarray.Dataset, xarray.Dataset]
+        The abundance and uncertainty products over the ``(downtrack, crosstrack)``
+        dimensions. ``mins`` holds ``group_1_band_depth``/``group_1_mineral_id`` and the
+        group 2 equivalents; ``uncert`` holds ``group_1_band_depth_unc``/``group_1_fit``
+        and the group 2 equivalents. Returned regardless of whether they were written to
+        disk.
     """
     tc = TetraDecoder(tetracorder)
 
@@ -444,13 +452,11 @@ def build(
     mins1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs, reference)
     mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs, reference)
 
-    # Bands: Depth 1, Min ID 1, Depth 2, Min ID 2
-    mins = xr.concat([mins1, mins2], "band")
-    mins["band"] = range(1, 5)
+    # Variables: group_1_band_depth, group_1_mineral_id, group_2_band_depth, group_2_mineral_id
+    mins = xr.merge([mins1, mins2])
 
-    # Bands: Uncert 1, Fit 1, Uncert 2, Fit 2
-    uncert = xr.concat([uncert1, uncert2], "band")
-    uncert["band"] = range(1, 5)
+    # Variables: group_1_band_depth_unc, group_1_fit, group_2_band_depth_unc, group_2_fit
+    uncert = xr.merge([uncert1, uncert2])
 
     # Save products
     if out_min:
