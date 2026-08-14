@@ -3,6 +3,7 @@
 **/.pixi
 **/__pycache__
 **/local
+.claude
 .gitignore
 .DS_Store
 emit-sds-l2b

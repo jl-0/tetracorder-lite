@@ -1,35 +1,75 @@
-"""
-tetracorder-lite: Containerized USGS Tetracorder mineral identification.
+import logging
+import warnings
+from pathlib import Path
 
-This package provides a Python interface to run USGS Tetracorder (v6) mineral
-identification and rebuild convolved spectral libraries. All processing is
-containerized for reproducibility and ease of deployment.
+import click
+from rasterio.errors import NotGeoreferencedWarning
+from rich.console import Console
+from rich.logging import RichHandler
 
-Modules
--------
-tetra
-    Core tetracorder workflow functions (setup, execution, expert system patching,
-    group aggregation).
-conv
-    Pure Python spectral library convolution (no Fortran/specpr dependencies).
-utils
-    Utility functions for command formatting and argument processing.
+from tetrapy.config import load
 
-Examples
---------
-Run tetracorder mineral identification:
-    >>> from tetrapy import tetra
-    >>> tetra.setup_tetrun(output="/output/tetracorder", sensor="emit_c")
-    >>> tetra.exec_tetrun(output="/output/tetracorder")
+# Very spammy, just turn them off
+warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 
-Build a convolved spectral library:
-    >>> from tetrapy import conv
-    >>> conv.build_library(
-    ...     master_path="/spectral-lib/splib06b",
-    ...     out_path="/output/reflib",
-    ...     rfl="/data/rfl",
-    ... )
-"""
+# rasterio/GDAL emit a flood of DEBUG records; keep them at WARNING and up
+logging.getLogger("rasterio").setLevel(logging.WARNING)
 
-__version__ = "0.1.0"
-__all__ = ["tetra", "conv", "utils"]
+Console = Console(record=True, force_terminal=True, force_interactive=True)
+Logger = logging.getLogger(__name__)
+
+
+def init(config: str, section: str, ctx: click.Context):
+    """
+    Parameters
+    ----------
+    config : str
+        Path to the config YAML file.
+    section : str
+        Subsection of the config to load, or a falsy value for the whole file.
+    ctx : click.Context
+        Click context whose extra args supply the dotted ``--key value`` overrides.
+
+    Returns
+    -------
+    box.Box
+        The fully resolved configuration.
+    """
+    c = load(config, section, ctx=ctx, interp=True)
+
+    handlers = [
+        RichHandler(
+            console=Console,
+            rich_tracebacks=True,
+            tracebacks_suppress=[click],
+        )
+    ]
+
+    if c.log.file:
+        file = Path(c.log.file)
+        file.parent.mkdir(parents=True, exist_ok=True)
+
+        fh = logging.FileHandler(file, mode="w" if c.log.append else "a")
+        fh.setLevel(logging.DEBUG)
+
+        fmt = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+        fmt = logging.Formatter(fmt)
+        fh.setFormatter(fmt)
+
+        handlers.append(fh)
+
+    level = c.log.get("level", "INFO").upper()
+    level = getattr(logging, level)
+
+    logging.basicConfig(
+        level=level,
+        handlers=handlers,
+        format="%(message)s",
+        datefmt="[%X]",
+    )
+
+    output = Path(c.output.tetrapy)
+    output.mkdir(exist_ok=True, parents=True)
+    c.to_yaml(filename=output / "config.yml")
+
+    return c

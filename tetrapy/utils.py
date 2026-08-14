@@ -1,4 +1,11 @@
+import logging
+import time
+from datetime import timedelta
+from functools import wraps
 from typing import List
+
+
+Logger = logging.getLogger(__name__)
 
 
 def format_args(args: List[str]) -> str:
@@ -41,3 +48,23 @@ def format_args(args: List[str]) -> str:
     cmd = cmd[:-1]
 
     return cmd
+
+
+def log_elapse(func):
+    """
+    Logs the elapse time of a function
+    """
+    @wraps(func) # Preserves the original function's metadata
+    def wrapper(*args, **kwargs):
+        Logger.debug(f"Beginning {func.__name__}")
+
+        beg = time.perf_counter()
+        ret = func(*args, **kwargs)
+        end = time.perf_counter()
+
+        elapse = end - beg
+        Logger.debug(f"Finished {func.__name__} in {timedelta(seconds=elapse)}")
+
+        return ret
+
+    return wrapper

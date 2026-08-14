@@ -104,11 +104,9 @@ def _read_bands(path: str | Path) -> np.ndarray:
         The ``band_data`` variable as a ``(band, y, x)`` array.
     """
     path = Path(path)
-    if path.suffix == ".nc":
-        da = xr.open_dataset(path)["band_data"]
-    else:
-        da = xr.open_dataset(path, engine="rasterio")["band_data"]
-    return da.load().values
+    engine = None if path.suffix == ".nc" else "rasterio"
+    with xr.open_dataset(path, engine=engine) as ds:
+        return ds["band_data"].load().values
 
 
 def _write_product(
@@ -223,10 +221,10 @@ def _write_product(
 
 
 def build(
-    abun: str,
-    abununcert: str,
-    out_abun: str,
-    out_abununcert: str,
+    in_min: str,
+    in_minuncert: str,
+    out_min: str,
+    out_minuncert: str,
     loc: str | None = None,
     glt: str | None = None,
     primary: str | None = None,
@@ -240,10 +238,10 @@ def build(
     \b
     Parameters
     ----------
-    abun, abununcert : str
+    in_min, in_minuncert : str
         Paths to the aggregate ``min`` and ``minuncert`` products (``.nc`` or ``.tif``),
         each a ``(band=4, y, x)`` raster as written by :func:`tetrapy.aggregate.build`.
-    out_abun, out_abununcert : str
+    out_min, out_minuncert : str
         Destination paths for the abundance and uncertainty DAAC NetCDF products.
     loc, glt : str, optional
         EMIT L1B location and GLT ENVI files. When given, a ``location`` group
@@ -263,11 +261,11 @@ def build(
     """
     ref_df = pd.read_csv(reference) if reference else None
 
-    abun_bands = _read_bands(abun)
-    uncert_bands = _read_bands(abununcert)
+    abun_bands = _read_bands(in_min)
+    uncert_bands = _read_bands(in_minuncert)
 
     _write_product(
-        out_abun,
+        out_min,
         title=f"EMIT L2B Estimated Mineral Identification and Band Depth 60 m {version}",
         summary=ABUN_SUMMARY,
         bands=abun_bands,
@@ -280,7 +278,7 @@ def build(
     )
 
     _write_product(
-        out_abununcert,
+        out_minuncert,
         title=f"EMIT L2B Estimated Mineral Identification and Band Depth Uncertainty 60 m {version}",
         summary=UNCERT_SUMMARY,
         bands=uncert_bands,

@@ -9,14 +9,6 @@ from scipy.interpolate import interp1d
 from tetrapy.conv import SpecprFile
 from tetrapy.tetracorder import TetraDecoder
 
-import warnings
-from rasterio.errors import NotGeoreferencedWarning
-
-# Very spammy, just turn them off
-warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
-
-# rasterio/GDAL emit a flood of DEBUG records; keep them at WARNING and up
-logging.getLogger("rasterio").setLevel(logging.WARNING)
 
 Logger = logging.getLogger(__name__)
 
@@ -311,8 +303,10 @@ def aggregate(
             Logger.debug(f"[{i:03}/{t:03}] - Fit file not found for {name}")
             continue
 
-        # Load the data in
-        depth = xr.open_dataset(depth, engine="rasterio")["band_data"].squeeze()
+        # GDAL raises a (harmless) exception if not closed like this
+        with xr.open_dataset(depth, engine="rasterio") as ds:
+            depth = ds["band_data"].squeeze().load()
+
         valid = depth > 0
         if not valid.any():
             Logger.debug(f"[{i:03}/{t:03}] - No valid data for {name}")
@@ -335,7 +329,8 @@ def aggregate(
             )
             minuncert = xr.zeros_like(mins)
 
-        fit = xr.open_dataset(fit, engine="rasterio")["band_data"].squeeze()
+        with xr.open_dataset(fit, engine="rasterio") as ds:
+            fit = ds["band_data"].squeeze().load()
 
         # Apply scaling factor
         depth = depth / 255.0 * 0.5
@@ -388,10 +383,8 @@ def aggregate(
 
 def build(
     tetracorder: str,
-    output: str | None = None,
     out_min: str | None = None,
     out_minuncert: str | None = None,
-    output_as: str | list[str] = "nc",
     rfl: str | None = None,
     rfluncert: str | None = None,
     reflib: str | None = None,
@@ -406,17 +399,9 @@ def build(
     ----------
     tetracorder : str
         Path to the tetracorder output directory (holding the expert system file).
-    output : str or None
-        Directory to write the products into as ``min.<ext>`` / ``minuncert.<ext>``,
-        one file per format in ``output_as``. Takes precedence over ``out_min`` /
-        ``out_minuncert``; pass ``None`` to use those instead.
     out_min, out_minuncert : str or None
-        Explicit output paths for the mineral and uncertainty products. Used only
-        when ``output`` is ``None``, and only if both are given.
-    output_as : str or list[str], default "nc"
-        Which format(s) to write into ``output`` — any of ``"nc"`` (NetCDF) and
-        ``"tif"`` (GeoTIFF). Ignored when writing to ``out_min`` / ``out_minuncert``,
-        where the extension of each path decides the format.
+        Explicit output paths for the mineral and uncertainty products. Take
+        precedence over ``output``; the extension of each path decides its format.
     rfl, rfluncert : str, optional
         Paths to the observed reflectance and reflectance-uncertainty rasters. Both
         must be given to enable band-depth uncertainty calculation.
@@ -445,11 +430,11 @@ def build(
         Logger.info("Loading reflectance products")
 
         # Transpose to stay consistent with the tetracorder products
-        rfl = xr.open_dataset(rfl, engine="rasterio")["band_data"]
-        rfl = rfl.transpose("y", "x", "band").load()
+        with xr.open_dataset(rfl, engine="rasterio") as ds:
+            rfl = ds["band_data"].transpose("y", "x", "band").load()
 
-        rfluncert = xr.open_dataset(rfluncert, engine="rasterio")
-        rfluncert = rfluncert["band_data"].transpose("y", "x", "band").load()
+        with xr.open_dataset(rfluncert, engine="rasterio") as ds:
+            rfluncert = ds["band_data"].transpose("y", "x", "band").load()
 
         libs = {
             "sprlb06": read_library(reslib),
@@ -468,16 +453,9 @@ def build(
     uncert["band"] = range(1, 5)
 
     # Save products
-    if output:
-        output = Path(output)
-        if "nc" in output_as:
-            save(mins, output / "min.nc")
-            save(uncert, output / "minuncert.nc")
-        if "tif" in output_as:
-            save(mins, output / "min.tif")
-            save(uncert, output / "minuncert.tif")
-    elif out_min and out_minuncert:
+    if out_min:
         save(mins, out_min)
+    if out_minuncert:
         save(uncert, out_minuncert)
 
     return mins, uncert

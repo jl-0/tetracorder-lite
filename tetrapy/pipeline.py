@@ -15,14 +15,54 @@ config.
 """
 
 import logging
+import subprocess
 from pathlib import Path
 
 from box import Box
+from rich.progress import Progress
+
+from tetrapy import (
+    Console,
+    utils
+)
 
 
 Logger = logging.getLogger(__name__)
 
 
+@utils.log_elapse
+def run(c: Box) -> None:
+    """
+    """
+    pl = globals()
+    steps = [
+        "export_matrix",
+        "convolve",
+        "sensor",
+        "setup",
+        "tetrun",
+        "aggregate",
+        "daac",
+    ]
+    steps = [step for step in steps if c[step].enabled]
+
+    with Progress(*Progress.get_default_columns(), console=Console) as progress:
+        task = progress.add_task("Executing pipeline", total=len(steps))
+        for i, step in enumerate(steps):
+            Console.rule(style="dim")
+            progress.update(task, description=f"Executing: {step}")
+            pl[step](c)
+            progress.advance(task)
+
+    # REVIEW: Is this the most appropriate location?
+    try:
+        subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetracorder], check=True)
+        subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetrapy], check=True)
+    except:
+        Logger.exception("Failed to change output file permissions, you may need to manually update them")
+
+
+@utils.log_elapse
 def export_matrix(c: Box) -> None:
     """
     Decode the tetracorder expert system and export its material matrix to CSV.
@@ -36,7 +76,6 @@ def export_matrix(c: Box) -> None:
 
     tetracorder = Path(f"{c.tetracorder.root}/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
 
-    Logger.info("Exporting matrix")
     TetraDecoder(
         path        = tetracorder,
         groups      = c.export_matrix.groups,
@@ -48,6 +87,7 @@ def export_matrix(c: Box) -> None:
     )
 
 
+@utils.log_elapse
 def convolve(c: Box) -> None:
     """
     Convolve the reference + research master libraries onto the scene's grid.
@@ -60,7 +100,6 @@ def convolve(c: Box) -> None:
     """
     from tetrapy import tetra
 
-    Logger.info("Executing convolve")
     tetra.convolve(
         rfl     = c.data.rfl,
         reflib  = c.convolve.reflib,
@@ -70,6 +109,7 @@ def convolve(c: Box) -> None:
     )
 
 
+@utils.log_elapse
 def sensor(c: Box) -> None:
     """
     Integrate the convolved library into the tetracorder command tree.
@@ -83,7 +123,6 @@ def sensor(c: Box) -> None:
 
     tetracorder = Path(f"{c.tetracorder.root}/tetracorder.cmds/tetracorder{c.tetracorder.version}.cmds")
 
-    Logger.info("Integrating sensor")
     sensor.build(
         path   = tetracorder,
         sensor = c.sensor,
@@ -91,30 +130,32 @@ def sensor(c: Box) -> None:
     )
 
 
+@utils.log_elapse
 def setup(c: Box) -> None:
     """
     Configure a tetracorder run (``cmd-setup-tetrun``).
 
     Invokes the tetracorder setup script to initialize the output directory for the
     configured version/mode/sensor and scene reflectance, applying the post-setup
-    patches (geology flag, CPU count, ``cmd.runtet`` fixups). ``setup.autoremove``
-    clears the output directory first, which the setup script requires to be absent.
+    patches (geology flag, CPU count, ``cmd.runtet`` fixups). Any pre-existing
+    output directory contents are cleared first (except ``logs/``), which the
+    setup script requires to be absent.
     """
     from tetrapy import tetra
 
-    Logger.info("Executing setup")
     tetra.setup_tetrun(
-        version = c.tetracorder.version,
-        mode    = c.tetracorder.mode,
-        rfl     = c.data.rfl,
-        output  = c.output,
-        sensor  = c.tetracorder.sensor,
-        geology = c.setup.geology,
-        args    = c.setup.args,
-        rm      = c.setup.autoremove,
+        tetracorder = c.tetracorder.root,
+        version     = c.tetracorder.version,
+        mode        = c.tetracorder.mode,
+        rfl         = c.data.rfl,
+        output      = c.output.tetracorder,
+        sensor      = c.tetracorder.sensor,
+        geology     = c.setup.geology,
+        args        = c.setup.args,
     )
 
 
+@utils.log_elapse
 def tetrun(c: Box) -> None:
     """
     Execute a previously-configured tetracorder run (``cmd.runtet``).
@@ -124,16 +165,16 @@ def tetrun(c: Box) -> None:
     """
     from tetrapy import tetra
 
-    Logger.info("Executing tetrun")
     tetra.exec_tetrun(
         davinci = c.tetracorder.davinci,
         mode    = c.tetracorder.mode,
         rfl     = c.data.rfl,
-        output  = c.output,
+        output  = c.output.tetracorder,
         args    = c.tetrun.args,
     )
 
 
+@utils.log_elapse
 def aggregate(c: Box) -> None:
     """
     Aggregate tetracorder outputs into L2B mineral / uncertainty products.
@@ -147,23 +188,25 @@ def aggregate(c: Box) -> None:
     """
     from tetrapy import aggregate
 
-    Logger.info("Executing aggregate")
     aggregate.build(
-        tetracorder = c.aggregate.tetracorder,
-        output      = c.aggregate.output,
-        reflib      = c.aggregate.reflib,
-        reslib      = c.aggregate.reslib,
-        output_as   = c.aggregate.output_as,
-        reference   = c.aggregate.reference,
+        tetracorder   = c.aggregate.tetracorder,
+        reflib        = c.aggregate.reflib,
+        reslib        = c.aggregate.reslib,
+        reference     = c.aggregate.reference,
+        out_min       = c.aggregate.out_min,
+        out_minuncert = c.aggregate.out_minuncert,
+        rfl           = c.data.rfl,
+        rfluncert     = c.data.rfluncert,
     )
 
 
+@utils.log_elapse
 def daac(c: Box) -> None:
     """
     Convert the L2B mineral / uncertainty products into LP DAAC NetCDF files.
 
-    Reads the aggregate products (``daac.abun`` / ``daac.abununcert``) and writes the
-    two DAAC-compatible NetCDF products (``daac.out_abun`` / ``daac.out_abununcert``)
+    Reads the aggregate products (``daac.in_min`` / ``daac.in_minuncert``) and writes the
+    two DAAC-compatible NetCDF products (``daac.out_min`` / ``daac.out_minuncert``)
     via :mod:`emit_utils`. The optional EMIT L1B inputs (``daac.loc`` / ``daac.glt`` /
     ``daac.primary``) add a ``location`` group and the full acquisition/spatial global
     attributes; the reference matrix (``daac.reference``) is embedded as the abundance
@@ -171,16 +214,15 @@ def daac(c: Box) -> None:
     """
     from tetrapy import daac
 
-    Logger.info("Executing daac")
     daac.build(
-        abun                      = c.daac.abun,
-        abununcert                = c.daac.abununcert,
-        out_abun                  = c.daac.out_abun,
-        out_abununcert            = c.daac.out_abununcert,
-        loc                       = c.daac.loc or None,
-        glt                       = c.daac.glt or None,
-        primary                   = c.daac.primary or None,
-        version                   = c.daac.version,
+        in_min        = c.daac.in_min,
+        in_minuncert  = c.daac.in_minuncert,
+        out_min       = c.daac.out_min,
+        out_minuncert = c.daac.out_minuncert,
+        loc           = c.daac.loc,
+        glt           = c.daac.glt,
+        primary       = c.daac.primary,
+        version       = c.daac.version,
+        reference     = c.daac.reference,
         software_delivery_version = c.daac.software_delivery_version,
-        reference                 = c.daac.reference or None,
     )

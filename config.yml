@@ -8,7 +8,10 @@
 #
 # I/O
 #
-output: /output/tetracorder # Directory must not exist unless setup.autoremove is enabled
+output:
+  base: /output/test
+  tetracorder: ${output.base}/tetracorder
+  tetrapy: ${output.base}/aggregate
 data:
   rfl: /data/rfl # Data, not header
   rfluncert: /data/rfluncert # Data, not header
@@ -28,9 +31,11 @@ tetracorder:
 #
 log:
   level: DEBUG
+  file: ${output.tetrapy}/tetrapy.log
+  append: False # False == Reset the log file
 export_matrix:
   enabled: False
-  file: /output/matrix.csv
+  file: ${output.tetrapy}/matrix.csv
   groups: [1, 2]
   columns: [group, library, record, title, path]
   reference: emit-sds-l2b/data/mineral_grouping_matrix_20230503.csv
@@ -57,7 +62,6 @@ sensor:
   reslib: ${convolve.output.reslib}
 setup:
   enabled: True
-  autoremove: True
   geology: False
   args: ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"]
 tetrun:
@@ -65,18 +69,19 @@ tetrun:
   args: ["band", "20", "gif"]
 aggregate:
   enabled: True
-  tetracorder: ${output}
-  output: ${output}/l2b/
+  tetracorder: ${output.tetracorder}
+  output: ${output.tetrapy}
   reflib: ${convolve.output.reflib}
   reslib: ${convolve.output.reslib}
-  output_as: ["nc", "tif"]
+  out_min: ${output.tetrapy}/agg.nc # Supports .nc or .tif
+  out_minuncert: ${output.tetrapy}/agg-uncert.nc # Supports .nc or .tif
   reference: tetrapy/data/v6.00a5-part.csv
 daac:
   enabled: False
-  abun: ${aggregate.output}/min.nc
-  abununcert: ${aggregate.output}/minuncert.nc
-  out_abun: ${aggregate.output}/abun.nc
-  out_abununcert: ${aggregate.output}/abununcert.nc
+  in_min: ${aggregate.out_min}
+  in_minuncert: ${aggregate.out_minuncert}
+  out_min: ${output.tetrapy}/daac.nc
+  out_minuncert: ${output.tetrapy}/daac-uncert.nc
   loc: ${data.loc} # EMIT L1B location ENVI (optional, adds location group)
   glt: ${data.glt} # EMIT L1B glt ENVI (optional, adds location group)
   primary: # EMIT primary ENVI for full global attrs (optional)

@@ -264,7 +264,8 @@ def build(path: Path, sensor: Box, rfl: Union[str, Path]) -> None:
     if not (reslib := Path(sensor.reslib)).exists():
         raise FileNotFoundError(f"Research library not found: {reslib}")
 
-    nchans = xr.open_dataset(rfl, engine="rasterio").band.size
+    with xr.open_dataset(rfl, engine="rasterio") as ds:
+        nchans = ds.band.size
 
     text = RESTART.format(
         name   = sensor.name,
@@ -283,6 +284,14 @@ def build(path: Path, sensor: Box, rfl: Union[str, Path]) -> None:
     # DELETED.channels/
     file = path / "DELETED.channels" / f"delete_{sensor.name}"
     file.write_text(f"{sensor.deleted_channels} c # {sensor.name}")
+    Logger.debug(f"+ Wrote {file}")
+
+    # DATASETS/
+    file = path / "DATASETS" / sensor.name
+    file.write_text("\n".join([
+        f"data=    {sensor.name}",
+        f"restart= r1-{sensor.name}",
+    ]))
     Logger.debug(f"+ Wrote {file}")
 
     # DISABLE/

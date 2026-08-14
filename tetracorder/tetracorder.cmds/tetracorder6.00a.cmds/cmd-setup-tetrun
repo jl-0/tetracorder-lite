@@ -22,7 +22,7 @@ source=/t1/tetracorder.cmds/tetracorder6.00a.cmds             ######
 ####################################################################
 #### NOTE: THINGS TO CHANGE FOR NEW VERSIONS                  ######
                                                               ######
-     lib=cmd.lib.setup.t6.00a5                                ######
+     lib=cmd.lib.setup.t6.00a6                                ######
    start=cmds.start.t6.00a                                    ######
   starts=cmds.start.t6.00a.single                             ######
                                                               ######
@@ -168,7 +168,7 @@ fi
 # cmd-setup-tetrun   sub_dir  data_set  cube       image_cube scalefactor      -T minT maxT Tunit -P minpress maxpres pressure-unit image     gif|png|none
 #
 #
-#      0               1         2        3                4            5   6    7    8    9    10      11       12           13     
+#      0               1         2        3                4            5   6    7    8    9    10      11       12           13
 # cmd-setup-tetrun   sub_dir  data_set  singlespectrum follow|nofollow -T minT maxT Tunit -P minpress maxpres pressure-unit autostart
 
 
@@ -297,7 +297,7 @@ else
 	echo ""
 	usage
 	exit 1
-		
+
 fi
 #echo "DEBUG: got this far1"
 
@@ -308,7 +308,7 @@ then
 	echo "variable file found: $variablesfile"
 
 elif [ -f "$source/VARIABLES/cmd.lib.setup.variables-default" ]
-then 
+then
 	variablesfile="$source/VARIABLES/cmd.lib.setup.variables-default"
 	echo "variable file found: $variablesfile"
 else
@@ -427,7 +427,7 @@ fi
 #
 
 mypwd=`pwd`
-echo "present path: $mypwd" 
+echo "present path: $mypwd"
 echo "Making directory: $dir"
 mkdir $dir
 
@@ -682,7 +682,7 @@ dirlist="cmds.all.support  Band.images \
 		case.carbonate-2feat"
 
 
-	if [ "$2" != "VIMS2007" ] 
+	if [ "$2" != "VIMS2007" ]
 	then
 	   for i in $dirlist
 	   do
@@ -691,7 +691,7 @@ dirlist="cmds.all.support  Band.images \
 	   done
 	fi
 
-	if [ "$2" = "VIMS2007" ] 
+	if [ "$2" = "VIMS2007" ]
 	then
 	   for i in cmds.all.support  Band.images \
 		group.ice \
@@ -823,7 +823,7 @@ then
 		w
 		q
 EOI
-	
+
 	# make single follow startup
 
 	echo "Making the tetracorder startup command script"
@@ -1043,13 +1043,13 @@ echo ""
 if [ $autostart = 1 ]
 then
 
-	if [ "$tetmode" = "cube" ] 
+	if [ "$tetmode" = "cube" ]
 	then
 		echo "AUTOSTARTING Tetracorder in foreground, cube mode'"
 		echo "cd $dir"
 		cd $dir
 		echo 'time  ./cmd.runtet cube ' "$cube band $band $imageout" ' |& tee cmd.runtet.out '
-		time  ./cmd.runtet cube  $cube band $band $imageout  | tee cmd.runtet.out 
+		time  ./cmd.runtet cube  $cube band $band $imageout  | tee cmd.runtet.out
 
 	else   # singlespectrum
 		echo "AUTOSTARTING Tetracorder in background, single spectrum follow mode'"

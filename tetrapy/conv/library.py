@@ -20,7 +20,7 @@ absolute record number -- so every spectrum occupies a fixed slot in master orde
 spectra whose native grids are missing become deleted-data placeholders rather than
 being dropped.
 """
-
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +30,9 @@ import numpy as np
 
 from tetrapy.conv.convolve import Convolver
 from tetrapy.conv.specpr import DELETED, SpecprFile, SpecprWriter
+
+
+Logger = logging.getLogger(__name__)
 
 NM_PER_UM = 1000.0
 USERNM = "tetracnv"
@@ -41,7 +44,7 @@ FIRST_SPECTRUM = 30      # first convolved spectrum
 PADS_PER_SPECTRUM = 4    # trailing padding records after each spectrum
 
 # Family tag written into each convolved title, keyed by master library filename.
-FAMILIES = {"splib06b": "s06emitc", "sprlb06b": "r06emitc"}
+FAMILIES = {"splib06b": "s06tetra", "sprlb06b": "r06tetra"}
 
 
 @dataclass
@@ -167,7 +170,6 @@ def build_library(
     master_path: Union[str, Path],
     out_path: Union[str, Path],
     rfl: Union[str, Path],
-    log: Callable[[str], None] = print,
 ) -> None:
     """
     Convolve every spectrum in a master library onto a scene grid and write it out.
@@ -180,8 +182,6 @@ def build_library(
         Destination path for the convolved specpr library.
     rfl : str or Path
         Scene reflectance data path; its ``.hdr`` supplies the target grid.
-    log : callable, default=print
-        Sink for progress messages.
     """
     grid = read_grid(rfl)
     master = SpecprFile.open(master_path)
@@ -189,7 +189,7 @@ def build_library(
     convolver = Convolver(grid.wavelengths, grid.fwhm)
     family = FAMILIES.get(Path(master_path).name, Path(out_path).name)
 
-    log(f"[{family}] grid: {grid.nbands} bands "
+    Logger.debug(f"[{family}] grid: {grid.nbands} bands "
         f"{grid.wavelengths[0] * 1000:.1f}-{grid.wavelengths[-1] * 1000:.1f} nm; "
         f"master: {len(index.spectra)} spectra")
 
@@ -207,7 +207,7 @@ def build_library(
 
         if wave_rec is None or band_rec is None:
             # Preserve record numbering with a deleted-data placeholder.
-            log(f"[{family}] rec{recno} {head.title!r}: no native grid for "
+            Logger.debug(f"[{family}] rec{recno} {head.title!r}: no native grid for "
                 f"{head.itchan} ch -> placeholder")
             writer.append_spectrum(
                 values=np.full(nb, DELETED, dtype=np.float32), title=title,
@@ -224,5 +224,5 @@ def build_library(
         writer.append_pads(PADS_PER_SPECTRUM)
 
     writer.write(out_path)
-    log(f"[{family}] wrote {out_path}: {writer.next_recno} records "
+    Logger.debug(f"[{family}] wrote {out_path}: {writer.next_recno} records "
         f"({len(index.spectra)} spectra, {placeholders} placeholders)")
