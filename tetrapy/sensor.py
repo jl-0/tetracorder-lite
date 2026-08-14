@@ -286,6 +286,14 @@ def build(path: Path, sensor: Box, rfl: Union[str, Path]) -> None:
     file.write_text(f"{sensor.deleted_channels} c # {sensor.name}")
     Logger.debug(f"+ Wrote {file}")
 
+    # DATASETS/
+    file = path / "DATASETS" / sensor.name
+    file.write_text("\n".join([
+        f"data=    {sensor.name}",
+        f"restart= r1-{sensor.name}",
+    ]))
+    Logger.debug(f"+ Wrote {file}")
+
     # DISABLE/
     tc = TetraDecoder(path, decode=False)
     groups = parse_list(sensor.enable.groups)

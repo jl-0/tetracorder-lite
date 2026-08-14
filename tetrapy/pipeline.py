@@ -195,6 +195,8 @@ def aggregate(c: Box) -> None:
         reference     = c.aggregate.reference,
         out_min       = c.aggregate.out_min,
         out_minuncert = c.aggregate.out_minuncert,
+        rfl           = c.data.rfl,
+        rfluncert     = c.data.rfluncert,
     )
 
 
