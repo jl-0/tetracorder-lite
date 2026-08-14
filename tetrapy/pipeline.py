@@ -42,7 +42,6 @@ def run(c: Box) -> None:
         "setup",
         "tetrun",
         "aggregate",
-        "daac",
     ]
     steps = [step for step in steps if c[step].enabled]
 
