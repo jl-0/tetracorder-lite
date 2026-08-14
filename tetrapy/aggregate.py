@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -11,10 +12,21 @@ from tetrapy.tetracorder import TetraDecoder
 
 
 Logger = logging.getLogger(__name__)
+
+# Assumed dimension and variable names
 Dims = dict(
     y = "downtrack",
     x = "crosstrack"
 )
+
+def get_names(group):
+    return SimpleNamespace(
+        depth  = f"group_{group}_band_depth",
+        minid  = f"group_{group}_mineral_id",
+        uncert = f"group_{group}_band_depth_unc",
+        fit    = f"group_{group}_fit",
+    )
+
 
 def save(ds: xr.Dataset, file: str | Path) -> None:
     """
@@ -282,11 +294,7 @@ def aggregate(
         uncertainty (``group_{group}_band_depth_unc``) and fit (``group_{group}_fit``).
     """
     # Variable names
-    class names:
-        depth = f"group_{group}_band_depth"
-        minid = f"group_{group}_mineral_id"
-        uncert = f"group_{group}_band_depth_unc"
-        fit = f"group_{group}_fit"
+    names = get_names(group)
 
     Logger.debug(f"Aggregating group {group}")
     blocks = decoder.get_groups([group])
