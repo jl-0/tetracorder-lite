@@ -94,15 +94,6 @@ def aggregate(ctx, **kwargs) -> None:
     pl.aggregate(c)
 
 
-@cli.command(context_settings=CS, help=pl.daac.__doc__)
-@click.pass_context
-@Config
-@Section
-def daac(ctx, **kwargs) -> None:
-    c = init(ctx=ctx, **kwargs)
-    pl.daac(c)
-
-
 @cli.command(context_settings=CS)
 @click.pass_context
 @Config

@@ -10,6 +10,7 @@
 .idea
 .buildinfo
 .nojekyll
+build_image.sh
 
 # Ignore folders and their contents with these names
 .vscode

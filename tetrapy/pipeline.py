@@ -198,31 +198,3 @@ def aggregate(c: Box) -> None:
         rfl           = c.data.rfl,
         rfluncert     = c.data.rfluncert,
     )
-
-
-@utils.log_elapse
-def daac(c: Box) -> None:
-    """
-    Convert the L2B mineral / uncertainty products into LP DAAC NetCDF files.
-
-    Reads the aggregate products (``daac.in_min`` / ``daac.in_minuncert``) and writes the
-    two DAAC-compatible NetCDF products (``daac.out_min`` / ``daac.out_minuncert``)
-    via :mod:`emit_utils`. The optional EMIT L1B inputs (``daac.loc`` / ``daac.glt`` /
-    ``daac.primary``) add a ``location`` group and the full acquisition/spatial global
-    attributes; the reference matrix (``daac.reference``) is embedded as the abundance
-    product's ``mineral_metadata`` group.
-    """
-    from tetrapy import daac
-
-    daac.build(
-        in_min        = c.daac.in_min,
-        in_minuncert  = c.daac.in_minuncert,
-        out_min       = c.daac.out_min,
-        out_minuncert = c.daac.out_minuncert,
-        loc           = c.daac.loc,
-        glt           = c.daac.glt,
-        primary       = c.daac.primary,
-        version       = c.daac.version,
-        reference     = c.daac.reference,
-        software_delivery_version = c.daac.software_delivery_version,
-    )
