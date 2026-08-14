@@ -11,7 +11,10 @@ from tetrapy.tetracorder import TetraDecoder
 
 
 Logger = logging.getLogger(__name__)
-
+Dims = dict(
+    y = "downtrack",
+    x = "crosstrack"
+)
 
 def save(ds: xr.Dataset, file: str | Path) -> None:
     """
@@ -35,7 +38,7 @@ def save(ds: xr.Dataset, file: str | Path) -> None:
     elif file.suffix == ".tif":
         Logger.info(f"Saving {file}")
         # GeoTIFF has no concept of named dimensions; point rioxarray at ours.
-        ds.rio.set_spatial_dims(x_dim=dims.x, y_dim=dims.y).rio.to_raster(file)
+        ds.rio.set_spatial_dims(x_dim=Dims["x"], y_dim=Dims["y"]).rio.to_raster(file)
     else:
         Logger.error(f"File extension unrecognized, must be either .nc or .tif, got: {file.suffix}")
 
@@ -285,12 +288,6 @@ def aggregate(
         uncert = f"group_{group}_band_depth_unc"
         fit = f"group_{group}_fit"
 
-    # Dimension names
-    dims = dict(
-        y = "downtrack"
-        x = "crosstrack"
-    )
-
     Logger.debug(f"Aggregating group {group}")
     blocks = decoder.get_groups([group])
 
@@ -321,7 +318,7 @@ def aggregate(
 
         # GDAL raises a (harmless) exception if not closed like this
         with xr.open_dataset(depth, engine="rasterio") as ds:
-            depth = ds["band_data"].squeeze().load().rename(dims)
+            depth = ds["band_data"].squeeze().load().rename(Dims)
 
         valid = depth > 0
         if not valid.any():
@@ -335,7 +332,7 @@ def aggregate(
             minuncert = xr.Dataset({names.uncert: template.copy(), names.fit: template.copy()})
 
         with xr.open_dataset(fit, engine="rasterio") as ds:
-            fit = ds["band_data"].squeeze().load().rename(dims)
+            fit = ds["band_data"].squeeze().load().rename(Dims)
 
         # Apply scaling factor
         depth = depth / 255.0 * 0.5
@@ -453,10 +450,10 @@ def build(
     mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs, reference)
 
     # Variables: group_1_band_depth, group_1_mineral_id, group_2_band_depth, group_2_mineral_id
-    mins = xr.merge([mins1, mins2])
+    mins = xr.merge([mins1, mins2], compat="override")
 
     # Variables: group_1_band_depth_unc, group_1_fit, group_2_band_depth_unc, group_2_fit
-    uncert = xr.merge([uncert1, uncert2])
+    uncert = xr.merge([uncert1, uncert2], compat="override")
 
     # Save products
     if out_min:
