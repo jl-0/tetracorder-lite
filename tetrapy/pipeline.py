@@ -57,8 +57,11 @@ def run(c: Box) -> None:
             progress.advance(task)
 
     # REVIEW: Is this the most appropriate location?
-    subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetracorder], check=True)
-    subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetrapy], check=True)
+    try:
+        subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetracorder], check=True)
+        subprocess.run(['chmod', '-R', 'ugo+rwX,o-w', c.output.tetrapy], check=True)
+    except:
+        Logger.exception("Failed to change output file permissions, you may need to manually update them")
 
 
 @utils.log_elapse
