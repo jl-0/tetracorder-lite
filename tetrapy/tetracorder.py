@@ -370,14 +370,15 @@ class TetraDecoder:
         # Backwards compatibility that used Capitalized columns
         og = og.rename(columns={c: c.lower() for c in og})
 
-        columns = ["record", "library", "index", "group"]
+        unique = ["record", "library", "group"]
+        columns = unique + ["index"]
         if "url" in og:
             columns.append("url")
 
         # Merge using record/library
         nu = nu.merge(
             og[columns],
-            on=["record", "library", "group"],
+            on=unique,
             how="left",
         )
         nu["index"] = nu["index"].astype("Int64")
