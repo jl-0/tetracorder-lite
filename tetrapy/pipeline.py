@@ -80,9 +80,11 @@ def export_matrix(c: Box) -> None:
         groups      = c.export_matrix.groups,
         raise_casts = False,
     ).export_csv(
-        file      = c.export_matrix.file,
-        columns   = c.export_matrix.columns,
-        reference = c.export_matrix.reference,
+        file         = c.export_matrix.file,
+        columns      = c.export_matrix.columns,
+        reference    = c.export_matrix.reference,
+        sortby       = c.export_matrix.sortby,
+        clean_titles = c.export_matrix.clean_titles,
     )
 
 

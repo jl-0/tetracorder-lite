@@ -335,6 +335,8 @@ class TetraDecoder:
         self,
         matrix: Union[str, Path],
         nu: Optional[pd.DataFrame] = None,
+        sortby: str = None,
+        clean_titles: bool = False,
     ) -> pd.DataFrame:
         """
         Align the decoded records to a reference matrix's stable ``index`` column.
@@ -370,7 +372,7 @@ class TetraDecoder:
 
         # Merge using record/library
         nu = nu.merge(
-            og[["record", "library", "index"]],
+            og[["record", "library", "index", "url"]],
             on=["record", "library"],
             how="left",
         )
@@ -384,6 +386,13 @@ class TetraDecoder:
 
         off = nu["index"].max() + 1
         rng = range(off, off + nul.sum())
+
+        if sortby:
+            nu = nu.sort_values(by=sortby)
+
+        if clean_titles:
+            # Remove "family" identifiers from title strings (if the substring has an `=`)
+            nu["title"] = nu["title"].str.replace(r"\s*\S*=\S*", "", regex=True)
 
         new = nu[nul]
         fmt = new.set_index("index").to_string(index=False)
@@ -400,6 +409,7 @@ class TetraDecoder:
         groups: Optional[Iterable[int]] = None,
         columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
         reference: Optional[Union[str, Path]] = None,
+        **kwargs
     ) -> None:
         """
         Write the decoded records to a CSV file, one row per material.
@@ -427,7 +437,7 @@ class TetraDecoder:
         df = self.table(groups, columns, pandas=True)
 
         if reference:
-            df = self.match_ref(reference, nu=df)
+            df = self.match_ref(reference, nu=df, **kwargs)
 
         df.to_csv(file)
 

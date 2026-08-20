@@ -352,7 +352,7 @@ def aggregate(
         # Mineral ID
         idx = i
         if ref is not None:
-            query = ref.query(f"title == @name")
+            query = ref.query(f"record == @block['record'] & library == @block['library']")
             if not query.empty:
                 idx = int(query["index"].iloc[0])
             else:

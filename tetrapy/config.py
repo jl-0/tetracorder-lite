@@ -36,41 +36,80 @@ def load(
     config : Box
         Loaded configuration using Box
     """
-    config = Box.from_yaml(filename=config, default_box=True)
+    box = full = Box.from_yaml(filename=config, default_box=True)
 
     if section:
-        config = config[section]
+        box = full[section]
+
+    if "^^" in box:
+        box = patch(box, full)
 
     if ctx:
-        patch(config, ctx)
+        box = override(box, ctx)
 
     if interp:
-        interpolate(config)
+        box = interpolate(box)
 
-    return config
+    return box
 
 
-def patch(config: Box, ctx: click.Context) -> Box:
+def patch(box: Box, full: Box) -> Box:
     """
-    Patch the config in place with dotted ``--key value`` options from the CLI.
+    Merge one or more referenced sections into ``box`` in place.
 
-    Scans ``ctx.args`` for ``--dotted.key value`` pairs, parses each value as a
-    Python literal (falling back to a string), and merges them into ``config`` using
-    Box dot-notation, so e.g. ``--tetrun.args '["band", 10]'`` overrides a nested key.
+    Consumes the ``^^`` key from ``box``, whose value names either a single section
+    (str) or several sections (BoxList) elsewhere in ``full``. Each named section is
+    merged into ``box`` so its keys act as inherited defaults.
 
     Parameters
     ----------
-    config : box.Box
-        The loaded config to override.
-    ctx : click.Context
-        Click context whose ``args`` carry the extra ``--key value`` overrides.
+    box : box.Box
+        The config subsection to patch; mutated in place. Its ``^^`` key is removed.
+    full : box.Box
+        The full config used to resolve the referenced section names.
 
     Returns
     -------
     box.Box
-        The same ``config``, updated with the overrides.
+        The same ``box``, updated with the merged sections.
     """
-    args = ctx.args
+    sects = box.pop("^^")
+
+    if isinstance(sects, str):
+        box.merge_update(full[sects])
+
+    elif isinstance(sects, BoxList):
+        for sect in sects:
+            box.merge_update(full[sect])
+
+    return box
+
+
+def override(box: Box, ctx: Union[click.Context, list[str]]) -> Box:
+    """
+    Patch the config in place with dotted ``--key value`` options from the CLI.
+
+    Scans the extra CLI args for ``--dotted.key value`` pairs, parses each value as a
+    Python literal (falling back to a string), and merges them into ``box`` using Box
+    dot-notation, so e.g. ``--tetrun.args '["band", 10]'`` overrides a nested key.
+
+    Parameters
+    ----------
+    box : box.Box
+        The loaded config to override; mutated in place.
+    ctx : click.Context or list of str
+        Click context whose ``args`` carry the extra ``--key value`` overrides, or the
+        list of extra args directly.
+
+    Returns
+    -------
+    box.Box
+        The same ``box``, updated with the overrides.
+    """
+    if isinstance(ctx, click.Context):
+        args = ctx.args
+    else:
+        args = ctx
 
     # Convert dot notation to dict
     conv = Box(default_box=True, box_dots=True)
@@ -95,7 +134,11 @@ def patch(config: Box, ctx: click.Context) -> Box:
             i += 1
 
     # Override config with new converted values
-    return config.merge_update(conv)
+    if isinstance(box, dict):
+        box = Box(box, default_box=True)
+    box.merge_update(conv)
+
+    return box
 
 
 def interp(val: str, rel: Box, full: Box) -> Any:
@@ -127,11 +170,13 @@ def interp(val: str, rel: Box, full: Box) -> Any:
             if key.startswith("."):
                 Logger.debug("Using relative pathing")
                 ref = rel
+                lookup = key[1:]
             else:
                 Logger.debug("Using full pathing")
                 ref = full
+                lookup = key
 
-            new = ref[key]
+            new = ref[lookup]
             if isinstance(new, str) and "${" in new:
                 new = interp(new, rel, full) # TODO: Recursion guard
 
@@ -149,14 +194,14 @@ def interp(val: str, rel: Box, full: Box) -> Any:
 
 def interpolate(
     box: Union[Box, BoxList],
-    orig: Optional[Box] = None,
+    full: Optional[Box] = None,
     rel: Optional[Box] = None,
-) -> None:
+) -> Union[Box, BoxList]:
     """
     Recursively interpolate every ``${...}`` reference in a config tree in place.
 
     Walks ``box`` (a Box or BoxList), replacing each string value via :func:`interp`.
-    ``orig`` is the full config used for absolute references; ``rel`` is the current
+    ``full`` is the full config used for absolute references; ``rel`` is the current
     subsection used for relative ones. Both default to ``box`` itself on the first
     call and are threaded down as the walk descends into subsections.
 
@@ -164,16 +209,24 @@ def interpolate(
     ----------
     box : box.Box or box.BoxList
         The config node to interpolate; mutated in place.
-    orig : box.Box, optional
+    full : box.Box, optional
         Full config for absolute references. Defaults to ``box`` on the first call.
     rel : box.Box, optional
-        Subsection for relative references. Defaults to ``orig``.
+        Subsection for relative references. Defaults to ``full``.
+
+    Returns
+    -------
+    box.Box or box.BoxList
+        The same ``box``, with all ``${...}`` references interpolated.
     """
-    if orig is None:
-        orig = Box(box, box_dots=True, default_box=True)
+    if isinstance(box, dict):
+        box = Box(box, default_box=True)
+
+    if full is None:
+        full = Box(box, box_dots=True, default_box=True)
 
     if rel is None:
-        rel = orig
+        rel = full
 
     if isinstance(box, BoxList):
         items = enumerate(box)
@@ -183,6 +236,8 @@ def interpolate(
 
     for key, val in items:
         if isinstance(val, (Box, BoxList)):
-            interpolate(val, orig, rel)
+            box[key] = interpolate(val, full, rel)
         elif isinstance(val, str):
-            box[key] = interp(val, rel, orig)
+            box[key] = interp(val, rel, full)
+
+    return box
