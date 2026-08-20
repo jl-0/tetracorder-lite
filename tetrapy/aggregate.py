@@ -315,6 +315,18 @@ def aggregate(
         name = block["title"]
         base = decoder.root / block["path"]
 
+        idx = i
+        if ref is not None:
+            query = ref.query(
+                "record == @block['record'] and library == @block['library'] and group == @block['group']"
+            )
+            if not query.empty:
+                idx = int(query["index"].iloc[0])
+                name = query["title"].iloc[0]
+            else:
+                idx = -i
+                Logger.warning(f"[{i:03}/{t:03}] ? Reference matrix does not contain an index for {name}, setting ID to {idx}")
+
         # Find the data files
         if not (depth := base.with_name(f"{base.name}.depth.gz")).exists():
             Logger.debug(f"[{i:03}/{t:03}] - Depth file not found for {name}")
@@ -350,15 +362,6 @@ def aggregate(
         mins[names.depth] = mins[names.depth].where(~valid, depth)
 
         # Mineral ID
-        idx = i
-        if ref is not None:
-            query = ref.query(f"record == @block['record'] & library == @block['library']")
-            if not query.empty:
-                idx = int(query["index"].iloc[0])
-            else:
-                idx = -i
-                Logger.warning(f"[{i:03}/{t:03}] ? Reference matrix does not contain an index for {name}, setting ID to {idx}")
-
         mins[names.minid] = mins[names.minid].where(~valid, idx)
 
         # Uncertainty

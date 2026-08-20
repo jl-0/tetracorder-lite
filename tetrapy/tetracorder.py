@@ -370,10 +370,14 @@ class TetraDecoder:
         # Backwards compatibility that used Capitalized columns
         og = og.rename(columns={c: c.lower() for c in og})
 
+        columns = ["record", "library", "index", "group"]
+        if "url" in og:
+            columns.append("url")
+
         # Merge using record/library
         nu = nu.merge(
-            og[["record", "library", "index", "url"]],
-            on=["record", "library"],
+            og[columns],
+            on=["record", "library", "group"],
             how="left",
         )
         nu["index"] = nu["index"].astype("Int64")
@@ -392,7 +396,7 @@ class TetraDecoder:
 
         if clean_titles:
             # Remove "family" identifiers from title strings (if the substring has an `=`)
-            nu["title"] = nu["title"].str.replace(r"\s*\S*=\S*", "", regex=True)
+            nu["title"] = nu["title"].str.replace(r"\s*\S*=[^\s]*", "", regex=True)
 
         new = nu[nul]
         fmt = new.set_index("index").to_string(index=False)
