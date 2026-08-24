@@ -53,13 +53,19 @@ def load(
     return box
 
 
-def patch(box: Box, full: Box) -> Box:
+def patch(box: Box, full: Box, _seen: Optional[set] = None) -> Box:
     """
     Merge one or more referenced sections into ``box`` in place.
 
     Consumes the ``^^`` key from ``box``, whose value names either a single section
-    (str) or several sections (BoxList) elsewhere in ``full``. Each named section is
-    merged into ``box`` so its keys act as inherited defaults.
+    (str) or several sections (BoxList) elsewhere in ``full``. The named sections are
+    treated as inherited defaults: they are applied lowest-priority first, in the
+    order listed, and ``box``'s own keys always win on conflict. Referenced sections
+    are resolved recursively, so a section that itself declares ``^^`` has its own
+    ancestors folded in first.
+
+    For example ``A: {^^: [B, C]}`` with ``B: {^^: D}`` yields the precedence
+    ``D < B < C < A`` (``A``'s own keys highest, ``D`` lowest).
 
     Parameters
     ----------
@@ -67,6 +73,10 @@ def patch(box: Box, full: Box) -> Box:
         The config subsection to patch; mutated in place. Its ``^^`` key is removed.
     full : box.Box
         The full config used to resolve the referenced section names.
+    _seen : set, optional
+        Internal set of section names currently being resolved on this recursion
+        chain, used to detect circular ``^^`` references. Should not be passed by
+        callers.
 
     Returns
     -------
@@ -76,11 +86,28 @@ def patch(box: Box, full: Box) -> Box:
     sects = box.pop("^^")
 
     if isinstance(sects, str):
-        box.merge_update(full[sects])
+        sects = [sects]
 
-    elif isinstance(sects, BoxList):
-        for sect in sects:
-            box.merge_update(full[sect])
+    # Accumulate referenced sections lowest-priority first (list order), then let
+    # box's own keys win by merging them in last.
+    merged = Box(default_box=True)
+    for sect in sects:
+        if sect not in full:
+            raise KeyError(f"^^ references an unknown section: {sect!r}")
+
+        if _seen and sect in _seen:
+            raise ValueError(f"Circular ^^ reference detected for section: {sect!r}")
+
+        ref = Box(full[sect], default_box=True)
+        if "^^" in ref:
+            ref = patch(ref, full, (_seen or set()) | {sect})
+
+        merged.merge_update(ref)
+
+    merged.merge_update(box)
+
+    box.clear()
+    box.merge_update(merged)
 
     return box
 
@@ -120,11 +147,26 @@ def override(box: Box, ctx: Union[click.Context, list[str]]) -> Box:
 
         if arg.startswith("--"):
             key = arg[2:]
+
+            # Boolean flags are not supported; every option must carry a value
+            if i + 1 >= len(args) or args[i + 1].startswith("--"):
+                msg = f"Option --{key} is missing a value; every option must be given as --{key} <value>"
+                Logger.error(msg)
+                raise ValueError(msg)
+
             val = args[i + 1]
             try:
                 val = ast.literal_eval(val)
-            except:
-                Logger.warning(f"Failed to parse the value and will default as string: --{key} {val}")
+            except (ValueError, SyntaxError):
+                # A bare string is a valid value, so a parse failure is only worth
+                # flagging when the value looks like an intended literal (list, dict,
+                # tuple, quoted string, or number) but is malformed.
+                if val[:1] in "[{('\"" or val[:1].isdigit() or val[:1] == "-":
+                    Logger.warning(
+                        f"Could not parse --{key} {val!r} as a Python literal; using it as a plain string"
+                    )
+                else:
+                    Logger.debug(f"Using --{key} {val!r} as a plain string")
 
             Logger.debug(f"Overriding {key} with {val!r}")
             conv[key] = val
@@ -141,7 +183,7 @@ def override(box: Box, ctx: Union[click.Context, list[str]]) -> Box:
     return box
 
 
-def interp(val: str, rel: Box, full: Box) -> Any:
+def interp(val: str, rel: Box, full: Box, _seen: Optional[set] = None) -> Any:
     """
     Interpolate ``${...}`` references in a single string against the config.
 
@@ -158,6 +200,9 @@ def interp(val: str, rel: Box, full: Box) -> Any:
         The subsection used to resolve relative (``${.key}``) references.
     full : box.Box
         The full config used to resolve absolute (``${key}``) references.
+    _seen : set, optional
+        Internal set of keys currently being resolved on this recursion chain,
+        used to detect circular references. Should not be passed by callers.
 
     Returns
     -------
@@ -166,7 +211,17 @@ def interp(val: str, rel: Box, full: Box) -> Any:
         otherwise the substituted string (or ``val`` unchanged if it had no refs).
     """
     if matches := Interp.findall(val):
+        if _seen is None:
+            _seen = set()
+
         for key in matches:
+            match = "${" + key + "}"
+
+            if key in _seen:
+                msg = f"Circular interpolation reference detected for {match!r}"
+                Logger.error(msg)
+                raise ValueError(msg)
+
             if key.startswith("."):
                 Logger.debug("Using relative pathing")
                 ref = rel
@@ -176,16 +231,20 @@ def interp(val: str, rel: Box, full: Box) -> Any:
                 ref = full
                 lookup = key
 
+            if lookup not in ref:
+                msg = f"Interpolation reference {match!r} not found in config"
+                Logger.error(msg)
+                raise KeyError(msg)
+
             new = ref[lookup]
             if isinstance(new, str) and "${" in new:
-                new = interp(new, rel, full) # TODO: Recursion guard
+                new = interp(new, rel, full, _seen | {key})
 
-            fmt = "${" + key + "}"
-            val = val.replace(fmt, str(new))
-            Logger.debug(f"Replaced {fmt!r} with {new!r}")
+            val = val.replace(match, str(new))
+            Logger.debug(f"Replaced {match!r} with {new!r}")
         try:
             val = ast.literal_eval(val)
-        except:
+        except (ValueError, SyntaxError):
             pass
         Logger.debug(f"New value: {val!r}")
 
