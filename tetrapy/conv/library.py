@@ -49,13 +49,33 @@ FAMILIES = {"splib06b": "s06tetra", "sprlb06b": "r06tetra"}
 
 @dataclass
 class TargetGrid:
-    """Output wavelengths and FWHM (both microns) for the convolved library."""
+    """
+    Output wavelengths and FWHM (both microns) for the convolved library.
+
+    This dataclass holds the target instrument grid read from a scene's ENVI
+    header, defining the wavelength and resolution at each output channel.
+
+    Attributes
+    ----------
+    wavelengths : numpy.ndarray
+        Target wavelengths in microns, shape ``(n_bands,)``.
+    fwhm : numpy.ndarray
+        Target FWHM resolution in microns, shape ``(n_bands,)``.
+    """
 
     wavelengths: np.ndarray
     fwhm: np.ndarray
 
     @property
     def nbands(self) -> int:
+        """
+        Number of output bands in the target grid.
+
+        Returns
+        -------
+        int
+            Length of the wavelength/FWHM arrays.
+        """
         return self.wavelengths.size
 
 
@@ -66,6 +86,22 @@ def read_grid(rfl: Union[str, Path]) -> TargetGrid:
     ``rfl`` is the reflectance data path; its companion ``.hdr`` supplies the grid.
     EMIT headers store nanometers, so values are converted to microns unless the
     header declares micron units.
+
+    Parameters
+    ----------
+    rfl : str or Path
+        Path to the reflectance raster. The corresponding ``.hdr`` file is read
+        for wavelength/FWHM metadata.
+
+    Returns
+    -------
+    TargetGrid
+        The extracted wavelength and FWHM grids in microns.
+
+    Raises
+    ------
+    ValueError
+        If the wavelength or FWHM field is missing, or if their lengths differ.
     """
     hdr = Path(rfl)
     if hdr.suffix != ".hdr":
@@ -85,7 +121,26 @@ def read_grid(rfl: Union[str, Path]) -> TargetGrid:
 
 
 def _parse_vector(text: str, key: str) -> np.ndarray:
-    """Extract an ENVI ``key = { a, b, ... }`` numeric vector."""
+    """
+    Extract an ENVI ``key = { a, b, ... }`` numeric vector from header text.
+
+    Parameters
+    ----------
+    text : str
+        ENVI header file contents.
+    key : str
+        Field name to extract (case-insensitive).
+
+    Returns
+    -------
+    numpy.ndarray
+        The parsed numeric vector as float64.
+
+    Raises
+    ------
+    ValueError
+        If the field is not found in the header.
+    """
     m = re.search(rf"^\s*{key}\s*=\s*\{{(.*?)\}}", text,
                   re.IGNORECASE | re.DOTALL | re.MULTILINE)
     if not m:
@@ -95,7 +150,22 @@ def _parse_vector(text: str, key: str) -> np.ndarray:
 
 @dataclass
 class MasterIndex:
-    """The spectra of a master library and their native grid records."""
+    """
+    The spectra of a master library and their native grid records.
+
+    This index separates spectrum records from wavelength/bandpass grid records
+    and maps each grid by channel count, so each spectrum can be paired with
+    the native grids it shares a channel count with.
+
+    Attributes
+    ----------
+    spectra : list[int]
+        Spectrum record numbers in master library order.
+    wave_by_channels : dict[int, int]
+        Maps channel count to the wavelength grid record for that count.
+    band_by_channels : dict[int, int]
+        Maps channel count to the bandpass/FWHM grid record for that count.
+    """
 
     spectra: List[int]                    # spectrum record numbers, in master order
     wave_by_channels: Dict[int, int]      # channel count -> wavelength record
@@ -109,6 +179,16 @@ def index_master(master: SpecprFile) -> MasterIndex:
     Grid records are recognised by their title prefix and keyed by channel count so
     each spectrum can be paired with the native grids it shares a channel count with
     (matching the recipe's ``inwave``/``inres`` selection).
+
+    Parameters
+    ----------
+    master : SpecprFile
+        The opened master library to index.
+
+    Returns
+    -------
+    MasterIndex
+        Index containing spectrum record numbers and grid-by-channel-count mappings.
     """
     spectra: List[int] = []
     wave_by_channels: Dict[int, int] = {}
@@ -128,6 +208,19 @@ def index_master(master: SpecprFile) -> MasterIndex:
 
 
 def _title(text: str) -> str:
+    """
+    Truncate or pad a title to exactly 40 characters.
+
+    Parameters
+    ----------
+    text : str
+        Input title text.
+
+    Returns
+    -------
+    str
+        Title truncated to 40 characters or padded with spaces to 40 characters.
+    """
     return text[:40].ljust(40)
 
 
@@ -138,6 +231,18 @@ def _convolved_title(master_title: str, family: str) -> str:
     Master titles look like ``Acmite NMNH133746 Pyroxene   W1R1Ba AREF``: the tag is
     the trailing lowercase/underscore run of the code token (second-to-last token),
     so ``W1R1Ba`` -> ``a`` and ``W5R4N___`` -> ``___``.
+
+    Parameters
+    ----------
+    master_title : str
+        Original master library spectrum title.
+    family : str
+        Family tag for the convolved library (e.g., "s06tetra", "r06tetra").
+
+    Returns
+    -------
+    str
+        The reformatted convolved title with family tag appended.
     """
     tokens = master_title.split()
     if len(tokens) < 2:
@@ -149,7 +254,20 @@ def _convolved_title(master_title: str, family: str) -> str:
 
 
 def _write_grid_records(writer: SpecprWriter, grid: TargetGrid) -> None:
-    """Emit records 6-29: the output wavelength/resolution/channel-number grids."""
+    """
+    Emit records 6-29: the output wavelength/resolution/channel-number grids.
+
+    Writes three spectra to fixed record slots: wavelength grid (rec 6),
+    resolution/FWHM grid (rec 12), and channel-number reference (rec 18),
+    each followed by padding records to maintain the shipped library structure.
+
+    Parameters
+    ----------
+    writer : SpecprWriter
+        The library writer to append records to.
+    grid : TargetGrid
+        The target wavelength/FWHM grid to write.
+    """
     nb = grid.nbands
 
     def emit(recno: int, title: str, values: np.ndarray, pads: int) -> None:
