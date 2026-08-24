@@ -335,6 +335,7 @@ class TetraDecoder:
         self,
         matrix: Union[str, Path],
         nu: Optional[pd.DataFrame] = None,
+        keys: list[str] = ["record", "library", "group"],
         sortby: str = None,
         clean_titles: bool = False,
     ) -> pd.DataFrame:
@@ -370,15 +371,14 @@ class TetraDecoder:
         # Backwards compatibility that used Capitalized columns
         og = og.rename(columns={c: c.lower() for c in og})
 
-        unique = ["record", "library", "group"]
-        columns = unique + ["index"]
+        columns = keys + ["index"]
         if "url" in og:
             columns.append("url")
 
         # Merge using record/library
         nu = nu.merge(
             og[columns],
-            on=unique,
+            on=keys,
             how="left",
         )
         nu["index"] = nu["index"].astype("Int64")
@@ -441,10 +441,16 @@ class TetraDecoder:
         """
         df = self.table(groups, columns, pandas=True)
 
-        if reference:
-            df = self.match_ref(reference, nu=df, **kwargs)
+        # Unique keys to use for matching a reference matrix to a new one
+        keys = ["record", "library", "group"]
+        dups = df[df.duplicated(subset=keys, keep=False)]
+        if not dups.empty:
+            Logger.warning(f"Found {len(dups)} duplicates using keys {keys}:\n{dups.to_string(index=False)}")
 
-        df.to_csv(file)
+        if reference:
+            df = self.match_ref(reference, nu=df, keys=keys, **kwargs)
+
+        df.to_csv(file, index=False)
 
     @staticmethod
     def parse_variables(file: str) -> Dict[str, str]:
