@@ -15,8 +15,6 @@ output:
 data:
   rfl: /data/rfl # Data, not header
   rfluncert: /data/rfluncert # Data, not header
-  loc: /data/loc
-  glt: /data/glt
 #
 # Tetracorder settings
 #

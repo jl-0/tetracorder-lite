@@ -184,6 +184,7 @@ def setup(c: Box) -> None:
         output      = c.output.tetracorder,
         sensor      = c.tetracorder.sensor,
         geology     = c.setup.geology,
+        cores       = c.setup.cores,
         args        = c.setup.args,
     )
 
