@@ -317,9 +317,7 @@ def aggregate(
 
         idx = i
         if ref is not None:
-            query = ref.query(
-                "record == @block['record'] and library == @block['library'] and group == @block['group']"
-            )
+            query = ref.query("id == @block['id']")
             if not query.empty:
                 idx = int(query["index"].iloc[0])
                 name = query["title"].iloc[0]
