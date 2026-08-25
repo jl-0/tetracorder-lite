@@ -36,8 +36,8 @@ export_matrix:
   enabled: False
   file: ${output.tetrapy}/matrix.csv
   groups: [1, 2]
-  columns: [group, library, record, title, path]
-  reference: emit-sds-l2b/data/mineral_grouping_matrix_20230503.csv
+  columns: [id, group, library, record, title, path]
+  reference: tetrapy/data/v6.00a6.csv
   sortby: [group, index]
   clean_titles: True
 convolve:

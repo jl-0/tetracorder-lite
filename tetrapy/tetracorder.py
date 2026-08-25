@@ -211,8 +211,11 @@ class TetraDecoder:
             if line.startswith("group"):
                 data["group"] = int(line.split()[1])
 
-            if line.startswith("use="):
+            elif line.startswith("use="):
                 data["use"] = line.split(" ")[1]
+
+            elif line.startswith("ID="):
+                data["id"] = line[3:].strip()
 
             elif "=- TITLE=" in line:
                 split = line.split("TITLE=")[1].split()
@@ -320,7 +323,7 @@ class TetraDecoder:
 
     def table(self,
         groups: Optional[Iterable[int]] = None,
-        columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
+        columns: Tuple[str, ...] = ("id", "group", "library", "record", "title", "path"),
         pandas: bool = True
     ) -> Union[pd.DataFrame, List[list]]:
         """
@@ -451,7 +454,7 @@ class TetraDecoder:
         self,
         file: str,
         groups: Optional[Iterable[int]] = None,
-        columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
+        columns: Tuple[str, ...] = ("id", "group", "library", "record", "title", "path"),
         reference: Optional[Union[str, Path]] = None,
         **kwargs
     ) -> None:
@@ -489,7 +492,7 @@ class TetraDecoder:
         df = self.table(groups, columns, pandas=True)
 
         # Unique keys to use for matching a reference matrix to a new one
-        keys = ["record", "library", "group"]
+        keys = ["id"]
         dups = df[df.duplicated(subset=keys, keep=False)]
         if not dups.empty:
             Logger.warning(f"Found {len(dups)} duplicates using keys {keys}:\n{dups.to_string(index=False)}")
