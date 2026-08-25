@@ -44,7 +44,7 @@ def setup_tetrun(
     mode: str = "cube",
     rfl: str = "/data/r",
     geology: bool = False,
-    cores: Optional[int] = os.cpu_count(),
+    cores: Optional[int] = None,
     args: List[str] = ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"],
 ) -> None:
     """
@@ -136,10 +136,12 @@ def setup_tetrun(
         )
         Logger.debug(f"Patching {path}")
 
-    if cores:
-        path = out / "TETNCPU.txt"
-        if path.exists():
-            path.write_text(str(cores))
+    if not cores:
+        cores = os.cpu_count()
+
+    path = out / "TETNCPU.txt"
+    if path.exists():
+        path.write_text(str(cores))
 
     Logger.info("Alternatively, use `tetrapy tetrun [config.yml]` to execute with the config")
 

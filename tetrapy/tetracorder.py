@@ -368,7 +368,7 @@ class TetraDecoder:
         self,
         matrix: Union[str, Path],
         nu: Optional[pd.DataFrame] = None,
-        keys: list[str] = ["record", "library", "group"],
+        keys: list[str] = ["id"],
         sortby: str = None,
         clean_titles: bool = False,
     ) -> pd.DataFrame:
