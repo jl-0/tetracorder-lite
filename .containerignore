@@ -8,3 +8,5 @@
 .DS_Store
 emit-sds-l2b
 emit-utils
+tetrapy/configs/
+*.sh
