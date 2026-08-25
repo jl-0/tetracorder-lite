@@ -3,6 +3,7 @@ import warnings
 from pathlib import Path
 
 import click
+from box import Box
 from rasterio.errors import NotGeoreferencedWarning
 from rich.console import Console
 from rich.logging import RichHandler
@@ -19,8 +20,14 @@ Console = Console(record=True, force_terminal=True, force_interactive=True)
 Logger = logging.getLogger(__name__)
 
 
-def init(config: str, section: str, ctx: click.Context):
+def init(config: str, section: str, ctx: click.Context) -> Box:
     """
+    Initialize the tetrapy application with configuration and logging.
+
+    Loads the YAML configuration file, applies CLI overrides, sets up logging
+    handlers (console and optionally file), and optionally exports the resolved
+    configuration to disk.
+
     Parameters
     ----------
     config : str
@@ -33,7 +40,8 @@ def init(config: str, section: str, ctx: click.Context):
     Returns
     -------
     box.Box
-        The fully resolved configuration.
+        The fully resolved configuration with interpolation applied and
+        overrides merged.
     """
     c = load(config, section, ctx=ctx, interp=True)
 
@@ -68,8 +76,10 @@ def init(config: str, section: str, ctx: click.Context):
         datefmt="[%X]",
     )
 
-    output = Path(c.output.tetrapy)
-    output.mkdir(exist_ok=True, parents=True)
-    c.to_yaml(filename=output / "config.yml")
+    config = c.log.config
+    if config:
+        output = Path(config)
+        output.parent.mkdir(exist_ok=True, parents=True)
+        c.to_yaml(filename=config)
 
     return c

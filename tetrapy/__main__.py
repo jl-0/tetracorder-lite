@@ -1,6 +1,7 @@
-import os
 import logging
+import os
 from pathlib import Path
+from typing import Any
 
 import click
 from box import Box
@@ -22,8 +23,12 @@ Section = click.option("-s", "--section", help="Subsection of the yaml to load r
 
 @click.group()
 def cli() -> None:
-    """\
-    Tetracorder-lite is a containerized Tetracorder trimmed to only the essentials
+    """
+    Tetracorder-lite: containerized USGS Tetracorder for mineral identification.
+
+    This CLI provides commands for running the complete mineral identification
+    pipeline or individual stages. Each command accepts a YAML configuration file
+    and optional --section and dotted --key value overrides.
     """
     pass
 
@@ -32,9 +37,13 @@ def cli() -> None:
 @click.pass_context
 @Config
 @Section
-def run(ctx, **kwargs) -> None:
-    """\
-    Execute the full tetrapy pipeline from a YAML config
+def run(ctx: click.Context, **kwargs: Any) -> None:
+    """
+    Execute the full tetrapy pipeline from a YAML config.
+
+    Runs all enabled pipeline stages in sequence: export_matrix, convolve,
+    sensor, setup, tetrun, and aggregate. Each stage can be individually
+    disabled via its config.{stage}.enabled flag.
     """
     c = init(ctx=ctx, **kwargs)
     pl.run(c)
@@ -44,7 +53,7 @@ def run(ctx, **kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def export_matrix(ctx, **kwargs) -> None:
+def export_matrix(ctx: click.Context, **kwargs: Any) -> None:
     c = init(ctx=ctx, **kwargs)
     pl.export_matrix(c)
 
@@ -53,7 +62,7 @@ def export_matrix(ctx, **kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def convolve(ctx, **kwargs) -> None:
+def convolve(ctx: click.Context, **kwargs: Any) -> None:
     c = init(ctx=ctx, **kwargs)
     pl.convolve(c)
 
@@ -62,7 +71,7 @@ def convolve(ctx, **kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def sensor(ctx, **kwargs) -> None:
+def sensor(ctx: click.Context, **kwargs: Any) -> None:
     c = init(ctx=ctx, **kwargs)
     pl.sensor(c)
 
@@ -71,7 +80,7 @@ def sensor(ctx, **kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def setup(ctx, **kwargs) -> None:
+def setup(ctx: click.Context, **kwargs: Any) -> None:
     c = init(ctx=ctx, **kwargs)
     pl.setup(c)
 
@@ -80,7 +89,7 @@ def setup(ctx, **kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def tetrun(ctx, **kwargs) -> None:
+def tetrun(ctx: click.Context, **kwargs: Any) -> None:
     c = init(ctx=ctx, **kwargs)
     pl.tetrun(c)
 
@@ -89,7 +98,7 @@ def tetrun(ctx, **kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def aggregate(ctx, **kwargs) -> None:
+def aggregate(ctx: click.Context, **kwargs: Any) -> None:
     c = init(ctx=ctx, **kwargs)
     pl.aggregate(c)
 
@@ -98,9 +107,13 @@ def aggregate(ctx, **kwargs) -> None:
 @click.pass_context
 @Config
 @Section
-def preview(ctx, **kwargs) -> None:
-    """\
-    Previews the final, interpolated configuration
+def preview(ctx: click.Context, **kwargs: Any) -> None:
+    """
+    Preview the final, interpolated configuration.
+
+    Loads and processes the configuration file (with interpolation and
+    overrides) and displays it in YAML format without executing any
+    pipeline stages. Useful for debugging config issues.
     """
     c = init(ctx=ctx, **kwargs)
     Logger.info(f"Configuration:\n{c.to_yaml()}")

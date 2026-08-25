@@ -33,6 +33,38 @@ Logger = logging.getLogger(__name__)
 @utils.log_elapse
 def run(c: Box) -> None:
     """
+    Execute the complete tetrapy pipeline from export_matrix through aggregate.
+
+    Runs the full mineral identification pipeline in sequence: decoding the expert
+    system and exporting the material matrix, convolving spectral libraries, integrating
+    the sensor configuration, setting up tetracorder, executing the tetracorder run,
+    aggregating outputs into L2B products. Each stage is gated by its
+    ``{stage}.enabled`` config flag. Progress is displayed via a Rich progress bar,
+    and file permissions are adjusted at the end for group read/write access.
+
+    Parameters
+    ----------
+    c : box.Box
+        The fully loaded configuration object. Expected keys:
+
+        ``export_matrix``, ``convolve``, ``sensor``, ``setup``, ``tetrun``,
+        ``aggregate`` : each with an ``enabled`` bool controlling whether the stage runs.
+
+        ``output.tetracorder``, ``output.tetrapy`` : output directories whose
+        permissions are adjusted after the run.
+
+    Notes
+    -----
+    Pipeline stage order (when enabled):
+    1. export_matrix - Decode expert system, export material matrix CSV
+    2. convolve - Gaussian-convolve reference/research libraries to scene grid
+    3. sensor - Integrate convolved library into tetracorder command tree
+    4. setup - Configure tetracorder run (cmd-setup-tetrun)
+    5. tetrun - Execute tetracorder (cmd.runtet)
+    6. aggregate - Aggregate outputs into L2B mineral/uncertainty products
+
+    After all stages complete, output directory permissions are set to
+    ``ugo+rwX,o-w`` (group-writable, world-readable).
     """
     pl = globals()
     steps = [
@@ -80,9 +112,11 @@ def export_matrix(c: Box) -> None:
         groups      = c.export_matrix.groups,
         raise_casts = False,
     ).export_csv(
-        file      = c.export_matrix.file,
-        columns   = c.export_matrix.columns,
-        reference = c.export_matrix.reference,
+        file         = c.export_matrix.file,
+        columns      = c.export_matrix.columns,
+        reference    = c.export_matrix.reference,
+        sortby       = c.export_matrix.sortby,
+        clean_titles = c.export_matrix.clean_titles,
     )
 
 
@@ -150,6 +184,7 @@ def setup(c: Box) -> None:
         output      = c.output.tetracorder,
         sensor      = c.tetracorder.sensor,
         geology     = c.setup.geology,
+        cores       = c.setup.cores,
         args        = c.setup.args,
     )
 

@@ -26,9 +26,34 @@ MIN_WIDTH = 1.0e-10       # floor on the effective width to avoid divide-by-zero
 
 
 class Convolver:
-    """Resample native-resolution spectra onto a fixed target wavelength grid."""
+    """
+    Resample native-resolution spectra onto a fixed target wavelength grid.
 
-    def __init__(self, out_wave: np.ndarray, out_fwhm: np.ndarray):
+    This class implements specpr function 17 for Gaussian high-to-low resolution
+    convolution. It constructs effective Gaussian bandpasses for each output channel
+    by taking the instrument resolution in quadrature with the native resolution,
+    then computes a weighted average of the input spectrum under each bandpass.
+
+    Attributes
+    ----------
+    out_wave : numpy.ndarray
+        Target wavelength grid (float64).
+    out_fwhm : numpy.ndarray
+        Target FWHM resolution at each wavelength (float64).
+    """
+
+    def __init__(self, out_wave: np.ndarray, out_fwhm: np.ndarray) -> None:
+        """
+        Initialize the convolver with a target wavelength/FWHM grid.
+
+        Parameters
+        ----------
+        out_wave : numpy.ndarray
+            Target output wavelengths (will be cast to float64).
+        out_fwhm : numpy.ndarray
+            Target output FWHM resolution at each wavelength (will be cast to float64).
+            Must have the same length as ``out_wave``.
+        """
         self.out_wave = np.asarray(out_wave, dtype=np.float64)
         self.out_fwhm = np.asarray(out_fwhm, dtype=np.float64)
 
@@ -73,7 +98,9 @@ class Convolver:
         out[good] = summed[good] / total[good]
         return out.astype(np.float32)
 
-    def _effective_gaussians(self, in_wave: np.ndarray, in_fwhm: np.ndarray):
+    def _effective_gaussians(
+        self, in_wave: np.ndarray, in_fwhm: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Per-output-channel Gaussian center, width, and deletion mask (gfiles.r).
 
@@ -82,6 +109,21 @@ class Convolver:
         input the channel is degenerate: its width collapses to 1% of the native
         FWHM and its center snaps to the nearest input wavelength. Channels outside
         the native wavelength range are marked deleted.
+
+        Parameters
+        ----------
+        in_wave : numpy.ndarray
+            Native wavelength grid.
+        in_fwhm : numpy.ndarray
+            Native FWHM resolution at each wavelength.
+
+        Returns
+        -------
+        tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]
+            ``(centers, widths, deleted)`` where ``centers`` are the effective
+            Gaussian centers, ``widths`` are the effective widths (after quadrature
+            subtraction), and ``deleted`` is a boolean mask of output channels
+            outside the native wavelength range.
         """
         wav_min, wav_max = float(in_wave.min()), float(in_wave.max())
         centers = self.out_wave.copy()
@@ -104,6 +146,19 @@ class Convolver:
 
 
 def _deleted(a: np.ndarray) -> np.ndarray:
+    """
+    Check if array values represent deleted specpr data points.
+
+    Parameters
+    ----------
+    a : numpy.ndarray
+        Array to check for deleted sentinel values.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask where True indicates deleted points (values < DEL_THRESH).
+    """
     return a < DEL_THRESH
 
 
@@ -115,6 +170,19 @@ def _channel_spacing(wave: np.ndarray, valid: np.ndarray) -> np.ndarray:
     each side; edge channels use the one-sided gap. Channels with no valid
     neighbour get 0. This depends only on the native grid, so it is computed once
     per spectrum.
+
+    Parameters
+    ----------
+    wave : numpy.ndarray
+        Wavelength values for each channel.
+    valid : numpy.ndarray
+        Boolean mask indicating which channels are valid (not deleted).
+
+    Returns
+    -------
+    numpy.ndarray
+        Local spacing for each channel, used to weight contributions in the
+        convolution. Shape matches ``wave``.
     """
     n = wave.size
     spacing = np.zeros(n, dtype=np.float64)
@@ -138,16 +206,34 @@ def _channel_spacing(wave: np.ndarray, valid: np.ndarray) -> np.ndarray:
     return spacing
 
 
-def _bandpass(centers: np.ndarray, widths: np.ndarray,
-              in_wave: np.ndarray) -> np.ndarray:
+def _bandpass(
+    centers: np.ndarray, widths: np.ndarray, in_wave: np.ndarray
+) -> np.ndarray:
     """
     Gaussian bandpass matrix ``(n_out, n_in)`` (ggauss.r).
 
+    Computes a Gaussian weight matrix where each row is the bandpass for one
+    output channel. The Gaussian form is
     ``exp(-4 ln2 / width**2 * (in_wave - center)**2)``, with deleted input
     wavelengths and underflowing exponents set to zero. If every weight for an
     output channel underflows, its single nearest non-deleted input channel is
     given weight 1.0 -- how the shipped library extrapolates channels beyond a
     spectrum's native coverage.
+
+    Parameters
+    ----------
+    centers : numpy.ndarray
+        Gaussian center wavelength for each output channel, shape ``(n_out,)``.
+    widths : numpy.ndarray
+        Gaussian FWHM width for each output channel, shape ``(n_out,)``.
+    in_wave : numpy.ndarray
+        Input wavelength grid, shape ``(n_in,)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Gaussian weight matrix, shape ``(n_out, n_in)``, where ``[i, j]`` is
+        the contribution weight of input channel j to output channel i.
     """
     del_in = _deleted(in_wave)
     safe_widths = np.where(widths <= MIN_WIDTH, MIN_WIDTH, widths)

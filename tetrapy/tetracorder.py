@@ -4,6 +4,29 @@ Decoder for the tetracorder "expert system" command file (``cmd.lib.setup.*``).
 Tetracorder's expert system file is a plain-text description of every material it
 maps: which library spectrum identifies it, the spectral features (continuum
 endpoints) that define it, and the fit/depth constraints applied.
+
+The main class :class:`TetraDecoder` parses these expert system files into structured
+dictionaries and provides methods to export the data to various formats (CSV, DataFrame).
+It automatically resolves variable references from companion files (``cmd.lib.setup.variables``,
+``cmds.start.*``) when they are present.
+
+Examples
+--------
+Basic usage to decode an expert system file:
+
+>>> decoder = TetraDecoder("cmd.lib.setup.t5.51d")
+>>> decoder.blocks  # List of decoded material records
+>>> df = decoder.table()  # Get as pandas DataFrame
+
+Decode specific groups and export to CSV:
+
+>>> decoder = TetraDecoder("cmd.lib.setup.t5.51d", groups=(1, 2))
+>>> decoder.export_csv("output.csv", reference="reference_matrix.csv")
+
+Access decoded records programmatically:
+
+>>> for block in decoder.blocks:
+...     print(block["name"], block["library"], block["record"])
 """
 import logging
 import re
@@ -60,7 +83,7 @@ class TetraDecoder:
         """
         Parameters
         ----------
-        path : str
+        path : str or Path
             Path to the Tetracorder expert system file (``cmd.lib.setup.<version>``).
             May also be a directory, in which case the first file matching
             ``cmd.lib.setup.t*`` inside it is used.
@@ -69,6 +92,12 @@ class TetraDecoder:
             but set aside in :attr:`ignored` rather than :attr:`blocks`. Defaults to
             ``(1, 2)`` (the group 1 / group 2 minerals of the EMIT L2B product).
             Pass an empty/falsy value to keep every group found in :attr:`groups`.
+        decode : bool, default=True
+            Whether to immediately decode the file upon initialization. If False, the
+            file can be decoded later by calling :meth:`decode`.
+        raise_casts : bool, default=True
+            Whether to raise exceptions when type casting fails in :meth:`cast`. If
+            False, failed casts return the original value instead of raising an error.
         """
         self.file = Path(path)
         if self.file.is_dir():
@@ -182,8 +211,11 @@ class TetraDecoder:
             if line.startswith("group"):
                 data["group"] = int(line.split()[1])
 
-            if line.startswith("use="):
+            elif line.startswith("use="):
                 data["use"] = line.split(" ")[1]
+
+            elif line.startswith("ID="):
+                data["id"] = line[3:].strip()
 
             elif "=- TITLE=" in line:
                 split = line.split("TITLE=")[1].split()
@@ -277,6 +309,7 @@ class TetraDecoder:
             The cast value, or a list of cast values when ``val`` is a list.
         """
         def apply(v: Any) -> Any:
+            """Apply dtype conversion to a single value, tolerating failures."""
             try:
                 return dtype(v)
             except:
@@ -290,7 +323,7 @@ class TetraDecoder:
 
     def table(self,
         groups: Optional[Iterable[int]] = None,
-        columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
+        columns: Tuple[str, ...] = ("id", "group", "library", "record", "title", "path"),
         pandas: bool = True
     ) -> Union[pd.DataFrame, List[list]]:
         """
@@ -335,6 +368,9 @@ class TetraDecoder:
         self,
         matrix: Union[str, Path],
         nu: Optional[pd.DataFrame] = None,
+        keys: list[str] = ["id"],
+        sortby: str = None,
+        clean_titles: bool = False,
     ) -> pd.DataFrame:
         """
         Align the decoded records to a reference matrix's stable ``index`` column.
@@ -353,6 +389,15 @@ class TetraDecoder:
         nu : pandas.DataFrame, optional
             The table to align. Defaults to :meth:`table` (the decoded records). Must
             contain ``record`` and ``library`` columns.
+        keys : list[str], default=["record", "library", "group"]
+            Column names to use as the merge key when matching records between the
+            reference matrix and the new table.
+        sortby : str, optional
+            Column name to sort the output by. If None (default), the order is
+            preserved from the input.
+        clean_titles : bool, default=False
+            Whether to remove family identifiers (substrings containing ``=``) from
+            the ``title`` column.
 
         Returns
         -------
@@ -368,10 +413,14 @@ class TetraDecoder:
         # Backwards compatibility that used Capitalized columns
         og = og.rename(columns={c: c.lower() for c in og})
 
+        columns = keys + ["index"]
+        if "url" in og:
+            columns.append("url")
+
         # Merge using record/library
         nu = nu.merge(
-            og[["record", "library", "index"]],
-            on=["record", "library"],
+            og[columns],
+            on=keys,
             how="left",
         )
         nu["index"] = nu["index"].astype("Int64")
@@ -384,6 +433,13 @@ class TetraDecoder:
 
         off = nu["index"].max() + 1
         rng = range(off, off + nul.sum())
+
+        if sortby:
+            nu = nu.sort_values(by=sortby)
+
+        if clean_titles:
+            # Remove "family" identifiers from title strings (if the substring has an `=`)
+            nu["title"] = nu["title"].str.replace(r"\s*\S*=[^\s]*", "", regex=True)
 
         new = nu[nul]
         fmt = new.set_index("index").to_string(index=False)
@@ -398,8 +454,9 @@ class TetraDecoder:
         self,
         file: str,
         groups: Optional[Iterable[int]] = None,
-        columns: Tuple[str, ...] = ("group", "library", "record", "title", "path"),
+        columns: Tuple[str, ...] = ("id", "group", "library", "record", "title", "path"),
         reference: Optional[Union[str, Path]] = None,
+        **kwargs
     ) -> None:
         """
         Write the decoded records to a CSV file, one row per material.
@@ -423,13 +480,27 @@ class TetraDecoder:
             Path to a reference matrix CSV. When given, a stable ``index`` column is
             added by aligning to it via :meth:`match_ref` (matching on
             ``record`` / ``library``).
+        **kwargs
+            Additional keyword arguments passed to :meth:`match_ref` (e.g. ``sortby``,
+            ``clean_titles``).
+
+        Returns
+        -------
+        None
+            Writes output to the file specified by ``file``. No value is returned.
         """
         df = self.table(groups, columns, pandas=True)
 
-        if reference:
-            df = self.match_ref(reference, nu=df)
+        # Unique keys to use for matching a reference matrix to a new one
+        keys = ["id"]
+        dups = df[df.duplicated(subset=keys, keep=False)]
+        if not dups.empty:
+            Logger.warning(f"Found {len(dups)} duplicates using keys {keys}:\n{dups.to_string(index=False)}")
 
-        df.to_csv(file)
+        if reference:
+            df = self.match_ref(reference, nu=df, keys=keys, **kwargs)
+
+        df.to_csv(file, index=False)
 
     @staticmethod
     def parse_variables(file: str) -> Dict[str, str]:
