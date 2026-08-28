@@ -9,6 +9,27 @@ configure.
                                  runs the pipeline, opens the results page
 ```
 
+## One-time setup on the fork
+
+Three things have to exist before the badge works for anyone who clicks it:
+
+1. **Publish the scene.** Create a release tagged `demo-data-v1` and attach the
+   archive built by `tools/make_subset.py` (see [The scene](#the-scene)). The
+   URL in `devcontainer.json` points at
+   `releases/download/demo-data-v1/emit20250327t212148_100x100.tar.gz`.
+
+2. **Push the branch** so `.github/workflows/container.yml` runs and publishes
+   `ghcr.io/jl-0/tetracorder-lite:demo`.
+
+3. **Make the package public.** GHCR packages are private by default, and a
+   private one cannot be pulled by a visitor's codespace. Package settings
+   &rarr; Change visibility &rarr; Public. Skipping this is the failure that
+   looks like a broken demo rather than a permissions problem.
+
+Optionally enable a prebuild on this branch (Settings &rarr; Codespaces &rarr;
+Set up prebuild). `onCreateCommand` does the fetching, so a prebuild removes
+both the image pull and the scene download from a visitor's first minute.
+
 ## What it does
 
 `onCreateCommand` (`scripts/prepare.sh`) fetches the two large things:
