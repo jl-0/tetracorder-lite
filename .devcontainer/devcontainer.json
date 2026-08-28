@@ -1,0 +1,50 @@
+{
+  // This is the ROOT configuration, so it is what Codespaces uses when someone
+  // creates a codespace without opening the options page -- the badge link, the
+  // green "Create codespace" button, ?quickstart=1. With only named configs
+  // under .devcontainer/<name>/, those paths silently fall back to the default
+  // universal image and nothing runs. The `build` alternative still appears in
+  // the "Dev container configuration" dropdown on the options page.
+  "name": "Tetracorder demo (published image)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  // Tetracorder's cost per run is close to fixed -- roughly 2,400 mineral
+  // products regardless of scene size -- so cores, not pixels, set the wall
+  // clock. 2-core is painful here; 4-core keeps a run to about 10 minutes.
+  // The image is ~1.7 GB compressed and ~6.5 GB unpacked, hence 32 GB.
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+  "containerEnv": {
+    // Built and pushed by .github/workflows/container.yml.
+    "TETRACORDER_IMAGE": "ghcr.io/jl-0/tetracorder-lite:demo",
+    // A 100x100 window of EMIT granule emit20250327t212148, chosen for the
+    // strongest 2.2 um clay/mica absorption in the scene. See
+    // .devcontainer/tools/make_subset.py for how it was cut.
+    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v1/emit20250327t212148_100x100.tar.gz"
+  },
+  // onCreateCommand rather than postCreateCommand: Codespaces runs it during a
+  // prebuild, and docker-in-docker keeps pulled images on this container's
+  // filesystem, so a prebuild bakes in both the image and the scene and a
+  // codespace made from one has nothing left to download.
+  "onCreateCommand": ".devcontainer/scripts/prepare.sh",
+  // Non-blocking: brings the page up at once and runs the pipeline behind it.
+  "postStartCommand": ".devcontainer/scripts/start.sh",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Tetracorder results",
+      "onAutoForward": "openBrowserOnce",
+      "protocol": "http"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-azuretools.vscode-docker"]
+    }
+  }
+}

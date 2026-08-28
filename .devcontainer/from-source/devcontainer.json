@@ -1,0 +1,41 @@
+{
+  // Same demo, but compiling the image from this branch's Containerfile instead
+  // of pulling a published one. Use it when the build itself is what you are
+  // testing -- a clean build is where regressions like the dropped exec bit on
+  // tetracorder/ or a missing DATASETS entry surface, and a published image
+  // hides both.
+  //
+  // Expect a long first create: the build compiles specpr and Tetracorder from
+  // Fortran/ratfor, installs DaVinci, and resolves a pixi environment. A
+  // prebuild on this configuration is the comfortable way to use it.
+  "name": "Tetracorder demo (build from source)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "hostRequirements": {
+    "cpus": 8,
+    "memory": "16gb",
+    "storage": "64gb"
+  },
+  "containerEnv": {
+    "TETRACORDER_BUILD": "1",
+    "TETRACORDER_IMAGE": "tetracorder-lite:local",
+    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v1/emit20250327t212148_100x100.tar.gz"
+  },
+  "onCreateCommand": ".devcontainer/scripts/prepare.sh",
+  "postStartCommand": ".devcontainer/scripts/start.sh",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Tetracorder results",
+      "onAutoForward": "openBrowserOnce",
+      "protocol": "http"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-azuretools.vscode-docker"]
+    }
+  }
+}

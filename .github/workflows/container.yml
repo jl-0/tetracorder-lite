@@ -1,0 +1,83 @@
+# Builds the image the Codespaces demo pulls.
+#
+# The build compiles specpr and Tetracorder from Fortran/ratfor sources and
+# installs DaVinci, which is far too slow to do inside a codespace on every
+# create. Doing it here once per push means a codespace only has to pull.
+#
+# DaVinci ships amd64 only, so the image is amd64 only; that matches Codespaces
+# and needs emulation anywhere else.
+name: container
+
+on:
+  push:
+    branches: [codespace-demo]
+    paths-ignore:
+      - "SE-Documentation/**"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra tag to publish alongside :demo"
+        required: false
+        type: string
+
+concurrency:
+  group: container-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The build tree is large and the runner's root filesystem is not. Reclaim
+      # the preinstalled toolchains nothing here uses before starting.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
+      # A clean checkout is the only place the exec-bit and DATASETS classes of
+      # regression show up -- a published image carries the artefacts of
+      # whatever tree built it. Fail here rather than in someone's codespace.
+      - name: Check tetracorder command files are executable
+        run: |
+          missing=$(find tetracorder/tetracorder -maxdepth 1 -name 'checkmultmap*' ! -perm -u+x)
+          if [ -n "$missing" ]; then
+            echo "::error::not executable, the container build will fail:"
+            echo "$missing"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/tetracorder-lite
+          tags: |
+            type=raw,value=demo
+            type=sha,format=long
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

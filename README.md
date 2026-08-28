@@ -16,6 +16,15 @@ This repository is also a work in progress,
 that we are continuing to try and revise and simplify to aid in community use and uptake
 of Tetracorder.  Suggested contributions are welcome as PRs.
 
+## Try it in a codespace
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jl-0/tetracorder-lite/tree/codespace-demo?quickstart=1)
+
+Runs the whole pipeline over a 100x100 window of a real EMIT L2A scene and opens
+a page with the mineral maps — no install, no configuration, about ten minutes.
+See [`.devcontainer/README.md`](.devcontainer/README.md) for how it is put
+together and how to point it at a different scene.
+
 ## Quick start
 
 The pipeline is driven by a YAML config (see [`config.yml`](config.yml)). Mount your

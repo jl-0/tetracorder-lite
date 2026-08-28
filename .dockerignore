@@ -1,5 +1,8 @@
-# Kept in step with .dockerignore -- podman reads this file, docker reads only
-# .dockerignore. Change both together.
+# Kept in step with .containerignore. Both are needed: podman reads
+# .containerignore, docker reads only .dockerignore, and without this file a
+# `docker build` ships the whole working tree -- including any downloaded
+# scenes under in/ -- into the context and then bakes it into the image via
+# the Containerfile's `COPY . .`.
 **/.git
 **/.venv
 **/.pixi
