@@ -31,7 +31,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.colors import ListedColormap, to_hex
-from matplotlib.patches import Patch
 
 # Minerals beyond this many per group are folded into a single "other" class so
 # the legend stays readable. They are still counted in the totals.
@@ -115,13 +114,9 @@ def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str], gro
     ax.set_title(f"Group {group} mineral identifications", fontsize=11)
     ax.axis("off")
 
-    handles = [Patch(facecolor=colors[int(v)], label=f"{titles.get(int(v), f'id {v}')}  ({c:,})")
-               for v, c in zip(shown, counts[:LEGEND_LIMIT])]
-    if values.size > LEGEND_LIMIT:
-        handles.append(Patch(facecolor=OTHER, label=f"other ({counts[LEGEND_LIMIT:].sum():,} px, "
-                                                    f"{values.size - LEGEND_LIMIT} materials)"))
-    if handles:
-        ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.02, 1.0), fontsize=7, frameon=False)
+    # No legend inside the image: the results page renders one as a table, and
+    # an external matplotlib legend widens the figure so much that the map
+    # itself ends up far smaller than the band-depth map beside it.
     fig.tight_layout()
     fig.savefig(out / f"group{group}.png", bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -136,7 +131,7 @@ def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str], gro
     plt.close(fig)
 
     total = int(ids.size)
-    return {
+    stats = {
         "group": group,
         "classified": int((ids > 0).sum()),
         "total": total,
@@ -145,6 +140,12 @@ def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str], gro
         "top": [{"id": int(v), "title": titles.get(int(v), f"id {v}"), "pixels": int(c),
                  "color": colors.get(int(v), OTHER)} for v, c in zip(shown, counts[:LEGEND_LIMIT])],
     }
+    # Everything past the legend limit shares one colour on the map, so the
+    # table needs a row saying so rather than silently omitting those pixels.
+    if values.size > LEGEND_LIMIT:
+        stats["other"] = {"pixels": int(counts[LEGEND_LIMIT:].sum()),
+                          "materials": int(values.size - LEGEND_LIMIT), "color": OTHER}
+    return stats
 
 
 def main() -> None:

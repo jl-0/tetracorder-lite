@@ -46,8 +46,8 @@ cat <<MSG
     Results page:  $URL
 
   The page opens straight away and refreshes itself as the run progresses.
-  A full run is 10-20 minutes: cost is fixed overhead (~2,400 mineral
-  products per run), not the 100x100 scene.
+  A full run is around nine minutes: the cost is fixed overhead (~2,400
+  mineral products per run), not the 100x100 scene.
 
   Rerun by hand with:
     .devcontainer/scripts/run-pipeline.sh

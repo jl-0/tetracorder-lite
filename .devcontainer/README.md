@@ -75,14 +75,27 @@ also has the right lifecycle: preserved across stop/start, discarded on rebuild.
 
 ## Runtime
 
-Roughly 10 minutes on the 4-core machine the root configuration asks for.
+Measured on this branch, 4 vCPU, amd64 under Rosetta on an Apple M5 Max
+(Colima), 100x100 scene, timed end to end including rendering:
 
-Tetracorder's cost is close to fixed — a run emits about 2,400 mineral products
-regardless of scene size — so **the scene being small does not make it fast**.
-Measured on an M5 Max: a 100&times;100 subset took 8m38s, a 200&times;200 subset
-10m01s, and a full 1242&times;1280 granule 33m38s. Cores, not pixels, set the
-wall clock, which is why the demo asks for 4 and why `config.demo.yml` ends
-`setup.args` with `none` to skip generating ~2,700 browse images.
+| | |
+|---|---|
+| with the overlay imagery Tetracorder writes by default | 10m 12s |
+| with `nodualimages` / `noredoverlayimages`, as configured here | **8m 52s** |
+
+Both produce identical mineralogy — 56.0% of pixels identified in group 1 over
+20 materials, 99.2% in group 2 over 44 — so the overlays cost time and nothing
+else. A Codespaces machine runs amd64 natively rather than emulated, so expect
+the same or better; that figure has not been measured directly.
+
+Tetracorder's cost is close to fixed — a run emits roughly 2,400 mineral
+products regardless of scene size — so **the scene being small does not make it
+fast**. Previously measured on the same hardware: a 100x100 subset 8m38s, a
+200x200 subset 10m01s, a full 1242x1280 granule 33m38s. Cores, not pixels, set
+the wall clock, which is why the root configuration asks for 4.
+
+Much of the tail is single-threaded (gzipping several thousand small output
+files), so extra cores past 4 buy less than the first two do.
 
 ## The scene
 

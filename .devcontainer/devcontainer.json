@@ -12,8 +12,9 @@
   },
   // Tetracorder's cost per run is close to fixed -- roughly 2,400 mineral
   // products regardless of scene size -- so cores, not pixels, set the wall
-  // clock. 2-core is painful here; 4-core keeps a run to about 10 minutes.
-  // The image is ~1.7 GB compressed and ~6.5 GB unpacked, hence 32 GB.
+  // clock. Measured at 8m52s end to end on 4 emulated amd64 cores; 2-core
+  // would be noticeably worse. The image is ~1.7 GB compressed and ~6.5 GB
+  // unpacked, hence 32 GB.
   "hostRequirements": {
     "cpus": 4,
     "memory": "16gb",
