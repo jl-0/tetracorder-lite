@@ -29,14 +29,14 @@ mounts=(
 # attempt. This has to happen inside the container: the pipeline runs as root
 # and Tetracorder's output tree is root-owned, which the unprivileged user a
 # devcontainer runs as cannot remove from the outside.
-docker run --rm "${mounts[@]}" "$IMAGE" rm -rf /output/demo
+docker run --rm $PLATFORM "${mounts[@]}" "$IMAGE" rm -rf /output/demo
 
 status running "running Tetracorder over the scene" $((SECONDS - BEGAN))
 
 # Runtime here is dominated by fixed overhead, not by the number of pixels: the
 # run emits roughly 2,400 mineral products whatever the scene size. Expect
 # something in the 10-20 minute range on a Codespaces machine.
-if ! docker run --rm "${env[@]}" "${mounts[@]}" "$IMAGE" \
+if ! docker run --rm $PLATFORM "${env[@]}" "${mounts[@]}" "$IMAGE" \
      tetrapy run /config.demo.yml >> "$SITE/run.log" 2>&1; then
   status failed "tetrapy run failed -- see the log below" $((SECONDS - BEGAN))
   exit 1
@@ -44,7 +44,7 @@ fi
 
 status rendering "rendering results" $((SECONDS - BEGAN))
 
-if ! docker run --rm "${env[@]}" "${mounts[@]}" "$IMAGE" \
+if ! docker run --rm $PLATFORM "${env[@]}" "${mounts[@]}" "$IMAGE" \
      python /tools/quicklook.py \
        --rfl /data/scene_rfl \
        --agg /output/demo/aggregate/agg.nc \
@@ -56,7 +56,7 @@ fi
 # Hand the results back to whoever is driving, so they can be opened, deleted
 # and rerun over without sudo. Failure here is cosmetic -- the page reads the
 # imagery either way -- so it must not fail the run.
-docker run --rm "${mounts[@]}" "$IMAGE" \
+docker run --rm $PLATFORM "${mounts[@]}" "$IMAGE" \
   chown -R "$(id -u):$(id -g)" /output /site >> "$SITE/run.log" 2>&1 || true
 
 status done "complete" $((SECONDS - BEGAN))

@@ -14,6 +14,10 @@ on:
     paths-ignore:
       - "SE-Documentation/**"
       - "**/*.md"
+      # .dockerignore excludes .devcontainer from the build context, so nothing
+      # under it can change the image. The demo's own scripts are mounted at
+      # run time, not baked in.
+      - ".devcontainer/**"
   workflow_dispatch:
     inputs:
       tag:

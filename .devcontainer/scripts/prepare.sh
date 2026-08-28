@@ -18,14 +18,14 @@ if [ "${TETRACORDER_BUILD:-0}" = "1" ]; then
   # The image compiles specpr and Tetracorder from Fortran/ratfor sources and
   # installs DaVinci; expect this to take a while on a Codespaces machine.
   echo "[prepare] building $IMAGE from Containerfile"
-  docker build --platform linux/amd64 -f Containerfile -t "$IMAGE" .
+  docker build $PLATFORM -f Containerfile -t "$IMAGE" .
 elif docker image inspect "$IMAGE" >/dev/null 2>&1; then
   # Already here -- a prebuild baked it in, or this is a restart. Pulling again
   # would cost minutes to confirm the same digest.
   echo "[prepare] $IMAGE is already present"
 else
   echo "[prepare] pulling $IMAGE"
-  docker pull "$IMAGE"
+  docker pull $PLATFORM "$IMAGE"
 fi
 
 if [ ! -e "$DATA/scene_rfl" ]; then
