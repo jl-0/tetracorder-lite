@@ -32,6 +32,7 @@ jobs:
             .devcontainer/scripts/run-pipeline.sh \
             .devcontainer/scripts/start.sh \
             .devcontainer/tools/make_subset.py \
+            .devcontainer/tools/pipeline.sh \
             .devcontainer/tools/quicklook.py
           do
             if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
@@ -46,12 +47,13 @@ jobs:
 
       - name: Demo scripts are executable and parse
         run: |
-          for f in .devcontainer/scripts/*.sh; do
+          for f in .devcontainer/scripts/*.sh .devcontainer/tools/*.sh; do
             bash -n "$f" || exit 1
           done
           for f in .devcontainer/scripts/prepare.sh \
                    .devcontainer/scripts/run-pipeline.sh \
-                   .devcontainer/scripts/start.sh; do
+                   .devcontainer/scripts/start.sh \
+                   .devcontainer/tools/pipeline.sh; do
             if [ ! -x "$f" ]; then
               echo "::error file=$f::not executable (git update-index --chmod=+x $f)"
               exit 1

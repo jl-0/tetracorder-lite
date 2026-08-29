@@ -47,6 +47,22 @@ there for ten minutes. The pipeline runs the four `tetrapy` stages from
 
 ## Why it is built this way
 
+**Both the page and the run are containers, not background processes.** This
+is the one non-obvious constraint. A Codespaces lifecycle command reaps
+anything it backgrounded when it exits, so a web server or a pipeline started
+with `nohup` from `postStartCommand` is dead by the time you open the browser —
+the forwarded port refuses connections and `docker ps` is empty. Handing both
+to the docker daemon (`docker run -d`) is what makes them survive, and it means
+the run shows up where you would look for it:
+
+```sh
+docker ps                              # tetracorder-demo-web, tetracorder-demo-run
+docker logs -f tetracorder-demo-run    # the live run
+```
+
+The pipeline itself is `tools/pipeline.sh`, executing *inside* the container
+rather than orchestrating from the host, for the same reason.
+
 **The image is pulled, not built.** The build compiles specpr and Tetracorder
 from Fortran/ratfor and installs DaVinci. That is not something to do on every
 codespace create. `.github/workflows/container.yml` builds and pushes it on
@@ -137,10 +153,15 @@ polls; nothing blocks on it.
 From the terminal instead:
 
 ```sh
-tail -f ~/tetracorder-demo/site/run.log       # the pipeline's own output
-.devcontainer/scripts/start.sh --follow       # run in this terminal, streaming
+docker logs -f tetracorder-demo-run           # the live run
+.devcontainer/scripts/start.sh --follow       # start, then stream to this terminal
 .devcontainer/scripts/run-pipeline.sh         # rerun; streams when interactive
+tail -f ~/tetracorder-demo/site/run.log       # the same log on disk
 ```
+
+`pipeline.sh` mirrors both `run.log` and `tetracorder.out` to the container's
+stdout, so `docker logs` is a real view of the run rather than a few milestone
+lines.
 
 ### Why the log needs help
 
@@ -174,3 +195,13 @@ Overrides, all read by `scripts/common.sh`:
 | `TETRACORDER_SCENE_URL` | the `demo-data-v1` release asset |
 | `TETRACORDER_WORK` | `$HOME/tetracorder-demo` |
 | `TETRACORDER_PORT` | `8080` |
+| `TETRACORDER_RUN_CONTAINER` | `tetracorder-demo-run` |
+| `TETRACORDER_WEB_CONTAINER` | `tetracorder-demo-web` |
+
+## The forwarded URL is not printed
+
+Codespaces treats `CODESPACE_NAME` and the port-forwarding domain as secrets
+and redacts them from lifecycle-command logs, so printing the URL produced
+`https://********-8080.********`, which reads like a bug in the script. The
+banner points at the PORTS panel instead. Outside Codespaces it prints the
+real `http://localhost:$PORT`.

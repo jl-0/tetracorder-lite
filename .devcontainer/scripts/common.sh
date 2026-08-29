@@ -23,6 +23,19 @@ PORT="${TETRACORDER_PORT:-8080}"
 # Apple Silicon Mac these scripts get tested on.
 PLATFORM="--platform=linux/amd64"
 
+# Named containers, because the docker daemon -- not a shell process -- is what
+# owns the long-running work here. A Codespaces lifecycle command reaps anything
+# it backgrounded when it exits, which killed both the web server and the run;
+# a detached container survives that, and shows up in `docker ps` where you
+# would look for it.
+RUN_CONTAINER="${TETRACORDER_RUN_CONTAINER:-tetracorder-demo-run}"
+WEB_CONTAINER="${TETRACORDER_WEB_CONTAINER:-tetracorder-demo-web}"
+
+# True if the named container exists and is running.
+container_running() {
+  [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
+}
+
 # PYTHONUNBUFFERED matters more than it looks: without it Python block-buffers
 # stdout when it is a file rather than a terminal, so the log the page streams
 # arrives in silent 8 KB bursts and the run looks hung. NO_COLOR and TERM=dumb
@@ -37,24 +50,3 @@ mounts=(
   -v "$OUTPUT:/output"
   -v "$SITE:/site"
 )
-
-# The ordered stages, so the page can draw a stepper rather than a spinner. The
-# first five are tetrapy's own pipeline stages; render is ours.
-STAGES='["convolve","sensor","setup","tetrun","aggregate","render"]'
-
-# Written by run-pipeline.sh and polled by the results page.
-#   status <state> <message> [elapsed]
-# `heartbeat` is what lets the page tell a slow stage from a dead run: it is
-# refreshed every few seconds while the pipeline is supervised, so a stale one
-# means the run is gone, not just quiet.
-status() {
-  mkdir -p "$SITE"
-  local tmp="$SITE/.status.$$"
-  cat > "$tmp" <<JSON
-{"state":"$1","message":"$2","stage":"${STAGE:-}","stages":$STAGES,
- "started":"${STARTED:-}","elapsed":${3:-0},"heartbeat":$(date +%s)}
-JSON
-  # Rename rather than write in place: the page polls this file constantly and
-  # would otherwise sometimes fetch a half-written one and fail to parse it.
-  mv -f "$tmp" "$SITE/status.json"
-}
