@@ -11,13 +11,19 @@ cd "$(dirname "$0")/../.."
 source .devcontainer/scripts/common.sh
 
 mkdir -p "$SITE" "$OUTPUT" "$STATE"
+wait_for_docker
 
 if container_running "$RUN_CONTAINER"; then
   echo "[run] $RUN_CONTAINER is already running"
 else
   # Remove a stopped container of the same name, or `docker run` refuses.
   docker rm -f "$RUN_CONTAINER" >/dev/null 2>&1 || true
+  # tetracorder is verbose: mirroring its output to the container's stdout, so
+  # `docker logs -f` is useful, costs ~50 MB of json-file log per run. Capped so
+  # repeated reruns cannot quietly fill the codespace disk -- the complete log
+  # is on disk under $SITE regardless, so nothing is actually lost.
   docker run -d --name "$RUN_CONTAINER" $PLATFORM \
+    --log-opt max-size=32m --log-opt max-file=2 \
     -e PYTHONUNBUFFERED=1 -e NO_COLOR=1 -e TERM=dumb -e COLUMNS=120 \
     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
     -v "$PWD/.devcontainer/config.demo.yml:/config.demo.yml:ro" \

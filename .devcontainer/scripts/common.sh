@@ -36,6 +36,22 @@ container_running() {
   [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
 }
 
+# On a codespace *start* (as opposed to create) postStartCommand can run before
+# docker-in-docker has finished coming up, and every docker call here would then
+# fail for a reason that looks exactly like the bug this design already fixed:
+# no containers, no obvious error. Wait rather than race.
+wait_for_docker() {
+  local i
+  for i in $(seq 1 60); do
+    docker info >/dev/null 2>&1 && return 0
+    [ "$i" = 1 ] && echo "[common] waiting for the docker daemon"
+    sleep 2
+  done
+  echo "[common] ERROR: the docker daemon did not become ready after 120s" >&2
+  echo "[common] try: sudo service docker start" >&2
+  return 1
+}
+
 # PYTHONUNBUFFERED matters more than it looks: without it Python block-buffers
 # stdout when it is a file rather than a terminal, so the log the page streams
 # arrives in silent 8 KB bursts and the run looks hung. NO_COLOR and TERM=dumb

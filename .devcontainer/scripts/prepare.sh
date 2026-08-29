@@ -13,6 +13,7 @@ cd "$(dirname "$0")/../.."
 source .devcontainer/scripts/common.sh
 
 mkdir -p "$DATA" "$OUTPUT" "$SITE" "$STATE"
+wait_for_docker
 
 if [ "${TETRACORDER_BUILD:-0}" = "1" ]; then
   # The image compiles specpr and Tetracorder from Fortran/ratfor sources and

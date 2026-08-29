@@ -21,6 +21,7 @@ case "${1:-}" in
 esac
 
 mkdir -p "$SITE" "$OUTPUT" "$STATE"
+wait_for_docker
 
 # .devcontainer/page, not .devcontainer/site: the repository's .gitignore
 # excludes site/ (built documentation), which silently kept this file out of
