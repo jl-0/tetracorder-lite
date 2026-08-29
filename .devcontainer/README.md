@@ -128,12 +128,42 @@ NetCDF and needs a (free) Earthdata login. The ENVI pair `tetrapy` consumes is
 an SDS intermediate and is not archived publicly, which is why the demo ships a
 subset rather than downloading one.
 
-## Running it by hand
+## Watching a run
+
+The results page streams the log live, shows a stage stepper, and drops the
+mineral maps in underneath when the run finishes. It comes up immediately and
+polls; nothing blocks on it.
+
+From the terminal instead:
 
 ```sh
-.devcontainer/scripts/run-pipeline.sh          # rerun the pipeline
-tail -f ~/tetracorder-demo/site/run.log        # watch it
+tail -f ~/tetracorder-demo/site/run.log       # the pipeline's own output
+.devcontainer/scripts/start.sh --follow       # run in this terminal, streaming
+.devcontainer/scripts/run-pipeline.sh         # rerun; streams when interactive
 ```
+
+### Why the log needs help
+
+`tetrun` is the long stage and it is *silent on stdout*. `tetrapy` renders
+tetracorder's output through `rich.Live`, which draws almost nothing when
+stdout is not a terminal — so a page streaming the pipeline's stdout sits
+frozen for eight minutes and looks broken.
+
+The same output is written line by line, flushed, to
+`{output}/tetracorder/tetracorder.out`. That is what the page actually
+streams. Three other things keep a slow run distinguishable from a dead one:
+
+- a **stage stepper**, with `tetrun` inferred from the existence of
+  `tetracorder.out` rather than from stdout, which never announces it
+- a **count of mineral products written so far**, taken from the filesystem,
+  so something concrete moves every few seconds
+- a **heartbeat** in `status.json`, refreshed while the pipeline is supervised;
+  if it goes stale the page says the run is gone rather than spinning forever
+
+`PYTHONUNBUFFERED=1` is set for the same reason — without it Python
+block-buffers stdout when it is a file, and the log arrives in silent bursts.
+
+## Configuration
 
 Overrides, all read by `scripts/common.sh`:
 
