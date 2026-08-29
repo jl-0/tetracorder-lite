@@ -1,0 +1,60 @@
+# Verifies the Codespaces demo's files are actually in the repository.
+#
+# This exists because .gitignore carries rules meant for build output -- build/
+# and site/ -- that also match .devcontainer/build/ and .devcontainer/site/.
+# Both were silently dropped from a commit that looked complete, and the second
+# one only surfaced as a postStartCommand failure inside a real codespace.
+#
+# Deliberately NOT subject to the container workflow's paths-ignore: a check
+# that skips itself when the files it guards change is worthless.
+name: demo-assets
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tracked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every file the demo needs is tracked
+        run: |
+          missing=0
+          for f in \
+            .devcontainer/devcontainer.json \
+            .devcontainer/from-source/devcontainer.json \
+            .devcontainer/config.demo.yml \
+            .devcontainer/page/index.html \
+            .devcontainer/scripts/common.sh \
+            .devcontainer/scripts/prepare.sh \
+            .devcontainer/scripts/run-pipeline.sh \
+            .devcontainer/scripts/start.sh \
+            .devcontainer/tools/make_subset.py \
+            .devcontainer/tools/quicklook.py
+          do
+            if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::not tracked by git"
+              # Name the culprit rather than leaving someone to guess.
+              git check-ignore -v "$f" 2>/dev/null || echo "  (not ignored -- simply never added)"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] && echo "all demo assets tracked"
+          exit $missing
+
+      - name: Demo scripts are executable and parse
+        run: |
+          for f in .devcontainer/scripts/*.sh; do
+            bash -n "$f" || exit 1
+          done
+          for f in .devcontainer/scripts/prepare.sh \
+                   .devcontainer/scripts/run-pipeline.sh \
+                   .devcontainer/scripts/start.sh; do
+            if [ ! -x "$f" ]; then
+              echo "::error file=$f::not executable (git update-index --chmod=+x $f)"
+              exit 1
+            fi
+          done
+          echo "scripts parse and are executable"

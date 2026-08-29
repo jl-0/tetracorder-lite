@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tetracorder demo</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #16181d; --muted: #5c6270;
+    --line: #e2e5ea; --panel: #f6f7f9; --accent: #b4530a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14161a; --fg: #e8eaee; --muted: #9aa1ad;
+            --line: #2a2e36; --panel: #1b1e24; --accent: #f0a35e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; margin: 2.5rem 0 .75rem; }
+  .sub { color: var(--muted); margin: 0 0 2rem; }
+  .status { display: flex; align-items: center; gap: .75rem; padding: .9rem 1.1rem;
+            border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: none; }
+  .dot.spin { animation: pulse 1.2s ease-in-out infinite; }
+  .dot.ok { background: #2f9e5f; } .dot.bad { background: #d1453b; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+  .elapsed { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stats { display: flex; flex-wrap: wrap; gap: 1.75rem; margin: 1.5rem 0 0; padding: 0; list-style: none; }
+  .stats div { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .stats span { display: block; color: var(--muted); font-size: .8rem; text-transform: uppercase;
+                letter-spacing: .06em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
+  /* One figure on its own would otherwise stretch to the full column width. */
+  .grid.single { grid-template-columns: minmax(0, 520px); }
+  figure { margin: 0; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  figcaption { color: var(--muted); font-size: .85rem; margin-top: .5rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; margin-top: 1.5rem; }
+  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: .78rem; text-transform: uppercase;
+       letter-spacing: .06em; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 3px;
+            margin-right: .5rem; vertical-align: -1px; }
+  pre { overflow-x: auto; background: var(--panel); border: 1px solid var(--line);
+        border-radius: 8px; padding: .9rem 1.1rem; font-size: .8rem; line-height: 1.45;
+        max-height: 22rem; }
+  .muted { color: var(--muted); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tetracorder on an EMIT L2A scene</h1>
+  <p class="sub">A 100&times;100 window of granule <code>emit20250327t212148</code>, run end to end
+     through <code>tetrapy</code>: convolve the USGS spectral library onto the scene's channels,
+     set up and run Tetracorder, aggregate the results into L2B mineral products.</p>
+
+  <div class="status">
+    <span class="dot spin" id="dot"></span>
+    <span id="message">starting&hellip;</span>
+    <span class="elapsed" id="elapsed"></span>
+  </div>
+
+  <section id="results" class="hidden">
+    <ul class="stats" id="scene"></ul>
+    <h2>Input</h2>
+    <div class="grid single">
+      <figure>
+        <img src="rfl_rgb.png" alt="True-colour reflectance quicklook">
+        <figcaption>Surface reflectance, true colour (640 / 550 / 470 nm).</figcaption>
+      </figure>
+    </div>
+    <div id="groups"></div>
+  </section>
+
+  <h2>Run log</h2>
+  <pre id="log">waiting for the run to start&hellip;</pre>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let rendered = false;
+
+const fmt = n => n.toLocaleString();
+const clock = s => `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+
+async function json(path) {
+  const r = await fetch(path + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+async function renderResults() {
+  const data = await json('results.json');
+
+  $('scene').innerHTML = `
+    <div>${fmt(data.scene.lines)}&times;${fmt(data.scene.samples)}<span>pixels</span></div>
+    <div>${fmt(data.scene.bands)}<span>channels</span></div>
+    <div>${fmt(data.scene.valid_pixels)}<span>valid pixels</span></div>`;
+
+  // Cache-bust the imagery too: a rerun writes to the same filenames.
+  const bust = '?t=' + Date.now();
+  $('groups').innerHTML = data.groups.map(g => `
+    <h2>Group ${g.group} &mdash; ${g.percent}% of pixels identified,
+        ${fmt(g.materials)} distinct materials</h2>
+    <div class="grid">
+      <figure>
+        <img src="group${g.group}.png${bust}" alt="Group ${g.group} mineral identifications">
+        <figcaption>Mineral identifications, coloured by material.</figcaption>
+      </figure>
+      <figure>
+        <img src="group${g.group}_depth.png${bust}" alt="Group ${g.group} band depth">
+        <figcaption>Band depth of the identified feature.</figcaption>
+      </figure>
+    </div>
+    <table>
+      <thead><tr><th>Material</th><th class="n">Pixels</th></tr></thead>
+      <tbody>${g.top.map(m => `
+        <tr>
+          <td><span class="swatch" style="background:${m.color}"></span>${m.title}</td>
+          <td class="n">${fmt(m.pixels)}</td>
+        </tr>`).join('')}${g.other ? `
+        <tr>
+          <td><span class="swatch" style="background:${g.other.color}"></span>
+              <span class="muted">${fmt(g.other.materials)} further materials</span></td>
+          <td class="n">${fmt(g.other.pixels)}</td>
+        </tr>` : ''}
+      </tbody>
+    </table>`).join('');
+
+  $('results').classList.remove('hidden');
+  rendered = true;
+}
+
+async function tick() {
+  try {
+    const s = await json('status.json');
+    $('message').textContent = s.message;
+    // status.json is only rewritten at stage boundaries, and tetrun is a very
+    // long stage -- so tick the clock from the start time rather than showing
+    // a number that sits still for ten minutes.
+    const live = s.state === 'running' || s.state === 'rendering';
+    const secs = live && s.started
+      ? Math.max(0, Math.round((Date.now() - Date.parse(s.started)) / 1000))
+      : s.elapsed;
+    $('elapsed').textContent = secs ? clock(secs) : '';
+    $('dot').className = 'dot' + (s.state === 'done' ? ' ok'
+                                : s.state === 'failed' ? ' bad' : ' spin');
+
+    if (s.state === 'done' && !rendered) await renderResults();
+  } catch (e) { /* status.json is not written until the run is queued */ }
+
+  try {
+    const r = await fetch('run.log?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) {
+      // tetrapy's progress rendering can still leave colour and OSC-8
+      // hyperlink escapes in the log; they are unreadable in a <pre>.
+      const text = (await r.text())
+        .replace(/\x1b\]8;[^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+      // Only the tail matters, and a full Tetracorder log is large.
+      if (text.trim()) $('log').textContent = text.split('\n').slice(-200).join('\n');
+      $('log').scrollTop = $('log').scrollHeight;
+    }
+  } catch (e) { /* not written yet */ }
+}
+
+tick();
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

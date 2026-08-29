@@ -10,7 +10,17 @@ cd "$(dirname "$0")/../.."
 source .devcontainer/scripts/common.sh
 
 mkdir -p "$SITE" "$STATE"
-cp .devcontainer/site/index.html "$SITE/index.html"
+# .devcontainer/page, not .devcontainer/site: the repository's .gitignore
+# excludes site/ (built documentation), which silently kept this file out of
+# the first commit and left postStartCommand failing on a cp of a file that
+# was never pushed. Checked explicitly so a future recurrence says why.
+TEMPLATE=.devcontainer/page/index.html
+if [ ! -f "$TEMPLATE" ]; then
+  echo "[start] ERROR: $TEMPLATE is missing from the checkout." >&2
+  echo "[start] If it exists locally but not here, check .gitignore." >&2
+  exit 1
+fi
+cp "$TEMPLATE" "$SITE/index.html"
 
 if [ ! -e "$DATA/scene_rfl" ]; then
   echo "[start] scene is missing; running prepare.sh"
