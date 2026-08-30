@@ -35,7 +35,29 @@
   },
   "customizations": {
     "vscode": {
-      "extensions": ["ms-azuretools.vscode-docker"]
+      "extensions": ["ms-azuretools.vscode-docker"],
+      // Layout for a demo: the file tree and a terminal, nothing else.
+      "settings": {
+        // No Welcome tab. Codespaces also opens the README in preview on a
+        // first launch, which is suppressed by codespaces.openFiles below.
+        "workbench.startupEditor": "none",
+        // The Secondary Side Bar is where Chat/agent lives, and it is shown by
+        // default in a workspace. Hidden here; the panel toggle still works
+        // for anyone who wants it.
+        "workbench.secondarySideBar.defaultVisibility": "hidden",
+        // .vscode/tasks.json opens a terminal following the run when the
+        // folder opens. Without this VS Code prompts before running it, which
+        // for a demo means it just does not happen.
+        "task.allowAutomaticTasks": "on",
+        // Keep the tree to the tree; the Open Editors section is noise here.
+        "explorer.openEditors.visible": 0
+      }
+    },
+    "codespaces": {
+      // Empty on purpose. Codespaces opens README.md in preview on a first
+      // launch otherwise. Note this only governs the VS Code *web* client --
+      // the desktop app ignores it.
+      "openFiles": []
     }
   }
 }

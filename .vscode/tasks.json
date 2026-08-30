@@ -1,0 +1,25 @@
+{
+  // Opens a terminal following the demo run as soon as the codespace opens.
+  // This has to live in .vscode/ -- VS Code reads tasks from nowhere else --
+  // which is why .gitignore was changed from `.vscode` to `.vscode/*` plus a
+  // negation for this file. Personal editor state stays ignored.
+  //
+  // Requires "task.allowAutomaticTasks": "on", set in devcontainer.json, or
+  // VS Code prompts before running it.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Tetracorder demo",
+      "type": "shell",
+      "command": ".devcontainer/scripts/watch.sh",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      },
+      "runOptions": { "runOn": "folderOpen" },
+      "problemMatcher": []
+    }
+  ]
+}

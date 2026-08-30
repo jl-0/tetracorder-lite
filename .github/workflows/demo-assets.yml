@@ -32,8 +32,10 @@ jobs:
             .devcontainer/scripts/run-pipeline.sh \
             .devcontainer/scripts/start.sh \
             .devcontainer/tools/make_subset.py \
+            .devcontainer/scripts/watch.sh \
             .devcontainer/tools/pipeline.sh \
-            .devcontainer/tools/quicklook.py
+            .devcontainer/tools/quicklook.py \
+            .vscode/tasks.json
           do
             if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
               echo "::error file=$f::not tracked by git"
@@ -53,6 +55,7 @@ jobs:
           for f in .devcontainer/scripts/prepare.sh \
                    .devcontainer/scripts/run-pipeline.sh \
                    .devcontainer/scripts/start.sh \
+                   .devcontainer/scripts/watch.sh \
                    .devcontainer/tools/pipeline.sh; do
             if [ ! -x "$f" ]; then
               echo "::error file=$f::not executable (git update-index --chmod=+x $f)"
