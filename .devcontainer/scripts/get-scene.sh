@@ -1,41 +1,87 @@
 #!/usr/bin/env bash
-# Step 2: get the sample scene, and check it actually arrived intact.
+# Step 2: get the sample scene, and prove it arrived intact before using it.
 #
-# Re-downloads when what is on disk is incomplete. That case is not
-# hypothetical: a download that dies near the end of the archive leaves a
-# complete reflectance cube and a truncated uncertainty cube, and the pipeline
-# then runs for nine minutes before rasterio rejects the uncertainty with
-# "Image file is too small". Checking only that the reflectance file exists is
-# what let that through.
+# Three independent checks, because a bad scene is expensive: the pipeline runs
+# for nine minutes before aggregate opens the uncertainty cube and rasterio
+# rejects it with "Image file is too small".
+#
+#   1. the archive's SHA-256, before anything is extracted
+#   2. tar's own exit status on extraction -- previously unchecked, so a failed
+#      extraction proceeded silently and left short files behind
+#   3. each cube's byte count against the dimensions in its own ENVI header
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source .devcontainer/scripts/common.sh
 
 mkdir -p "$DATA" "$OUTPUT" "$SITE" "$STATE"
 
+# Overridable so a different scene can be pointed at without editing this file;
+# set to "-" to skip the check entirely.
+SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-87dfd2ea44b72f7db8ae59d99f814f9b3ed4364f7092cfdac8f548f783c75cd7}"
+
+sha_of() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+  else shasum -a 256 "$1" | awk '{print $1}'; fi
+}
+
+# Printed whenever something goes wrong, so a failure report carries the facts
+# needed to explain it instead of prompting another round trip.
+diagnose() {
+  echo "[scene] --- diagnostics ---" >&2
+  echo "[scene] disk:" >&2
+  df -h "$DATA" 2>&1 | sed 's/^/[scene]   /' >&2
+  echo "[scene] contents of $DATA:" >&2
+  ls -la "$DATA" 2>&1 | sed 's/^/[scene]   /' >&2
+}
+
 if verify_scene 2>/dev/null; then
   echo "[scene] already present and complete"
   exit 0
 fi
 
-for attempt in 1 2; do
-  echo "[scene] downloading from $SCENE_URL"
-  # Straight to a file rather than piping into tar: a stream that dies mid-pipe
-  # leaves tar having written partial files, which is exactly the failure this
-  # step exists to prevent.
-  archive="$DATA/.scene.tar.gz"
+archive="$STATE/scene.tar.gz"
+
+for attempt in 1 2 3; do
+  echo "[scene] downloading (attempt $attempt of 3)"
   rm -f "$archive"
+
+  # To a file, not piped into tar: a stream that dies mid-pipe leaves tar
+  # having already written partial files, which is the failure this step exists
+  # to prevent.
   if ! curl -fL --retry 3 --retry-delay 5 -o "$archive" "$SCENE_URL"; then
-    echo "[scene] download failed (attempt $attempt)" >&2
-    continue
-  fi
-  if ! tar tzf "$archive" >/dev/null 2>&1; then
-    echo "[scene] archive is corrupt (attempt $attempt)" >&2
+    echo "[scene] download failed" >&2
     continue
   fi
 
-  tar xzf "$archive" -C "$DATA"
-  rm -f "$archive"
+  got="$(wc -c < "$archive" | tr -d ' ')"
+  echo "[scene] downloaded $got bytes"
+
+  if [ "$SCENE_SHA256" != "-" ]; then
+    actual_sha="$(sha_of "$archive")"
+    if [ "$actual_sha" != "$SCENE_SHA256" ]; then
+      echo "[scene] checksum mismatch -- the download is not the published archive" >&2
+      echo "[scene]   expected $SCENE_SHA256" >&2
+      echo "[scene]   got      $actual_sha" >&2
+      continue
+    fi
+    echo "[scene] checksum ok"
+  fi
+
+  if ! tar tzf "$archive" >/dev/null 2>"$STATE/tar.err"; then
+    echo "[scene] archive will not list:" >&2
+    sed 's/^/[scene]   /' "$STATE/tar.err" >&2
+    continue
+  fi
+
+  # Checked, unlike before. A full disk or a read error here is the difference
+  # between a good archive and short files on disk.
+  if ! tar xzf "$archive" -C "$DATA" 2>"$STATE/tar.err"; then
+    echo "[scene] extraction failed:" >&2
+    sed 's/^/[scene]   /' "$STATE/tar.err" >&2
+    diagnose
+    continue
+  fi
+  rm -f "$archive" "$STATE/tar.err"
 
   # config.demo.yml refers to the scene as scene_rfl / scene_uncert. The
   # archive keeps the granule's real name for provenance, so link the two
@@ -44,9 +90,10 @@ for attempt in 1 2; do
     for suffix in "" ".hdr"; do
       # -name "*_rfl" does not match "*_rfl.hdr", so each of the four files is
       # matched exactly once. find exits 0 on no match, so check explicitly.
-      src="$(find "$DATA" -maxdepth 1 -name "*_${role}${suffix}" ! -name "scene_*" | head -1)"
+      src="$(find "$DATA" -maxdepth 1 -name "*_${role}${suffix}" ! -name "scene_*" | head -1)" || true
       if [ -z "$src" ]; then
         echo "[scene] ERROR: archive contains no *_${role}${suffix}" >&2
+        diagnose
         exit 1
       fi
       ln -sf "$(basename "$src")" "$DATA/scene_${role}${suffix}"
@@ -57,8 +104,9 @@ for attempt in 1 2; do
     echo "[scene] ready"
     exit 0
   fi
-  echo "[scene] downloaded copy is incomplete, retrying" >&2
+  echo "[scene] the extracted scene is still incomplete" >&2
+  diagnose
 done
 
-echo "[scene] ERROR: could not obtain a complete scene" >&2
+echo "[scene] ERROR: could not obtain a complete scene after 3 attempts" >&2
 exit 1
