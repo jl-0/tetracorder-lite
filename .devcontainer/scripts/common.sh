@@ -31,9 +31,31 @@ PLATFORM="--platform=linux/amd64"
 RUN_CONTAINER="${TETRACORDER_RUN_CONTAINER:-tetracorder-demo-run}"
 WEB_CONTAINER="${TETRACORDER_WEB_CONTAINER:-tetracorder-demo-web}"
 
+# Docker calls, bounded.
+#
+# The walkthrough runs as a folder-open task, which can start before
+# docker-in-docker has finished coming up. A docker CLI call against a socket
+# that exists but is not answering yet blocks, and several of them in a row
+# make the editor look like it is hanging rather than waiting. `timeout` is
+# util-linux, so it is present on Codespaces but not on macOS; without it the
+# call simply runs unbounded, as it did before.
+DOCKER_TIMEOUT="${TETRACORDER_DOCKER_TIMEOUT:-5}"
+dk() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$DOCKER_TIMEOUT" docker "$@"
+  else
+    docker "$@"
+  fi
+}
+
+# True if the docker daemon is answering right now. Used to tell "not done yet"
+# apart from "cannot tell", so the walkthrough never reports a step as pending
+# when it simply could not look.
+docker_ready() { dk info >/dev/null 2>&1; }
+
 # True if the named container exists and is running.
 container_running() {
-  [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
+  [ "$(dk inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
 }
 
 # Reads one value out of an ENVI header.

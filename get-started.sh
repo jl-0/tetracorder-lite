@@ -40,12 +40,12 @@ BLURBS=("Fetch the container image. It carries specpr, Tetracorder and DaVinci a
 # Each step reports done / todo / running / broken by inspecting the world.
 step_state() {
   case $1 in
-    1) docker image inspect "$IMAGE" >/dev/null 2>&1 && echo done || echo todo ;;
+    1) dk image inspect "$IMAGE" >/dev/null 2>&1 && echo done || echo todo ;;
     2) verify_scene 2>/dev/null && echo done || echo todo ;;
     3)
       if container_running "$RUN_CONTAINER"; then echo running
       elif [ -f "$SITE/results.json" ]; then echo done
-      elif docker inspect "$RUN_CONTAINER" >/dev/null 2>&1; then echo broken
+      elif dk inspect "$RUN_CONTAINER" >/dev/null 2>&1; then echo broken
       else echo todo
       fi ;;
     4) container_running "$WEB_CONTAINER" && echo done || echo todo ;;
@@ -108,6 +108,22 @@ run_step() {
   fi
   return 0
 }
+
+# docker-in-docker can still be starting when the folder-open task fires. Say
+# so, once, instead of reporting every step as pending because nothing could be
+# inspected.
+if ! docker_ready; then
+  printf '\n  Waiting for the docker daemon to start' 
+  for _ in $(seq 1 30); do
+    docker_ready && break
+    printf '.'; sleep 2
+  done
+  if docker_ready; then printf ' ready\n'
+  else
+    printf '\n\n  The docker daemon is not responding. Try: sudo service docker start\n\n'
+    exit 1
+  fi
+fi
 
 while true; do
   banner; next=$?
