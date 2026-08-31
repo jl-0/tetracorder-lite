@@ -32,18 +32,55 @@ both the image pull and the scene download from a visitor's first minute.
 
 ## What it does
 
-`onCreateCommand` (`scripts/prepare.sh`) fetches the two large things:
+Nothing, until you ask it to. The codespace opens on a terminal and a file
+tree, and the shell prints:
 
-* the container image, pulled from `ghcr.io/jl-0/tetracorder-lite:demo`
-* the scene, a 100&times;100 window of EMIT granule `emit20250327t212148`,
-  downloaded from a release asset (17 MB)
+```
+  Tetracorder demo
+  Run Tetracorder over a real EMIT L2A scene, one step at a time.
 
-`postStartCommand` (`scripts/start.sh`) serves the results page on port 8080 and
-starts `scripts/run-pipeline.sh` in the background. The page comes up
-immediately and polls `status.json`, so nobody watches a lifecycle command sit
-there for ten minutes. The pipeline runs the four `tetrapy` stages from
-`config.demo.yml` — convolve, setup, tetrun, aggregate — and then
-`tools/quicklook.py` renders the imagery the page displays.
+      ./get-started.sh
+```
+
+`get-started.sh` is a walkthrough. It shows where you are and offers one step
+at a time:
+
+```
+  [x] 1. Container image    ghcr.io/jl-0/tetracorder-lite:demo, 1.7 GB compressed
+  [x] 2. Sample scene       100x100 window of EMIT granule emit20250327t212148
+  [ ] 3. Run Tetracorder    convolve, setup, tetrun, aggregate -- about 9 minutes
+  [ ] 4. Open the results   mineral maps and the live log, on a forwarded port
+```
+
+Each step is an ordinary script you can also run directly:
+
+| Step | Script |
+|---|---|
+| 1 | `.devcontainer/scripts/get-image.sh` |
+| 2 | `.devcontainer/scripts/get-scene.sh` |
+| 3 | `.devcontainer/scripts/run-pipeline.sh` |
+| 4 | `.devcontainer/scripts/serve-results.sh` |
+|   | `.devcontainer/scripts/reset.sh` to start over |
+
+### It works out where you are by looking
+
+There is no progress file. Each step reports its own state from what actually
+exists — the image, the scene's byte count against its ENVI header, a
+`results.json`, a running container. A progress file could disagree with
+reality; this cannot.
+
+That matters because **stopping a codespace terminates every running process**.
+A pipeline interrupted half way is the normal consequence of pausing, not a
+fault, so the walkthrough recognises it and says so:
+
+```
+  The previous run did not finish (exit code 137).
+  Stopping a codespace terminates running processes, so this is
+  what a run that was interrupted by a pause looks like.
+```
+
+Your files survive a stop; your processes do not. The image and the scene stay
+downloaded, so resuming costs nothing but the run itself.
 
 ## Why it is built this way
 
@@ -62,6 +99,11 @@ docker logs -f tetracorder-demo-run    # the live run
 
 The pipeline itself is `tools/pipeline.sh`, executing *inside* the container
 rather than orchestrating from the host, for the same reason.
+
+**Nothing runs on its own.** `postStartCommand` is gone entirely and
+`onCreateCommand` only installs the shell banner. The codespace opens fast, and
+nothing is consuming a machine you are paying for that you did not ask to
+start.
 
 **The image is pulled, not built.** The build compiles specpr and Tetracorder
 from Fortran/ratfor and installs DaVinci. That is not something to do on every
@@ -136,8 +178,9 @@ tar czf myscene.tar.gz -C /tmp/subset myscene_rfl myscene_rfl.hdr \
 ```
 
 Attach the archive to a release and point `TETRACORDER_SCENE_URL` at it. The
-archive must contain all four files; `prepare.sh` links them to the
-`scene_rfl` / `scene_uncert` names `config.demo.yml` refers to.
+archive must contain all four files; `get-scene.sh` links them to the
+`scene_rfl` / `scene_uncert` names `config.demo.yml` refers to, and checks each
+cube's size against its ENVI header before accepting it.
 
 Public EMIT L2A reflectance (`EMITL2ARFL`) is distributed by the LP DAAC as
 NetCDF and needs a (free) Earthdata login. The ENVI pair `tetrapy` consumes is
@@ -154,7 +197,7 @@ From the terminal instead:
 
 ```sh
 docker logs -f tetracorder-demo-run           # the live run
-.devcontainer/scripts/start.sh --follow       # start, then stream to this terminal
+./get-started.sh                              # the walkthrough, resumable
 .devcontainer/scripts/run-pipeline.sh         # rerun; streams when interactive
 tail -f ~/tetracorder-demo/site/run.log       # the same log on disk
 ```

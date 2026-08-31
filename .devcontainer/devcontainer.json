@@ -28,18 +28,16 @@
     // .devcontainer/tools/make_subset.py for how it was cut.
     "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v1/emit20250327t212148_100x100.tar.gz"
   },
-  // onCreateCommand rather than postCreateCommand: Codespaces runs it during a
-  // prebuild, and docker-in-docker keeps pulled images on this container's
-  // filesystem, so a prebuild bakes in both the image and the scene and a
-  // codespace made from one has nothing left to download.
-  "onCreateCommand": ".devcontainer/scripts/prepare.sh",
-  // Non-blocking: brings the page up at once and runs the pipeline behind it.
-  "postStartCommand": ".devcontainer/scripts/start.sh",
+  // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
+  // ./get-started.sh takes each step on request, so the codespace opens fast
+  // and nothing is happening that you did not ask for. This only installs the
+  // shell banner that points at it.
+  "onCreateCommand": ".devcontainer/scripts/install-welcome.sh",
   "forwardPorts": [8080],
   "portsAttributes": {
     "8080": {
       "label": "Tetracorder results",
-      "onAutoForward": "openBrowserOnce",
+      "onAutoForward": "notify",
       "protocol": "http"
     }
   },

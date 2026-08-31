@@ -20,10 +20,15 @@ of Tetracorder.  Suggested contributions are welcome as PRs.
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jl-0/tetracorder-lite/tree/codespace-demo?quickstart=1)
 
-Runs the whole pipeline over a 100x100 window of a real EMIT L2A scene and opens
-a page with the mineral maps — no install, no configuration, about ten minutes.
-See [`.devcontainer/README.md`](.devcontainer/README.md) for how it is put
-together and how to point it at a different scene.
+A guided walkthrough: run Tetracorder over a 100x100 window of a real EMIT L2A
+scene, one step at a time, and see the mineral maps at the end. No install, no
+configuration; about ten minutes of which nine are the run itself.
+
+The codespace opens on a terminal and does nothing until you run
+`./get-started.sh`, which takes each step on request and resumes correctly if
+you stop and restart the codespace. See
+[`.devcontainer/README.md`](.devcontainer/README.md) for how it is put together
+and how to point it at a different scene.
 
 ## Quick start
 

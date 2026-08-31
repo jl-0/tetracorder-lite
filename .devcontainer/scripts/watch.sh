@@ -18,7 +18,7 @@ done
 
 if ! docker inspect "$RUN_CONTAINER" >/dev/null 2>&1; then
   echo "  No run container yet. Start one with:"
-  echo "    .devcontainer/scripts/start.sh"
+  echo "    ./get-started.sh"
   exit 0
 fi
 

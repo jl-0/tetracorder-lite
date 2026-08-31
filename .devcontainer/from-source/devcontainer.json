@@ -23,13 +23,16 @@
     "TETRACORDER_IMAGE": "tetracorder-lite:local",
     "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v1/emit20250327t212148_100x100.tar.gz"
   },
-  "onCreateCommand": ".devcontainer/scripts/prepare.sh",
-  "postStartCommand": ".devcontainer/scripts/start.sh",
+  // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
+  // ./get-started.sh takes each step on request, so the codespace opens fast
+  // and nothing is happening that you did not ask for. This only installs the
+  // shell banner that points at it.
+  "onCreateCommand": ".devcontainer/scripts/install-welcome.sh",
   "forwardPorts": [8080],
   "portsAttributes": {
     "8080": {
       "label": "Tetracorder results",
-      "onAutoForward": "openBrowserOnce",
+      "onAutoForward": "notify",
       "protocol": "http"
     }
   },

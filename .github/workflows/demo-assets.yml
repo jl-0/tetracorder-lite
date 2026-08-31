@@ -28,14 +28,19 @@ jobs:
             .devcontainer/config.demo.yml \
             .devcontainer/page/index.html \
             .devcontainer/scripts/common.sh \
-            .devcontainer/scripts/prepare.sh \
+            .devcontainer/scripts/get-image.sh \
+            .devcontainer/scripts/get-scene.sh \
+            .devcontainer/scripts/install-welcome.sh \
+            .devcontainer/scripts/reset.sh \
             .devcontainer/scripts/run-pipeline.sh \
-            .devcontainer/scripts/start.sh \
-            .devcontainer/tools/make_subset.py \
+            .devcontainer/scripts/serve-results.sh \
             .devcontainer/scripts/watch.sh \
+            .devcontainer/scripts/welcome.sh \
+            .devcontainer/tools/make_subset.py \
             .devcontainer/tools/pipeline.sh \
             .devcontainer/tools/quicklook.py \
-            .vscode/tasks.json
+            .vscode/tasks.json \
+            get-started.sh
           do
             if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
               echo "::error file=$f::not tracked by git"
@@ -52,11 +57,11 @@ jobs:
           for f in .devcontainer/scripts/*.sh .devcontainer/tools/*.sh; do
             bash -n "$f" || exit 1
           done
-          for f in .devcontainer/scripts/prepare.sh \
-                   .devcontainer/scripts/run-pipeline.sh \
-                   .devcontainer/scripts/start.sh \
-                   .devcontainer/scripts/watch.sh \
-                   .devcontainer/tools/pipeline.sh; do
+          for f in .devcontainer/scripts/*.sh \
+                   .devcontainer/tools/pipeline.sh \
+                   get-started.sh; do
+            # common.sh is sourced, never executed, so it is correctly 644.
+            [ "$(basename "$f")" = common.sh ] && continue
             if [ ! -x "$f" ]; then
               echo "::error file=$f::not executable (git update-index --chmod=+x $f)"
               exit 1

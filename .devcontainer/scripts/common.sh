@@ -36,6 +36,53 @@ container_running() {
   [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
 }
 
+# Reads one value out of an ENVI header.
+hdr_val() {
+  sed -n "s/^[[:space:]]*$2[[:space:]]*=[[:space:]]*\(.*\)$/\1/p" "$1" | head -1 | tr -d '[:space:]\r'
+}
+
+# Bytes an ENVI cube should occupy, from its header.
+envi_expected_bytes() {
+  local hdr=$1 s l b dt bpe
+  s=$(hdr_val "$hdr" samples); l=$(hdr_val "$hdr" lines); b=$(hdr_val "$hdr" bands)
+  dt=$(hdr_val "$hdr" "data type")
+  case "$dt" in
+    1) bpe=1 ;; 2|12) bpe=2 ;; 3|4|13) bpe=4 ;; 5) bpe=8 ;;
+    *) return 1 ;;
+  esac
+  [ -n "$s" ] && [ -n "$l" ] && [ -n "$b" ] || return 1
+  echo $(( s * l * b * bpe ))
+}
+
+# Checks the scene is complete, not merely present.
+#
+# A truncated download is the failure this exists for: the archive holds rfl,
+# rfl.hdr, uncert, uncert.hdr in that order, so a stream that dies near the end
+# leaves a perfectly good reflectance cube and a short uncertainty cube. The
+# pipeline then runs for nine minutes before aggregate opens the uncertainty
+# and rasterio says "Image file is too small". Checking only that scene_rfl
+# exists -- which it does -- is what let that through.
+verify_scene() {
+  local role data hdr expected actual
+  for role in rfl uncert; do
+    data="$DATA/scene_$role"; hdr="$DATA/scene_$role.hdr"
+    if [ ! -s "$data" ] || [ ! -s "$hdr" ]; then
+      echo "[verify] missing $data or its header" >&2
+      return 1
+    fi
+    if ! expected=$(envi_expected_bytes "$hdr"); then
+      echo "[verify] could not read dimensions from $hdr" >&2
+      return 1
+    fi
+    actual=$(wc -c < "$data" | tr -d ' ')
+    if [ "$actual" -lt "$expected" ]; then
+      echo "[verify] $data is truncated: $actual bytes, header implies $expected" >&2
+      return 1
+    fi
+  done
+  return 0
+}
+
 # On a codespace *start* (as opposed to create) postStartCommand can run before
 # docker-in-docker has finished coming up, and every docker call here would then
 # fail for a reason that looks exactly like the bug this design already fixed:

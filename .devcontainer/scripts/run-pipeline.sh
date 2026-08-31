@@ -37,5 +37,6 @@ fi
 
 if [ -t 1 ]; then
   echo "[run] following; Ctrl-C stops watching, the run keeps going"
+  echo
   docker logs -f "$RUN_CONTAINER"
 fi
