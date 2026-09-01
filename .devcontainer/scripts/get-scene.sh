@@ -17,7 +17,7 @@ mkdir -p "$DATA" "$OUTPUT" "$SITE" "$STATE"
 
 # Overridable so a different scene can be pointed at without editing this file;
 # set to "-" to skip the check entirely.
-SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-87dfd2ea44b72f7db8ae59d99f814f9b3ed4364f7092cfdac8f548f783c75cd7}"
+SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-cfcbe9bbf521b1ebaba8bb7603e7a099de9823071dca696893270505952a3679}"
 
 sha_of() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
@@ -83,20 +83,35 @@ for attempt in 1 2 3; do
   fi
   rm -f "$archive" "$STATE/tar.err"
 
+  # An archive built by bsdtar on macOS carries the extended attributes of each
+  # file as a separate "._name" AppleDouble entry. macOS tar hides those when
+  # listing -- it understands them natively -- but GNU tar on Linux materialises
+  # them as real 163-byte files sitting right next to the data. A glob of
+  # "*_uncert" then matches both, and which one came first was down to directory
+  # order: the real file here, the sidecar on Linux. Deleted rather than merely
+  # skipped, so nothing downstream can trip over them either.
+  find "$DATA" -maxdepth 1 -name '._*' -delete 2>/dev/null || true
+
   # config.demo.yml refers to the scene as scene_rfl / scene_uncert. The
   # archive keeps the granule's real name for provenance, so link the two
   # together rather than renaming and losing it.
   for role in rfl uncert; do
     for suffix in "" ".hdr"; do
-      # -name "*_rfl" does not match "*_rfl.hdr", so each of the four files is
-      # matched exactly once. find exits 0 on no match, so check explicitly.
-      src="$(find "$DATA" -maxdepth 1 -name "*_${role}${suffix}" ! -name "scene_*" | head -1)" || true
-      if [ -z "$src" ]; then
-        echo "[scene] ERROR: archive contains no *_${role}${suffix}" >&2
+      # -name "*_rfl" does not match "*_rfl.hdr", so each of the four files
+      # should match exactly once. Requiring exactly one, rather than taking
+      # the first of however many, is the point: silently picking one of two
+      # candidates is what linked scene_uncert to a 163-byte sidecar and cost
+      # a nine-minute run to discover.
+      matches="$(find "$DATA" -maxdepth 1 -name "*_${role}${suffix}" \
+                      ! -name "scene_*" ! -name ".*" | sort)"
+      count="$(printf '%s' "$matches" | grep -c . || true)"
+      if [ "$count" != 1 ]; then
+        echo "[scene] ERROR: expected exactly one *_${role}${suffix}, found $count:" >&2
+        printf '%s\n' "$matches" | sed 's/^/[scene]   /' >&2
         diagnose
         exit 1
       fi
-      ln -sf "$(basename "$src")" "$DATA/scene_${role}${suffix}"
+      ln -sfn "$(basename "$matches")" "$DATA/scene_${role}${suffix}"
     done
   done
 

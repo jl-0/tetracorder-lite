@@ -13,10 +13,10 @@ configure.
 
 Three things have to exist before the badge works for anyone who clicks it:
 
-1. **Publish the scene.** Create a release tagged `demo-data-v1` and attach the
+1. **Publish the scene.** Create a release tagged `demo-data-v2` and attach the
    archive built by `tools/make_subset.py` (see [The scene](#the-scene)). The
    URL in `devcontainer.json` points at
-   `releases/download/demo-data-v1/emit20250327t212148_100x100.tar.gz`.
+   `releases/download/demo-data-v2/emit20250327t212148_100x100.tar.gz`.
 
 2. **Push the branch** so `.github/workflows/container.yml` runs and publishes
    `ghcr.io/jl-0/tetracorder-lite:demo`.
@@ -177,7 +177,13 @@ tar czf myscene.tar.gz -C /tmp/subset myscene_rfl myscene_rfl.hdr \
                                       myscene_uncert myscene_uncert.hdr
 ```
 
-Attach the archive to a release and point `TETRACORDER_SCENE_URL` at it. The
+Build the archive on Linux, or with `COPYFILE_DISABLE=1` on macOS: bsdtar
+stores each file's extended attributes as a separate `._name` AppleDouble
+entry, which macOS hides when listing and GNU tar extracts as a real 163-byte
+file beside the data. Attach it to a release, point `TETRACORDER_SCENE_URL` at
+it, and update `TETRACORDER_SCENE_SHA256` in `get-scene.sh`. Use a new release
+tag rather than replacing an asset in place — GitHub's CDN serves the old bytes
+from the same URL for some time afterwards. The
 archive must contain all four files; `get-scene.sh` links them to the
 `scene_rfl` / `scene_uncert` names `config.demo.yml` refers to, and checks each
 cube's size against its ENVI header before accepting it.
@@ -235,7 +241,8 @@ Overrides, all read by `scripts/common.sh`:
 |---|---|
 | `TETRACORDER_IMAGE` | `ghcr.io/jl-0/tetracorder-lite:demo` |
 | `TETRACORDER_BUILD` | `0` — set to `1` to build from `Containerfile` |
-| `TETRACORDER_SCENE_URL` | the `demo-data-v1` release asset |
+| `TETRACORDER_SCENE_URL` | the `demo-data-v2` release asset |
+| `TETRACORDER_SCENE_SHA256` | checksum of that archive; `-` disables the check |
 | `TETRACORDER_WORK` | `$HOME/tetracorder-demo` |
 | `TETRACORDER_PORT` | `8080` |
 | `TETRACORDER_RUN_CONTAINER` | `tetracorder-demo-run` |
