@@ -89,7 +89,7 @@
 <body>
 <main>
   <h1>Tetracorder on an EMIT L2A scene</h1>
-  <p class="sub">A 100&times;100 window of granule <code>emit20250327t212148</code>, run end to end
+  <p class="sub">A 300&times;150 window of granule <code>emit20250327t212148</code>, run end to end
      through <code>tetrapy</code>: convolve the USGS spectral library onto the scene's channels,
      set up and run Tetracorder, aggregate the results into L2B mineral products.</p>
 
@@ -116,26 +116,35 @@
     <div class="grid">
       <figure>
         <img src="rfl_rgb.png" alt="True-colour reflectance quicklook of the subset">
-        <figcaption>What the demo ran on: a 100&times;100 window, true colour
+        <figcaption>What the demo ran on: a 300&times;150 window, true colour
           (640 / 550 / 470 nm).</figcaption>
       </figure>
       <figure>
         <img src="full-scene.jpg" alt="The full granule with the demo's window outlined">
         <figcaption>Where it came from. The whole granule is 1242&times;1280 &mdash;
-          159&times; more pixels &mdash; and mostly snow-covered mountain. The window
-          was placed by scanning for the strongest mean 2.2&nbsp;&micro;m absorption,
-          which is why it lands in the one arid strip.</figcaption>
+          35&times; more pixels &mdash; and mostly snow-covered mountain. The window
+          was placed by scanning for the strongest mean 2.2&nbsp;&micro;m absorption
+          away from the cross-track edges, which is why it lands in the arid
+          strip.</figcaption>
       </figure>
     </div>
 
     <p class="prose"><b>This is a subset.</b> Running a whole granule is the same
       command against a bigger file &mdash; point <code>data.rfl</code> and
       <code>data.rfluncert</code> in the config at it. Expect roughly half an hour
-      rather than nine minutes: measured on this hardware a full 1242&times;1280
-      granule took about 34 minutes against 9 for this window, so 159&times; the
-      pixels cost under 4&times; the time. Tetracorder emits its ~2,400 mineral
+      rather than eight minutes: measured on this hardware a full 1242&times;1280
+      granule took about 34 minutes against 7m42s for this window, so 35&times; the
+      pixels cost under 5&times; the time. Tetracorder emits its ~2,400 mineral
       products whatever the scene size, and on a small scene that fixed cost is
       almost the whole runtime.</p>
+    <p class="prose"><b>The window is 300 samples wide on purpose.</b> Tetracorder
+      writes its product rasters with a VICAR label padded to at least 299 bytes,
+      but the matching ENVI header is generated separately and computes the offset
+      as just <code>samples</code>, without that padding. The two agree only at
+      299 samples or more. Narrower, and every product raster is read two rows out
+      of alignment &mdash; label text in the top rows, the last rows of real
+      results lost off the end. Full EMIT granules are 1242 wide and never meet
+      it; a small crop can.</p>
 
     <p class="prose">The scene is an <b>ENVI</b> raster: a flat binary cube of
       numbers with no metadata inside it at all, paired with a plain-text

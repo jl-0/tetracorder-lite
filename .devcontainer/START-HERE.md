@@ -70,7 +70,7 @@ Tetracorder, open the results — and tells you what each one does before it doe
 it. Nothing has been started for you.
 
 A full run is about nine minutes. That cost is almost entirely fixed: Tetracorder
-emits roughly 2,400 mineral products whatever the scene size, so the 100×100
+emits roughly 2,400 mineral products whatever the scene size, so the 300×150
 window is not what makes it slow.
 
 > Stopping a codespace terminates every running process but keeps your files, so

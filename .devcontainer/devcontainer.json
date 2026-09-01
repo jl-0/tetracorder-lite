@@ -23,10 +23,10 @@
   "containerEnv": {
     // Built and pushed by .github/workflows/container.yml.
     "TETRACORDER_IMAGE": "ghcr.io/jl-0/tetracorder-lite:demo",
-    // A 100x100 window of EMIT granule emit20250327t212148, chosen for the
+    // A 300x150 window of EMIT granule emit20250327t212148, chosen for the
     // strongest 2.2 um clay/mica absorption in the scene. See
     // .devcontainer/tools/make_subset.py for how it was cut.
-    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v2/emit20250327t212148_100x100.tar.gz"
+    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v3/emit20250327t212148_300x150.tar.gz"
   },
   // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
   // .devcontainer/get-started.sh takes each step on request, so the codespace opens fast

@@ -13,10 +13,10 @@ configure.
 
 Three things have to exist before the badge works for anyone who clicks it:
 
-1. **Publish the scene.** Create a release tagged `demo-data-v2` and attach the
+1. **Publish the scene.** Create a release tagged `demo-data-v3` and attach the
    archive built by `tools/make_subset.py` (see [The scene](#the-scene)). The
    URL in `devcontainer.json` points at
-   `releases/download/demo-data-v2/emit20250327t212148_100x100.tar.gz`.
+   `releases/download/demo-data-v3/emit20250327t212148_300x150.tar.gz`.
 
 2. **Push the branch** so `.github/workflows/container.yml` runs and publishes
    `ghcr.io/jl-0/tetracorder-lite:demo`.
@@ -55,7 +55,7 @@ at a time:
 
 ```
   [x] 1. Container image    ghcr.io/jl-0/tetracorder-lite:demo, 1.7 GB compressed
-  [x] 2. Sample scene       100x100 window of EMIT granule emit20250327t212148
+  [x] 2. Sample scene       300x150 window of EMIT granule emit20250327t212148
   [ ] 3. Run Tetracorder    convolve, setup, tetrun, aggregate -- about 9 minutes
   [ ] 4. Open the results   mineral maps and the live log, on a forwarded port
 ```
@@ -159,12 +159,12 @@ also has the right lifecycle: preserved across stop/start, discarded on rebuild.
 ## Runtime
 
 Measured on this branch, 4 vCPU, amd64 under Rosetta on an Apple M5 Max
-(Colima), 100x100 scene, timed end to end including rendering:
+(Colima), 300x150 scene, timed end to end including rendering:
 
 | | |
 |---|---|
-| with the overlay imagery Tetracorder writes by default | 10m 12s |
-| with `nodualimages` / `noredoverlayimages`, as configured here | **8m 52s** |
+| 100x150 scene with the overlay imagery left on | 10m 12s |
+| with `nodualimages` / `noredoverlayimages`, as configured here | **7m 42s** |
 
 Both produce identical mineralogy — 56.0% of pixels identified in group 1 over
 20 materials, 99.2% in group 2 over 44 — so the overlays cost time and nothing
@@ -181,6 +181,16 @@ Much of the tail is single-threaded (gzipping several thousand small output
 files), so extra cores past 4 buy less than the first two do.
 
 ## The scene
+
+**The window must be at least 299 samples wide.** Tetracorder writes its
+product rasters with a VICAR label whose `LBLSIZE` is padded up to at least 299
+bytes (`creatoutfiles.r`), but the companion ENVI header comes from
+`wrtenvihdr.r`, which independently recomputes the offset as just `samples` and
+omits that padding. The two agree only when samples >= 299. Narrower than that
+and every product raster is read out of alignment -- at 100 samples the header
+said `header offset = 100` against a real label of 300, so the top two rows were
+ASCII label text and the bottom two rows of results were lost. Real EMIT
+granules are 1242 wide and never hit it; a small crop does.
 
 `tools/make_subset.py` cuts the window out of a full granule. The window at
 line 1150, sample 200 was chosen by scanning the granule for the strongest mean
@@ -266,7 +276,7 @@ Overrides, all read by `scripts/common.sh`:
 |---|---|
 | `TETRACORDER_IMAGE` | `ghcr.io/jl-0/tetracorder-lite:demo` |
 | `TETRACORDER_BUILD` | `0` — set to `1` to build from `Containerfile` |
-| `TETRACORDER_SCENE_URL` | the `demo-data-v2` release asset |
+| `TETRACORDER_SCENE_URL` | the `demo-data-v3` release asset |
 | `TETRACORDER_SCENE_SHA256` | checksum of that archive; `-` disables the check |
 | `TETRACORDER_WORK` | `$HOME/tetracorder-demo` |
 | `TETRACORDER_PORT` | `8080` |

@@ -1,7 +1,7 @@
 """
 Render a quicklook of a whole granule with the demo's window drawn on it.
 
-The demo runs on a 100x100 crop, which is easy to mistake for the size of an
+The demo runs on a 300x150 crop, which is easy to mistake for the size of an
 EMIT product. This produces the picture that puts it in proportion: the full
 granule, with the subset outlined where it was actually cut from.
 
@@ -10,7 +10,7 @@ cube and is never downloaded there. The result is committed under
 .devcontainer/page/ and served alongside the results.
 
     python make_context_image.py in/emit20250327t212148_rfl \
-        .devcontainer/page/full-scene.png --line 1150 --sample 200 --size 100
+        .devcontainer/page/full-scene.jpg --line 1125 --sample 900
 """
 
 from __future__ import annotations
@@ -46,9 +46,10 @@ def main() -> None:
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("rfl", type=Path, help="full granule reflectance (the data, not the .hdr)")
     parser.add_argument("out", type=Path, help="PNG to write")
-    parser.add_argument("--line", type=int, default=1150)
-    parser.add_argument("--sample", type=int, default=200)
-    parser.add_argument("--size", type=int, default=100)
+    parser.add_argument("--line", type=int, default=1125)
+    parser.add_argument("--sample", type=int, default=900)
+    parser.add_argument("--height", type=int, default=150)
+    parser.add_argument("--width-px", dest="win_w", type=int, default=300)
     parser.add_argument("--width", type=int, default=700, help="target width in pixels")
     args = parser.parse_args()
 
@@ -72,7 +73,7 @@ def main() -> None:
     ax.imshow(rgb, interpolation="nearest")
     ax.add_patch(Rectangle(
         (args.sample / step, args.line / step),
-        args.size / step, args.size / step,
+        args.win_w / step, args.height / step,
         fill=False, edgecolor="#ff3b30", linewidth=1.6,
     ))
     ax.set_title(f"{args.rfl.name} - {samples}x{lines}, the demo's window outlined",
