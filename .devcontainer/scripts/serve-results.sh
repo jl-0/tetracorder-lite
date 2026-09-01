@@ -11,7 +11,10 @@ source .devcontainer/scripts/common.sh
 wait_for_docker
 
 mkdir -p "$SITE"
-cp .devcontainer/page/index.html "$SITE/index.html"
+# The whole directory, not just index.html: it also carries the context image
+# of the full granule, which cannot be generated in the codespace because the
+# full granule is 1.8 GB per cube and is never downloaded there.
+cp .devcontainer/page/* "$SITE/"
 
 if container_running "$WEB_CONTAINER"; then
   echo "[results] already serving on port $PORT"

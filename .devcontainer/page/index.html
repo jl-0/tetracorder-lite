@@ -113,12 +113,29 @@
   <section id="results" class="hidden">
     <ul class="stats" id="scene"></ul>
     <h2>The input</h2>
-    <div class="grid single">
+    <div class="grid">
       <figure>
-        <img src="rfl_rgb.png" alt="True-colour reflectance quicklook">
-        <figcaption>Surface reflectance, true colour (640 / 550 / 470 nm).</figcaption>
+        <img src="rfl_rgb.png" alt="True-colour reflectance quicklook of the subset">
+        <figcaption>What the demo ran on: a 100&times;100 window, true colour
+          (640 / 550 / 470 nm).</figcaption>
+      </figure>
+      <figure>
+        <img src="full-scene.jpg" alt="The full granule with the demo's window outlined">
+        <figcaption>Where it came from. The whole granule is 1242&times;1280 &mdash;
+          159&times; more pixels &mdash; and mostly snow-covered mountain. The window
+          was placed by scanning for the strongest mean 2.2&nbsp;&micro;m absorption,
+          which is why it lands in the one arid strip.</figcaption>
       </figure>
     </div>
+
+    <p class="prose"><b>This is a subset.</b> Running a whole granule is the same
+      command against a bigger file &mdash; point <code>data.rfl</code> and
+      <code>data.rfluncert</code> in the config at it. Expect roughly half an hour
+      rather than nine minutes: measured on this hardware a full 1242&times;1280
+      granule took about 34 minutes against 9 for this window, so 159&times; the
+      pixels cost under 4&times; the time. Tetracorder emits its ~2,400 mineral
+      products whatever the scene size, and on a small scene that fixed cost is
+      almost the whole runtime.</p>
 
     <p class="prose">The scene is an <b>ENVI</b> raster: a flat binary cube of
       numbers with no metadata inside it at all, paired with a plain-text
@@ -156,6 +173,14 @@
       <code>tetrapy/data/v6.00a6.csv</code>, which <code>export-matrix</code>
       generates from those same command files, purely to assign the stable
       numeric value stored in the raster. Nothing is renamed along the way.</p>
+    <p class="prose">Worth knowing if you take the products elsewhere: those
+      numbers are <i>all</i> the NetCDF holds. <code>agg.nc</code> carries no
+      variable attributes &mdash; no <code>long_name</code>, no CF
+      <code>flag_values</code>/<code>flag_meanings</code> &mdash; so it is not
+      self-describing. Handed <code>agg.nc</code> alone you cannot tell what
+      mineral ID 8 is; you need the reference matrix beside it. This page reads
+      the aggregated NetCDF, never Tetracorder's raw per-material rasters, and
+      then does exactly that lookup.</p>
 
     <div id="groups"></div>
 

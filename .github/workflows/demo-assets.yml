@@ -27,6 +27,8 @@ jobs:
             .devcontainer/from-source/devcontainer.json \
             .devcontainer/config.demo.yml \
             .devcontainer/page/index.html \
+            .devcontainer/page/full-scene.jpg \
+            .devcontainer/tools/make_context_image.py \
             .devcontainer/scripts/common.sh \
             .devcontainer/scripts/get-image.sh \
             .devcontainer/scripts/get-scene.sh \
