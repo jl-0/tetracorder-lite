@@ -32,8 +32,10 @@ both the image pull and the scene download from a visitor's first minute.
 
 ## What it does
 
-Nothing, until you ask it to. The codespace opens on a terminal and a file
-tree, and the shell prints:
+Nothing, until you ask it to. The codespace opens on `START-HERE.md`, rendered
+rather than as source — a two-minute explanation of what a container is, with a
+mermaid diagram of what this demo actually starts. Alongside it a terminal and a
+file tree, and the shell prints:
 
 ```
   Tetracorder demo
@@ -61,6 +63,23 @@ Each step is an ordinary script you can also run directly:
 | 3 | `.devcontainer/scripts/run-pipeline.sh` |
 | 4 | `.devcontainer/scripts/serve-results.sh` |
 |   | `.devcontainer/scripts/reset.sh` to start over |
+
+### The one thing that opens by itself
+
+`customizations.codespaces.openFiles` names `START-HERE.md`; without it
+Codespaces opens `README.md` instead. `workbench.editorAssociations` maps that
+one filename to `vscode.markdown.preview.editor` so it opens rendered — scoped
+to the single file, so every other `.md` still opens as text and the repository
+stays editable normally.
+
+The mermaid diagram needs `bierner.markdown-mermaid`, declared in
+`customizations.vscode.extensions`: VS Code's built-in markdown preview has no
+mermaid support of its own. That extension ships a browser entry point, so it
+works in the web client; if it ever fails to install the diagram degrades to a
+visible code block rather than disappearing.
+
+Both `openFiles` and the preview association are web-client behaviour. Desktop
+VS Code ignores `openFiles`, so open the file by hand there.
 
 ### It works out where you are by looking
 

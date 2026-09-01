@@ -40,6 +40,7 @@ jobs:
             .devcontainer/tools/pipeline.sh \
             .devcontainer/tools/quicklook.py \
             .vscode/tasks.json \
+            START-HERE.md \
             get-started.sh
           do
             if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then

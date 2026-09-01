@@ -38,7 +38,14 @@
   },
   "customizations": {
     "vscode": {
-      "extensions": ["ms-azuretools.vscode-docker"],
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        // Renders the mermaid diagram in START-HERE.md. VS Code's built-in
+        // markdown preview has no mermaid support of its own. This one ships a
+        // browser entry point, so it works in the web client too -- without it
+        // the diagram degrades to a visible code block rather than vanishing.
+        "bierner.markdown-mermaid"
+      ],
       // Layout for a demo: the file tree and a terminal, nothing else.
       "settings": {
         // No Welcome tab. Codespaces also opens the README in preview on a
@@ -53,14 +60,21 @@
         // for a demo means it just does not happen.
         "task.allowAutomaticTasks": "on",
         // Keep the tree to the tree; the Open Editors section is noise here.
-        "explorer.openEditors.visible": 0
+        "explorer.openEditors.visible": 0,
+        // Open START-HERE.md rendered rather than as source. Scoped to that one
+        // file: every other .md still opens as text, so the repository stays
+        // editable in the normal way.
+        "workbench.editorAssociations": {
+          "START-HERE.md": "vscode.markdown.preview.editor"
+        }
       }
     },
     "codespaces": {
-      // Empty on purpose. Codespaces opens README.md in preview on a first
-      // launch otherwise. Note this only governs the VS Code *web* client --
-      // the desktop app ignores it.
-      "openFiles": []
+      // The one thing that opens by itself: a short intro to what a container
+      // is, before anything is run. Without this Codespaces opens README.md
+      // instead. Governs the VS Code *web* client only -- the desktop app
+      // ignores it, so open it by hand there.
+      "openFiles": ["START-HERE.md"]
     }
   }
 }
