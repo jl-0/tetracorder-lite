@@ -7,7 +7,8 @@
 # with reality. That is what makes it resume correctly after a codespace has
 # been stopped and started, which terminates every running process.
 set -uo pipefail
-cd "$(dirname "$0")"
+# The repository root, one level up from .devcontainer/.
+cd "$(dirname "$0")/.."
 source .devcontainer/scripts/common.sh
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -98,7 +99,7 @@ run_step() {
   printf '  %sEnter%s to run, %ss%s to skip, %sq%s to quit > ' "$B" "$OFF" "$B" "$OFF" "$B" "$OFF"
   ask reply
   case "$reply" in
-    q|Q) printf '\n  Come back any time with ./get-started.sh\n\n'; exit 0 ;;
+    q|Q) printf '\n  Come back any time with .devcontainer/get-started.sh\n\n'; exit 0 ;;
     s|S) SKIPPED="$SKIPPED $i"; printf '\n  Skipped.\n'; return 2 ;;
   esac
   printf '\n'
@@ -131,7 +132,7 @@ while true; do
   if [ "$next" = 0 ]; then
     if [ -n "$SKIPPED" ]; then
       printf '  %sNothing left to offer -- you skipped step(s):%s%s\n' "$WARN" "$OFF" "$SKIPPED"
-      printf '  Run ./get-started.sh again to be offered them afresh.\n\n'
+      printf '  Run .devcontainer/get-started.sh again to be offered them afresh.\n\n'
       exit 0
     fi
     printf '  %sEverything is done.%s\n\n' "$OK" "$OFF"

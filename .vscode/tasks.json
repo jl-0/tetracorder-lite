@@ -12,7 +12,7 @@
     {
       "label": "Tetracorder demo",
       "type": "shell",
-      "command": "./get-started.sh",
+      "command": ".devcontainer/get-started.sh",
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",

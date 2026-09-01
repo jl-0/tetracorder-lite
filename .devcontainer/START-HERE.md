@@ -62,7 +62,7 @@ docker logs -f tetracorder-demo-run    # the run, live
 ## Now run it
 
 ```
-./get-started.sh
+.devcontainer/get-started.sh
 ```
 
 It takes one step at a time — fetch the image, fetch a sample scene, run
@@ -74,5 +74,5 @@ emits roughly 2,400 mineral products whatever the scene size, so the 100×100
 window is not what makes it slow.
 
 > Stopping a codespace terminates every running process but keeps your files, so
-> a run interrupted half way is normal rather than broken. `./get-started.sh`
+> a run interrupted half way is normal rather than broken. `.devcontainer/get-started.sh`
 > notices and offers to start it again.

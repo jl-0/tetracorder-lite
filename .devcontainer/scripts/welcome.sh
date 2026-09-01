@@ -9,5 +9,5 @@ else B=""; DIM=""; OFF=""; fi
 
 printf '\n  %sTetracorder demo%s\n' "$B" "$OFF"
 printf '  Run Tetracorder over a real EMIT L2A scene, one step at a time.\n\n'
-printf '      %s./get-started.sh%s\n\n' "$B" "$OFF"
+printf '      %s.devcontainer/get-started.sh%s\n\n' "$B" "$OFF"
 printf '  %sNothing has been started for you -- every step is yours to run.%s\n\n' "$DIM" "$OFF"

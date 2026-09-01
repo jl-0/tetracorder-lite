@@ -29,7 +29,7 @@
     "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v2/emit20250327t212148_100x100.tar.gz"
   },
   // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
-  // ./get-started.sh takes each step on request, so the codespace opens fast
+  // .devcontainer/get-started.sh takes each step on request, so the codespace opens fast
   // and nothing is happening that you did not ask for. This only installs the
   // shell banner that points at it.
   "onCreateCommand": ".devcontainer/scripts/install-welcome.sh",
@@ -70,7 +70,7 @@
         // file: every other .md still opens as text, so the repository stays
         // editable in the normal way.
         "workbench.editorAssociations": {
-          "START-HERE.md": "vscode.markdown.preview.editor"
+          "**/START-HERE.md": "vscode.markdown.preview.editor"
         }
       }
     },
@@ -79,7 +79,7 @@
       // is, before anything is run. Without this Codespaces opens README.md
       // instead. Governs the VS Code *web* client only -- the desktop app
       // ignores it, so open it by hand there.
-      "openFiles": ["START-HERE.md"]
+      "openFiles": [".devcontainer/START-HERE.md"]
     }
   }
 }

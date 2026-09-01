@@ -25,7 +25,7 @@ scene, one step at a time, and see the mineral maps at the end. No install, no
 configuration; about ten minutes of which nine are the run itself.
 
 The codespace opens on a terminal and does nothing until you run
-`./get-started.sh`, which takes each step on request and resumes correctly if
+`.devcontainer/get-started.sh`, which takes each step on request and resumes correctly if
 you stop and restart the codespace. See
 [`.devcontainer/README.md`](.devcontainer/README.md) for how it is put together
 and how to point it at a different scene.

@@ -158,6 +158,21 @@
       numeric value stored in the raster. Nothing is renamed along the way.</p>
 
     <div id="groups"></div>
+
+    <h2>What the run produced</h2>
+    <p class="prose">Two real products, in two formats, for different purposes.
+      Tetracorder writes a gzipped <b>ENVI</b> raster per material per quantity
+      &mdash; thousands of small files, each with its own <code>.hdr</code>, one
+      per material it looked for. <code>tetrapy aggregate</code> then reduces
+      those to <b>NetCDF</b>: the L2B mineral products, where every pixel carries
+      the identity of its best-matching material and the depth of the feature
+      that matched. Name <code>aggregate.out_min</code> with a <code>.tif</code>
+      extension instead and you get GeoTIFF.</p>
+    <p class="prose"><code>results.json</code> is neither of those. It is written
+      by <code>quicklook.py</code> from <code>agg.nc</code> purely to render this
+      page &mdash; a summary, not a product. Everything below is on disk in the
+      codespace under <code>~/tetracorder-demo/output</code>.</p>
+    <table id="outputs"></table>
   </section>
 </main>
 
@@ -218,6 +233,16 @@ async function renderResults() {
     $('description').innerHTML =
       `<span class="muted">The header's own <code>description</code> field records how the scene was made:</span><br>`
       + `<code>${data.scene.description.replace(/</g, '&lt;')}</code>`;
+  }
+
+  const outs = data.outputs || [];
+  if (outs.length) {
+    $('outputs').innerHTML =
+      '<thead><tr><th>Product</th><th>Format</th><th>Size</th><th>What it holds</th></tr></thead><tbody>'
+      + outs.map(o => `<tr><th>${o.name}</th><td>${o.format}</td>`
+                    + `<td class="muted">${o.detail}</td>`
+                    + `<td class="muted">${o.what}</td></tr>`).join('')
+      + '</tbody>';
   }
 
   $('groups').innerHTML = data.groups.map(g => `

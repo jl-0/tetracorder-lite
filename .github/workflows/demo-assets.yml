@@ -40,8 +40,8 @@ jobs:
             .devcontainer/tools/pipeline.sh \
             .devcontainer/tools/quicklook.py \
             .vscode/tasks.json \
-            START-HERE.md \
-            get-started.sh
+            .devcontainer/START-HERE.md \
+            .devcontainer/get-started.sh
           do
             if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
               echo "::error file=$f::not tracked by git"
@@ -60,7 +60,7 @@ jobs:
           done
           for f in .devcontainer/scripts/*.sh \
                    .devcontainer/tools/pipeline.sh \
-                   get-started.sh; do
+                   .devcontainer/get-started.sh; do
             # common.sh is sourced, never executed, so it is correctly 644.
             [ "$(basename "$f")" = common.sh ] && continue
             if [ ! -x "$f" ]; then

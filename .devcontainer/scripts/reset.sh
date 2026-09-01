@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Removes the demo's containers and output so ./get-started.sh begins again.
+# Removes the demo's containers and output so .devcontainer/get-started.sh begins again.
 # Leaves the image and the downloaded scene alone -- those are the slow parts
 # and there is no reason to fetch them twice.
 set -euo pipefail
@@ -16,4 +16,4 @@ if [ -d "$OUTPUT/demo" ] || [ -d "$SITE" ]; then
     sh -c 'rm -rf /output/demo /output/.stale-* /site/*' >/dev/null 2>&1 || true
   echo "[reset] cleared previous results"
 fi
-echo "[reset] run ./get-started.sh to begin again"
+echo "[reset] run .devcontainer/get-started.sh to begin again"

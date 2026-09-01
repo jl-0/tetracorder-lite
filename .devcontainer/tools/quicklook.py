@@ -203,6 +203,49 @@ def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str], gro
     return stats
 
 
+def describe_outputs(agg: Path) -> list[dict]:
+    """
+    Enumerate what the run actually produced, from the output tree itself.
+
+    Worth stating plainly on the page, because there are two real products and
+    one that only exists for the page:
+
+      * Tetracorder writes a gzipped ENVI raster per material per quantity --
+        .depth, .fit and .fd, each with its own .hdr. Thousands of them.
+      * `tetrapy aggregate` reduces those to NetCDF (or GeoTIFF, if out_min is
+        named .tif) -- the L2B mineral products.
+      * results.json is neither. quicklook.py writes it from agg.nc purely to
+        render this page.
+    """
+    out: list[dict] = []
+    aggdir = agg.parent
+    tetdir = aggdir.parent / "tetracorder"
+
+    def mb(path: Path) -> str:
+        return f"{path.stat().st_size / 1e6:.1f} MB"
+
+    for name, what in (("agg.nc", "band depth and mineral ID per group"),
+                       ("agg-uncert.nc", "band depth uncertainty and fit per group")):
+        f = aggdir / name
+        if f.exists():
+            out.append({"name": name, "format": "NetCDF", "detail": mb(f), "what": what})
+
+    if tetdir.is_dir():
+        for suffix, what in ((".depth.gz", "depth of the matched absorption feature"),
+                             (".fit.gz", "goodness of fit to the library spectrum"),
+                             (".fd.gz", "fit times depth")):
+            files = list(tetdir.glob(f"group.*/*{suffix}"))
+            if files:
+                total = sum(f.stat().st_size for f in files)
+                out.append({"name": f"group.*/*{suffix}", "format": "ENVI (gzipped)",
+                            "detail": f"{len(files):,} files, {total / 1e6:.1f} MB",
+                            "what": what})
+
+    out.append({"name": "results.json", "format": "JSON", "detail": "written by quicklook.py",
+                "what": "summary of agg.nc for this page only - not a pipeline product"})
+    return out
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--rfl", type=Path, required=True, help="input reflectance ENVI prefix")
@@ -250,6 +293,8 @@ def main() -> None:
             for m in stats["top"]:
                 m.update({k: v for k, v in meta.get(m["id"], {}).items() if k != "title"})
             results["groups"].append(stats)
+
+    results["outputs"] = describe_outputs(args.agg)
 
     (args.out / "results.json").write_text(json.dumps(results, indent=2))
     print(json.dumps(results, indent=2))

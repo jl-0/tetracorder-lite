@@ -32,7 +32,7 @@ both the image pull and the scene download from a visitor's first minute.
 
 ## What it does
 
-Nothing, until you ask it to. The codespace opens on `START-HERE.md`, rendered
+Nothing, until you ask it to. The codespace opens on `.devcontainer/START-HERE.md`, rendered
 rather than as source — a two-minute explanation of what a container is, with a
 mermaid diagram of what this demo actually starts. Alongside it a terminal and a
 file tree, and the shell prints:
@@ -41,7 +41,7 @@ file tree, and the shell prints:
   Tetracorder demo
   Run Tetracorder over a real EMIT L2A scene, one step at a time.
 
-      ./get-started.sh
+      .devcontainer/get-started.sh
 ```
 
 `get-started.sh` is a walkthrough. It shows where you are and offers one step
@@ -66,7 +66,7 @@ Each step is an ordinary script you can also run directly:
 
 ### The one thing that opens by itself
 
-`customizations.codespaces.openFiles` names `START-HERE.md`; without it
+`customizations.codespaces.openFiles` names `.devcontainer/START-HERE.md`; without it
 Codespaces opens `README.md` instead. `workbench.editorAssociations` maps that
 one filename to `vscode.markdown.preview.editor` so it opens rendered — scoped
 to the single file, so every other `.md` still opens as text and the repository
@@ -222,7 +222,7 @@ From the terminal instead:
 
 ```sh
 docker logs -f tetracorder-demo-run           # the live run
-./get-started.sh                              # the walkthrough, resumable
+.devcontainer/get-started.sh                              # the walkthrough, resumable
 .devcontainer/scripts/run-pipeline.sh         # rerun; streams when interactive
 tail -f ~/tetracorder-demo/site/run.log       # the same log on disk
 ```
