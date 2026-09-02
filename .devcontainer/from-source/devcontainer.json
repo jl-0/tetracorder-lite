@@ -21,7 +21,7 @@
   "containerEnv": {
     "TETRACORDER_BUILD": "1",
     "TETRACORDER_IMAGE": "tetracorder-lite:local",
-    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v3/emit20250327t212148_300x150.tar.gz"
+    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v4/emit20250327t212148_300x200.tar.gz"
   },
   // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
   // .devcontainer/get-started.sh takes each step on request, so the codespace opens fast

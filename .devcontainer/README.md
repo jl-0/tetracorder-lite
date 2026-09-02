@@ -13,10 +13,10 @@ configure.
 
 Three things have to exist before the badge works for anyone who clicks it:
 
-1. **Publish the scene.** Create a release tagged `demo-data-v3` and attach the
+1. **Publish the scene.** Create a release tagged `demo-data-v4` and attach the
    archive built by `tools/make_subset.py` (see [The scene](#the-scene)). The
    URL in `devcontainer.json` points at
-   `releases/download/demo-data-v3/emit20250327t212148_300x150.tar.gz`.
+   `releases/download/demo-data-v4/emit20250327t212148_300x200.tar.gz`.
 
 2. **Push the branch** so `.github/workflows/container.yml` runs and publishes
    `ghcr.io/jl-0/tetracorder-lite:demo`.
@@ -55,7 +55,7 @@ at a time:
 
 ```
   [x] 1. Container image    ghcr.io/jl-0/tetracorder-lite:demo, 1.7 GB compressed
-  [x] 2. Sample scene       300x150 window of EMIT granule emit20250327t212148
+  [x] 2. Sample scene       300x200 window of EMIT granule emit20250327t212148
   [ ] 3. Run Tetracorder    convolve, setup, tetrun, aggregate -- about 9 minutes
   [ ] 4. Open the results   mineral maps and the live log, on a forwarded port
 ```
@@ -159,7 +159,7 @@ also has the right lifecycle: preserved across stop/start, discarded on rebuild.
 ## Runtime
 
 Measured on this branch, 4 vCPU, amd64 under Rosetta on an Apple M5 Max
-(Colima), 300x150 scene, timed end to end including rendering:
+(Colima), 300x200 scene, timed end to end including rendering:
 
 | | |
 |---|---|
@@ -276,7 +276,7 @@ Overrides, all read by `scripts/common.sh`:
 |---|---|
 | `TETRACORDER_IMAGE` | `ghcr.io/jl-0/tetracorder-lite:demo` |
 | `TETRACORDER_BUILD` | `0` — set to `1` to build from `Containerfile` |
-| `TETRACORDER_SCENE_URL` | the `demo-data-v3` release asset |
+| `TETRACORDER_SCENE_URL` | the `demo-data-v4` release asset |
 | `TETRACORDER_SCENE_SHA256` | checksum of that archive; `-` disables the check |
 | `TETRACORDER_WORK` | `$HOME/tetracorder-demo` |
 | `TETRACORDER_PORT` | `8080` |

@@ -2,7 +2,7 @@
 Crop a spatial window out of an ENVI cube pair (reflectance + uncertainty).
 
 Used to build the small scene the Codespaces demo runs on. The full EMIT L2A
-granule is 1242x1280x285 float32 (1.8 GB per cube); a 300x150 window is ~51 MB
+granule is 1242x1280x285 float32 (1.8 GB per cube); a 300x200 window is ~68 MB
 per cube.
 
 Keep the window at least 299 samples wide: Tetracorder's ENVI headers disagree

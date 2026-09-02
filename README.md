@@ -20,7 +20,7 @@ of Tetracorder.  Suggested contributions are welcome as PRs.
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jl-0/tetracorder-lite/tree/codespace-demo?quickstart=1)
 
-A guided walkthrough: run Tetracorder over a 300x150 window of a real EMIT L2A
+A guided walkthrough: run Tetracorder over a 300x200 window of a real EMIT L2A
 scene, one step at a time, and see the mineral maps at the end. No install, no
 configuration; about ten minutes of which nine are the run itself.
 

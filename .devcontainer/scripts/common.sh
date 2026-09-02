@@ -14,7 +14,7 @@ SITE="$WORK/site"
 STATE="$WORK/state"
 
 IMAGE="${TETRACORDER_IMAGE:-ghcr.io/jl-0/tetracorder-lite:demo}"
-SCENE_URL="${TETRACORDER_SCENE_URL:-https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v3/emit20250327t212148_300x150.tar.gz}"
+SCENE_URL="${TETRACORDER_SCENE_URL:-https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v4/emit20250327t212148_300x200.tar.gz}"
 PORT="${TETRACORDER_PORT:-8080}"
 
 # DaVinci ships amd64 only, so the image is amd64 only. Codespaces is amd64 and
