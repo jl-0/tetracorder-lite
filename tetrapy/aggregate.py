@@ -28,6 +28,37 @@ def get_names(group):
     )
 
 
+def empty_group(group: int, like: xr.Dataset) -> tuple[xr.Dataset, xr.Dataset]:
+    """
+    Build all-zero products for a group that produced no readable output.
+
+    Only needed when tetracorder wrote nothing for the group, so :func:`aggregate`
+    could not establish the scene grid from a depth raster itself. Shape and
+    coordinates are borrowed from another group's product. A mineral id of ``0``
+    already means "no material identified", so the result is indistinguishable from
+    a group whose materials were all read but won no pixels.
+
+    Parameters
+    ----------
+    group : int
+        Group number the products are for, naming their variables.
+    like : xarray.Dataset
+        Another group's product, supplying the shape and coordinates to copy.
+
+    Returns
+    -------
+    tuple[xarray.Dataset, xarray.Dataset]
+        Zero-filled ``(mins, minuncert)`` carrying this group's four variables.
+    """
+    names = get_names(group)
+    zeros = xr.zeros_like(like[next(iter(like.data_vars))], dtype=float)
+
+    return (
+        xr.Dataset({names.depth: zeros, names.minid: zeros.copy()}),
+        xr.Dataset({names.uncert: zeros.copy(), names.fit: zeros.copy()}),
+    )
+
+
 def save(ds: xr.Dataset, file: str | Path) -> None:
     """
     Write a product to disk, dispatching on the file extension.
@@ -287,11 +318,17 @@ def aggregate(
     Returns
     -------
     tuple[xarray.Dataset | None, xarray.Dataset | None]
-        ``(mins, minuncert)`` over the ``(downtrack, crosstrack)`` dimensions, or
-        ``(None, None)`` if the group had no valid input. ``mins`` carries the scaled
-        band depth (``group_{group}_band_depth``) and mineral id
-        (``group_{group}_mineral_id``); ``minuncert`` carries the band-depth
-        uncertainty (``group_{group}_band_depth_unc``) and fit (``group_{group}_fit``).
+        ``(mins, minuncert)`` over the ``(downtrack, crosstrack)`` dimensions.
+        ``mins`` carries the scaled band depth (``group_{group}_band_depth``) and
+        mineral id (``group_{group}_mineral_id``); ``minuncert`` carries the
+        band-depth uncertainty (``group_{group}_band_depth_unc``) and fit
+        (``group_{group}_fit``).
+
+        A group whose materials were all read but won no pixels returns zero-filled
+        products, not ``None`` — a mineral id of ``0`` already means "no material
+        identified", which is the correct result over full cloud, snow or water.
+        ``(None, None)`` is returned only when no depth raster could be read at all,
+        which means tetracorder wrote nothing for the group.
     """
     # Variable names
     names = get_names(group)
@@ -305,8 +342,13 @@ def aggregate(
         if (wl > 100).any():
             wl = wl / 1000
 
-    # Tracking statistics
-    c = 0
+    # Tracking statistics. Every block lands in exactly one of these buckets, so
+    # the summary below can say *why* a group came up empty.
+    c = 0            # blocks that contributed at least one pixel
+    read = 0         # blocks whose depth raster was read (won a pixel or not)
+    no_depth = 0     # blocks with no .depth.gz on disk
+    no_fit = 0       # blocks with no .fit.gz on disk
+    no_winner = 0    # blocks whose depth raster was entirely zero
     t = len(blocks)
 
     mins = None
@@ -327,10 +369,12 @@ def aggregate(
 
         # Find the data files
         if not (depth := base.with_name(f"{base.name}.depth.gz")).exists():
+            no_depth += 1
             Logger.debug(f"[{i:03}/{t:03}] - Depth file not found for {name}")
             continue
 
         if not (fit := base.with_name(f"{base.name}.fit.gz")).exists():
+            no_fit += 1
             Logger.debug(f"[{i:03}/{t:03}] - Fit file not found for {name}")
             continue
 
@@ -338,16 +382,22 @@ def aggregate(
         with xr.open_dataset(depth, engine="rasterio") as ds:
             depth = ds["band_data"].squeeze().load().rename(Dims)
 
-        valid = depth > 0
-        if not valid.any():
-            Logger.debug(f"[{i:03}/{t:03}] - No valid data for {name}")
-            continue
+        read += 1
 
-        # Copy shape (and downtrack/crosstrack coords) from first valid input
+        # Copy shape (and downtrack/crosstrack coords) from the first raster we can
+        # read. Tetracorder writes a depth raster for every material whether or not it
+        # won a pixel, so this is established even when nothing was identified — which
+        # is what lets a fully-clouded scene yield an all-zero product instead of None.
         if mins is None:
             template = xr.zeros_like(depth, dtype=float)
             mins = xr.Dataset({names.depth: template, names.minid: template.copy()})
             minuncert = xr.Dataset({names.uncert: template.copy(), names.fit: template.copy()})
+
+        valid = depth > 0
+        if not valid.any():
+            no_winner += 1
+            Logger.debug(f"[{i:03}/{t:03}] - No winning pixels for {name}")
+            continue
 
         with xr.open_dataset(fit, engine="rasterio") as ds:
             fit = ds["band_data"].squeeze().load().rename(Dims)
@@ -388,7 +438,49 @@ def aggregate(
         c += 1
         Logger.debug(f"[{i:03}/{t:03}] + [ID: {idx}] Added {name}")
 
-    Logger.debug(f"{c}/{t} ({c / t:.1%}) Blocks successfully aggregated")
+    breakdown = ", ".join(
+        f"{n} {label}"
+        for label, n in (
+            ("won no pixels", no_winner),
+            ("missing .depth.gz", no_depth),
+            ("missing .fit.gz", no_fit),
+        )
+        if n
+    ) or "none skipped"
+
+    pct = f" ({c / t:.1%})" if t else ""
+    Logger.debug(
+        f"Group {group}: {c}/{t}{pct} blocks aggregated, {read}/{t} depth rasters read "
+        f"[{breakdown}]"
+    )
+
+    if c:
+        return mins, minuncert
+
+    # Nothing contributed. The two causes look identical in the product but are very
+    # different problems, so name which one this was rather than logging a bare count.
+    if read:
+        # Tetracorder writes a depth raster per material whether or not it won, so
+        # rasters present and uniformly zero means the competition ran and no material
+        # cleared its constraints anywhere.
+        Logger.warning(
+            f"Group {group}: all {read} depth rasters read, none had a winning pixel — "
+            f"no material was identified anywhere in the scene. Expected over full "
+            f"cloud, snow or open water. If the other group did identify material on "
+            f"the same pixels, cloud does not explain this: check that the group "
+            f"{group} continuum endpoints avoid sensor.deleted_channels."
+        )
+    else:
+        # Never got far enough to read a raster, so the competition may not have run.
+        Logger.error(
+            f"Group {group}: no depth raster could be read for any of its {t} blocks "
+            f"[{breakdown}] — tetracorder wrote no usable group {group} output. Check "
+            f"that the run completed and that group {group} is ENABLEd in "
+            f"DISABLE/<sensor>."
+        )
+
+    Logger.warning(f"Group {group} product will be all zeros")
+
     return mins, minuncert
 
 
@@ -432,7 +524,14 @@ def build(
         dimensions. ``mins`` holds ``group_1_band_depth``/``group_1_mineral_id`` and the
         group 2 equivalents; ``uncert`` holds ``group_1_band_depth_unc``/``group_1_fit``
         and the group 2 equivalents. Returned regardless of whether they were written to
-        disk.
+        disk. A group that identified nothing is zero-filled rather than omitted, so
+        both products always carry all four variables.
+
+    Raises
+    ------
+    RuntimeError
+        If neither group produced any readable tetracorder output, leaving no scene
+        grid to build the products on.
     """
     tc = TetraDecoder(tetracorder)
 
@@ -455,8 +554,29 @@ def build(
             "splib06": read_library(reflib),
         }
 
-    mins1, uncert1 = aggregate(tc, 1, rfl, rfluncert, libs, reference)
-    mins2, uncert2 = aggregate(tc, 2, rfl, rfluncert, libs, reference)
+    products = {
+        1: aggregate(tc, 1, rfl, rfluncert, libs, reference),
+        2: aggregate(tc, 2, rfl, rfluncert, libs, reference),
+    }
+
+    # A group with no readable output at all could not establish the scene grid on its
+    # own, so borrow it from the other group. Keeping all four variables matters more
+    # than the merge succeeding: a caller expecting the L2B band set gets it either way.
+    if any(mins is None for mins, _ in products.values()):
+        template = next((mins for mins, _ in products.values() if mins is not None), None)
+        if template is None:
+            raise RuntimeError(
+                f"Neither group produced readable tetracorder output under {tc.root}. "
+                "Expected .depth.gz/.fit.gz products under the group directories; check "
+                "that the tetracorder run completed."
+            )
+
+        for group, (mins, _) in list(products.items()):
+            if mins is None:
+                Logger.warning(f"Group {group} is empty, filling with zeros on the other group's grid")
+                products[group] = empty_group(group, template)
+
+    (mins1, uncert1), (mins2, uncert2) = products[1], products[2]
 
     # Variables: group_1_band_depth, group_1_mineral_id, group_2_band_depth, group_2_mineral_id
     mins = xr.merge([mins1, mins2], compat="override")
