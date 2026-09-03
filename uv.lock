@@ -1132,7 +1132,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/f5/07/47f8fd1afdf65e85e
 
 [[package]]
 name = "tetrapy"
-version = "1.0.0"
+version = "1.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
