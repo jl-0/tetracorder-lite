@@ -143,7 +143,7 @@ if [ -e "$OUTPUT/demo" ]; then
 fi
 [ -e "$OUTPUT/demo" ] && fail "could not clear the output directory -- see the log"
 
-log "starting tetrapy run (about nine minutes)"
+log "starting tetrapy run (about fourteen minutes)"
 tetrapy run /config.demo.yml >> "$SITE/run.log" 2>&1 &
 supervise $! "running Tetracorder" || fail "tetrapy run failed -- see the log"
 

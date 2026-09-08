@@ -69,7 +69,7 @@ It takes one step at a time — fetch the image, fetch a sample scene, run
 Tetracorder, open the results — and tells you what each one does before it does
 it. Nothing has been started for you.
 
-A full run is about nine minutes. That cost is almost entirely fixed: Tetracorder
+A full run is about fourteen minutes. Most of that is fixed cost: Tetracorder
 emits roughly 2,400 mineral products whatever the scene size, so the 300×200
 window is not what makes it slow.
 

@@ -89,7 +89,7 @@
 <body>
 <main>
   <h1>Tetracorder on an EMIT L2A scene</h1>
-  <p class="sub">A 300&times;200 window of granule <code>emit20250327t212148</code>, run end to end
+  <p class="sub">A 300&times;200 window of granule <code>emit20240626t165035</code>, run end to end
      through <code>tetrapy</code>: convolve the USGS spectral library onto the scene's channels,
      set up and run Tetracorder, aggregate the results into L2B mineral products.</p>
 
@@ -123,17 +123,19 @@
         <img src="full-scene.jpg" alt="The full granule with the demo's window outlined">
         <figcaption>Where it came from. The whole granule is 1242&times;1280 &mdash;
           26&times; more pixels &mdash; and mostly snow-covered mountain. The window
-          is a volcanic crater lake with a hydrothermally altered shoreline, chosen
-          for mineral diversity rather than raw identification rate.</figcaption>
+          is arid volcanic terrain &mdash; alluvial fans cut by dendritic drainage
+          &mdash; taken from the centre of the granule. Almost every pixel carries
+          an identification, and the mineral classes follow the fan lobes rather
+          than looking like noise.</figcaption>
       </figure>
     </div>
 
     <p class="prose"><b>This is a subset.</b> Running a whole granule is the same
       command against a bigger file &mdash; point <code>data.rfl</code> and
       <code>data.rfluncert</code> in the config at it. Expect roughly half an hour
-      rather than nine minutes: measured on this hardware a full 1242&times;1280
-      granule took about 34 minutes against roughly 9 for this window, so 26&times; the
-      pixels cost under 4&times; the time. Tetracorder emits its ~2,400 mineral
+      rather than fourteen minutes: measured on this hardware a full 1242&times;1280
+      granule took about 34 minutes against 13m37s for this window, so 26&times; the
+      pixels cost under 3&times; the time. Tetracorder emits its ~2,400 mineral
       products whatever the scene size, and on a small scene that fixed cost is
       almost the whole runtime.</p>
     <p class="prose"><b>The window is 300 samples wide on purpose.</b> Tetracorder
