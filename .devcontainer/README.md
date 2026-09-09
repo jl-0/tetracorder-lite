@@ -68,6 +68,7 @@ Each step is an ordinary script you can also run directly:
 | 2 | `.devcontainer/scripts/get-scene.sh` |
 | 3 | `.devcontainer/scripts/run-pipeline.sh` |
 | 4 | `.devcontainer/scripts/serve-results.sh` |
+|   | `.devcontainer/scripts/render-results.sh` to redraw the imagery only |
 |   | `.devcontainer/scripts/reset.sh` to start over |
 
 ### The one thing that opens by itself

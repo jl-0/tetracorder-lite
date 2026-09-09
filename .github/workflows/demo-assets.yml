@@ -33,6 +33,7 @@ jobs:
             .devcontainer/scripts/get-image.sh \
             .devcontainer/scripts/get-scene.sh \
             .devcontainer/scripts/install-welcome.sh \
+            .devcontainer/scripts/render-results.sh \
             .devcontainer/scripts/reset.sh \
             .devcontainer/scripts/run-pipeline.sh \
             .devcontainer/scripts/serve-results.sh \
