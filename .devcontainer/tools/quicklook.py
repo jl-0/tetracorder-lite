@@ -30,13 +30,69 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.colors import ListedColormap, to_hex
+from matplotlib.colors import ListedColormap, to_hex, to_rgb, rgb_to_hsv, hsv_to_rgb
 
-# Minerals beyond this many per group are folded into a single "other" class so
+# Families beyond this many per group are folded into a single "other" class so
 # the legend stays readable. They are still counted in the totals.
 LEGEND_LIMIT = 12
 OTHER = "#8a8a8a"
 NODATA = -9999
+
+# Readable names for the family prefixes the reference matrix encodes in its
+# `path` column. Anything not listed falls back to the raw prefix.
+FAMILY_NAMES = {
+    "fe3+": "Fe3+ oxides", "fe3+bearing1": "Fe3+ bearing", "fe3+bearing2": "Fe3+ bearing",
+    "fe2+": "Fe2+ minerals", "fe2+generic": "Fe2+ minerals", "fe2+fe3+": "Fe2+/Fe3+ mixed",
+    "kaolgrp": "Kaolin group", "kaolin": "Kaolin group", "kaolin-smect": "Kaolin-smectite",
+    "micagrp": "Micas", "smectite": "Smectites", "chlorite": "Chlorite",
+    "carbonate": "Carbonates", "sulfate": "Sulfates", "sulfate-mix": "Sulfates",
+    "sulfide": "Sulfides", "serpentine": "Serpentine", "organic": "Organic / vegetation",
+    "copper": "Copper minerals", "zeolite": "Zeolites", "amphibole": "Amphiboles",
+}
+
+
+def shades(base: str, n: int) -> list[str]:
+    """
+    n tones of one hue, dark-saturated through light-desaturated.
+
+    Family alone is too coarse: colouring 17 Fe3+ entries identically turned a
+    map with real structure -- distinct fan surfaces carrying different
+    goethite/hematite mixes -- into one flat blue. Per-entry colour is too fine,
+    and renders near-identical library entries as speckle. One hue per family
+    with a tone per entry keeps both readings: the family is obvious at a
+    glance, the within-family variation survives.
+    """
+    h, sat, val = rgb_to_hsv(to_rgb(base))
+    if n <= 1:
+        return [to_hex(hsv_to_rgb((h, sat, val)))]
+    out = []
+    for i in range(n):
+        f = i / (n - 1)
+        # A deliberately tight ramp. Wider (0.60->1.15 of value) recovered the
+        # within-family structure but darkened and desaturated enough that the
+        # families themselves stopped being distinguishable from each other,
+        # which is the thing this is for.
+        v = float(np.clip(val * (0.82 + 0.30 * f), 0.0, 1.0))
+        t = float(np.clip(sat * (1.08 - 0.34 * f), 0.0, 1.0))
+        out.append(to_hex(hsv_to_rgb((h, t, v))))
+    return out
+
+
+def family(path: str) -> str:
+    """
+    Mineral family for a reference-matrix entry, from its `path` column.
+
+    Tetracorder groups its products as ``group.<region>/<family>_<material>``, so
+    the family is already there: `fe3+_goethite.thincoat`,
+    `kaolgrp_kaolinite_wxl`, `carbonate_calcite`. Colouring by this rather than
+    by individual library entry is what stops a coherent unit looking like
+    speckle -- Kaolinite CM9 and Kaolinite KGa-2 are adjacent indices and nearly
+    the same mineral, but as separate colours they flicker pixel to pixel.
+    """
+    tail = path.split("/")[-1]
+    m = re.match(r"([a-z0-9+\-]+?)_", tail)
+    key = m.group(1) if m else tail.split(".")[0]
+    return FAMILY_NAMES.get(key, key)
 
 
 # ENVI data type codes, for showing the header in human terms.
@@ -141,32 +197,53 @@ def render_rgb(cube: np.ndarray, wl: np.ndarray, out: Path) -> dict:
             "valid_pixels": int(valid.sum())}
 
 
-def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str], group: int, out: Path) -> dict:
+def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str],
+                 fams: dict[int, str], group: int, out: Path) -> dict:
     """Render one group's mineral-ID map and band-depth map; return its stats."""
     values, counts = np.unique(ids[ids > 0].astype(int), return_counts=True)
     order = np.argsort(-counts)
     values, counts = values[order], counts[order]
 
-    # Two qualitative colormaps back to back give 32 distinct hues, comfortably
+    # Colour by mineral family, not by library entry. Comparing this tile
+    # against the operational L2B V001 product, group 1 agrees on the exact
+    # library entry only 45% of the time but on the family 98.6% -- the
+    # disagreement is which nanohematite or goethite variant won. Colouring per
+    # entry renders that as speckle; colouring per family renders the geology.
+    per_family: dict[str, int] = {}
+    for v, c in zip(values, counts):
+        per_family[fams.get(int(v), "unknown")] = per_family.get(fams.get(int(v), "unknown"), 0) + int(c)
+    fam_order = [f for f, _ in sorted(per_family.items(), key=lambda kv: -kv[1])]
+    shown_fams = fam_order[:LEGEND_LIMIT]
+
+    # Two qualitative colormaps back to back give 40 distinct hues, comfortably
     # more than LEGEND_LIMIT, without inventing a palette.
     palette = [to_hex(c) for c in list(plt.get_cmap("tab20").colors) + list(plt.get_cmap("tab20b").colors)]
-    shown = values[:LEGEND_LIMIT]
-    colors = {int(v): palette[i % len(palette)] for i, v in enumerate(shown)}
+    fam_color = {f: palette[i % len(palette)] for i, f in enumerate(shown_fams)}
 
-    # Index 0 is the background (nothing identified); everything past the legend
-    # limit collapses onto a single "other" index.
+    # Each entry gets a tone of its family's hue. Capped at SHADES distinct
+    # tones per family; rarer entries beyond that share the lightest.
+    SHADES = 6
+    entry_color: dict[int, str] = {}
+    for f in shown_fams:
+        members = [int(v) for v in values if fams.get(int(v), "unknown") == f]
+        ramp = shades(fam_color[f], min(len(members), SHADES))
+        for k, v in enumerate(members):
+            entry_color[v] = ramp[min(k, len(ramp) - 1)]
+
+    # Index 0 is the background (nothing identified); families past the legend
+    # limit collapse onto a single "other" index.
+    order_list = [int(v) for v in values if int(v) in entry_color]
+    slot = {v: i + 1 for i, v in enumerate(order_list)}
     lut = np.zeros(int(values.max()) + 1 if values.size else 1, dtype=int)
-    for i, v in enumerate(shown):
-        lut[int(v)] = i + 1
-    for v in values[LEGEND_LIMIT:]:
-        lut[int(v)] = len(shown) + 1
+    for v in values:
+        lut[int(v)] = slot.get(int(v), len(order_list) + 1)
 
     indexed = lut[np.clip(ids.astype(int), 0, len(lut) - 1)]
-    cmap = ListedColormap(["#101010"] + [colors[int(v)] for v in shown] + [OTHER])
+    cmap = ListedColormap(["#101010"] + [entry_color[v] for v in order_list] + [OTHER])
 
     fig, ax = plt.subplots(figsize=(6, 6), dpi=140)
-    ax.imshow(indexed, cmap=cmap, vmin=0, vmax=len(shown) + 1, interpolation="nearest")
-    ax.set_title(f"Group {group} mineral identifications", fontsize=11)
+    ax.imshow(indexed, cmap=cmap, vmin=0, vmax=len(order_list) + 1, interpolation="nearest")
+    ax.set_title(f"Group {group} mineral families", fontsize=11)
     ax.axis("off")
 
     # No legend inside the image: the results page renders one as a table, and
@@ -186,20 +263,27 @@ def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str], gro
     plt.close(fig)
 
     total = int(ids.size)
+    # One entry per family, each carrying the library entries that fell into it,
+    # so the map reads as geology while the table keeps every distinction.
+    families = []
+    for f in shown_fams:
+        members = [{"id": int(v), "title": titles.get(int(v), f"id {v}"), "pixels": int(c),
+                    "color": entry_color.get(int(v), fam_color[f])}
+                   for v, c in zip(values, counts) if fams.get(int(v), "unknown") == f]
+        families.append({"family": f, "pixels": per_family[f], "color": fam_color[f],
+                         "materials": len(members), "members": members[:6]})
     stats = {
         "group": group,
         "classified": int((ids > 0).sum()),
         "total": total,
         "percent": round(100.0 * (ids > 0).sum() / total, 1) if total else 0.0,
         "materials": int(values.size),
-        "top": [{"id": int(v), "title": titles.get(int(v), f"id {v}"), "pixels": int(c),
-                 "color": colors.get(int(v), OTHER)} for v, c in zip(shown, counts[:LEGEND_LIMIT])],
+        "families_total": len(per_family),
+        "families": families,
     }
-    # Everything past the legend limit shares one colour on the map, so the
-    # table needs a row saying so rather than silently omitting those pixels.
-    if values.size > LEGEND_LIMIT:
-        stats["other"] = {"pixels": int(counts[LEGEND_LIMIT:].sum()),
-                          "materials": int(values.size - LEGEND_LIMIT), "color": OTHER}
+    if len(fam_order) > LEGEND_LIMIT:
+        stats["other"] = {"pixels": sum(per_family[f] for f in fam_order[LEGEND_LIMIT:]),
+                          "families": len(fam_order) - LEGEND_LIMIT, "color": OTHER}
     return stats
 
 
@@ -280,6 +364,7 @@ def main() -> None:
         for _, r in reference.iterrows()
     }
     titles = {k: v["title"] for k, v in meta.items()}
+    fams = {k: family(v.get("path", "")) for k, v in meta.items()}
 
     # Imported here so a missing aggregate product still leaves the RGB behind.
     import xarray as xr
@@ -289,9 +374,11 @@ def main() -> None:
             ids, depth = f"group_{group}_mineral_id", f"group_{group}_band_depth"
             if ids not in ds:
                 continue
-            stats = render_group(ds[ids].values, ds[depth].values, titles, group, args.out)
-            for m in stats["top"]:
-                m.update({k: v for k, v in meta.get(m["id"], {}).items() if k != "title"})
+            stats = render_group(ds[ids].values, ds[depth].values, titles, fams,
+                                 group, args.out)
+            for fam_row in stats["families"]:
+                for m in fam_row["members"]:
+                    m.update({k: v for k, v in meta.get(m["id"], {}).items() if k != "title"})
             results["groups"].append(stats)
 
     results["outputs"] = describe_outputs(args.agg)

@@ -71,6 +71,9 @@
   .swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 3px;
             margin-right: .5rem; vertical-align: -1px; }
   .muted { color: var(--muted); }
+  tr.member td:first-child { padding-left: 1.6rem; font-size: .85rem; }
+  .swatch.sm { width: .6rem; height: .6rem; margin-right: .45rem; }
+  tr.member td { border-bottom-color: transparent; }
   .prose { max-width: 46rem; margin: 1.5rem 0; }
   .prose code { background: var(--panel); padding: .1rem .3rem; border-radius: 4px; font-size: .9em; }
   tbody th { font-weight: 600; text-transform: none; letter-spacing: 0; font-size: .85rem;
@@ -282,11 +285,14 @@ async function renderResults() {
 
   $('groups').innerHTML = data.groups.map(g => `
     <h2>Group ${g.group} &mdash; ${g.percent}% of pixels identified,
-        ${fmt(g.materials)} distinct materials</h2>
+        ${fmt(g.materials)} library entries in ${fmt(g.families_total)} mineral families</h2>
     <div class="grid">
       <figure>
         <img src="group${g.group}.png${bust}" alt="Group ${g.group} mineral identifications">
-        <figcaption>Mineral identifications, coloured by material.</figcaption>
+        <figcaption>Coloured by mineral <b>family</b>, not by individual library
+          entry. Tetracorder often splits one unit between near-identical
+          entries &mdash; Kaolinite CM9 and Kaolinite KGa-2, say &mdash; and
+          colouring those separately renders a coherent unit as speckle.</figcaption>
       </figure>
       <figure>
         <img src="group${g.group}_depth.png${bust}" alt="Group ${g.group} band depth">
@@ -294,21 +300,22 @@ async function renderResults() {
       </figure>
     </div>
     <table>
-      <thead><tr><th>Material</th><th class="n">Pixels</th></tr></thead>
-      <tbody>${g.top.map(m => `
+      <thead><tr><th>Mineral family / library entries</th><th class="n">Pixels</th></tr></thead>
+      <tbody>${g.families.map(f => `
         <tr>
-          <td>
-            <span class="swatch" style="background:${m.color}"></span>${
-              m.url ? `<a class="mineral" href="${m.url}" target="_blank" rel="noopener">${m.title}</a>`
-                    : m.title}
-            <br><span class="tag">${m.id || ''}${
-              m.library && m.record ? ` &middot; ${m.library} record ${m.record}` : ''}</span>
-          </td>
-          <td class="n">${fmt(m.pixels)}</td>
-        </tr>`).join('')}${g.other ? `
+          <td><span class="swatch" style="background:${f.color}"></span><b>${f.family}</b>
+              <span class="muted">&mdash; ${fmt(f.materials)} entr${f.materials === 1 ? 'y' : 'ies'}</span></td>
+          <td class="n">${fmt(f.pixels)}</td>
+        </tr>${f.members.map(m => `
+        <tr class="member">
+          <td><span class="swatch sm" style="background:${m.color}"></span>${
+              m.url ? `<a class="mineral" href="${m.url}" target="_blank" rel="noopener">${m.title}</a>` : m.title}
+              <span class="tag">${m.id || ''}${m.library && m.record ? ` &middot; ${m.library} rec ${m.record}` : ''}</span></td>
+          <td class="n muted">${fmt(m.pixels)}</td>
+        </tr>`).join('')}`).join('')}${g.other ? `
         <tr>
           <td><span class="swatch" style="background:${g.other.color}"></span>
-              <span class="muted">${fmt(g.other.materials)} further materials</span></td>
+              <span class="muted">${fmt(g.other.families)} further families</span></td>
           <td class="n">${fmt(g.other.pixels)}</td>
         </tr>` : ''}
       </tbody>
