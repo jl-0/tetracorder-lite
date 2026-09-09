@@ -17,7 +17,7 @@ mkdir -p "$DATA" "$OUTPUT" "$SITE" "$STATE"
 
 # Overridable so a different scene can be pointed at without editing this file;
 # set to "-" to skip the check entirely.
-SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-9e29cfa10ae1644e0243effd294e69fe6ad762aead109259a2616a9cb4220b0d}"
+SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-60ed35f1285d92ba01af8c687a11634b4ae7d9825fad87d46c5314308611d9d3}"
 
 sha_of() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'

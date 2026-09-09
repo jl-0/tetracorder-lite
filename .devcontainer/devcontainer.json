@@ -12,7 +12,7 @@
   },
   // Tetracorder's cost per run is close to fixed -- roughly 2,400 mineral
   // products regardless of scene size -- so cores, not pixels, set the wall
-  // clock. Measured at 13m37s end to end on 4 emulated amd64 cores; 2-core
+  // clock. Measured at 8m11s end to end on 4 emulated amd64 cores; 2-core
   // would be noticeably worse. The image is ~1.7 GB compressed and ~6.5 GB
   // unpacked, hence 32 GB.
   "hostRequirements": {
@@ -23,11 +23,11 @@
   "containerEnv": {
     // Built and pushed by .github/workflows/container.yml.
     "TETRACORDER_IMAGE": "ghcr.io/jl-0/tetracorder-lite:demo",
-    // The central 300x200 window of EMIT granule emit20240626t165035 (lines
-    // 540-739, samples 471-770): arid volcanic terrain, alluvial fans cut by
+    // The central 300x150 window of EMIT granule emit20240626t165035 (lines
+    // 565-714, samples 471-770): arid volcanic terrain, alluvial fans cut by
     // dendritic drainage. 96% of pixels are identified in both groups. See
     // .devcontainer/tools/make_subset.py for how it was cut.
-    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v5/emit20240626t165035_300x200.tar.gz"
+    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz"
   },
   // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
   // .devcontainer/get-started.sh takes each step on request, so the codespace opens fast
