@@ -34,9 +34,21 @@ diagnose() {
   ls -la "$DATA" 2>&1 | sed 's/^/[scene]   /' >&2
 }
 
-if verify_scene 2>/dev/null; then
+# A stamp recording which archive the staged scene came from. verify_scene only
+# checks each cube's size against its own header, so a scene left over from an
+# earlier release verifies perfectly well and would be reused for ever -- the
+# demo would keep running yesterday's tile after the scene was replaced. Compare
+# the checksum too, and re-fetch when it differs.
+STAMP="$DATA/.scene-sha256"
+
+if verify_scene 2>/dev/null && [ "$(cat "$STAMP" 2>/dev/null)" = "$SCENE_SHA256" ]; then
   echo "[scene] already present and complete"
   exit 0
+fi
+if verify_scene 2>/dev/null; then
+  echo "[scene] a different scene is staged here; replacing it"
+  rm -f "$DATA"/*_rfl "$DATA"/*_rfl.hdr "$DATA"/*_uncert "$DATA"/*_uncert.hdr \
+        "$DATA"/scene_* "$STAMP" 2>/dev/null || true
 fi
 
 archive="$STATE/scene.tar.gz"
@@ -116,6 +128,7 @@ for attempt in 1 2 3; do
   done
 
   if verify_scene; then
+    printf '%s' "$SCENE_SHA256" > "$STAMP"
     echo "[scene] ready"
     exit 0
   fi
