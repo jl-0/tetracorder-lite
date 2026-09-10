@@ -143,6 +143,32 @@ if [ -e "$OUTPUT/demo" ]; then
 fi
 [ -e "$OUTPUT/demo" ] && fail "could not clear the output directory -- see the log"
 
+# Three scripts in cmds.color.support ship mode 644 while the other 55 in that
+# directory are 755, and make.color.results.all invokes one of them directly --
+# so it dies on "Permission denied" and its colour product is missing from the
+# run with no error anyone would see. emit-sds/tetracorder-lite#31 has the
+# details and the other eight cases elsewhere in the cmds tree, which this demo
+# never invokes; scanning the whole tree costs 18 s against 1 s for this one
+# directory, so only the colour path is repaired here.
+#
+# Fixed here rather than in the image because cmd-setup-tetrun copies this
+# directory into the run tree with `cp -a`, which preserves the mode: repair the
+# source before the run and the copy comes out right. Keeping it in pipeline.sh
+# makes it a demo-side change -- /tools is bind-mounted, so no rebuild -- and
+# leaves the published image untouched. Best effort throughout: a chmod that
+# fails costs one colour product, not the run.
+COLOUR_CMDS=/root/tetracorder/tetracorder.cmds/tetracorder6.00a.cmds/cmds.color.support
+if [ -d "$COLOUR_CMDS" ]; then
+  fixed=0
+  for f in $(find "$COLOUR_CMDS" -type f ! -perm -u+x 2>/dev/null); do
+    # A shebang is what makes it a script; the rest of the non-executable files
+    # here are colour keys and text, which are correctly 644.
+    [ "$(head -c2 "$f" 2>/dev/null)" = '#!' ] || continue
+    chmod +x "$f" 2>/dev/null && fixed=$((fixed + 1))
+  done
+  [ "$fixed" -gt 0 ] && log "made $fixed non-executable colour script(s) executable (see #31)"
+fi
+
 log "starting tetrapy run (about eight minutes)"
 tetrapy run /config.demo.yml >> "$SITE/run.log" 2>&1 &
 supervise $! "running Tetracorder" || fail "tetrapy run failed -- see the log"
