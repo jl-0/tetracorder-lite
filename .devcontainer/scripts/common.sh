@@ -17,6 +17,11 @@ IMAGE="${TETRACORDER_IMAGE:-ghcr.io/jl-0/tetracorder-lite:demo}"
 SCENE_URL="${TETRACORDER_SCENE_URL:-https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz}"
 PORT="${TETRACORDER_PORT:-8080}"
 
+# Checked before the archive is unpacked. Lives here rather than in
+# get-scene.sh because the walkthrough previews the command it is about to
+# run, and two copies of a checksum are one copy too many. Set to "-" to skip.
+SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-60ed35f1285d92ba01af8c687a11634b4ae7d9825fad87d46c5314308611d9d3}"
+
 # DaVinci ships amd64 only, so the image is amd64 only. Codespaces is amd64 and
 # would not need this, but without it docker refuses to pull or run the image on
 # an arm64 host ("no matching manifest for linux/arm64/v8") -- which is every

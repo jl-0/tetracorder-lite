@@ -60,7 +60,19 @@ at a time:
   [ ] 4. Open the results   mineral maps and the live log, on a forwarded port
 ```
 
-Each step is an ordinary script you can also run directly:
+Before it runs anything it shows you the command it is about to run, with the
+image, paths and container names filled in as they actually are:
+
+```
+  .devcontainer/scripts/get-image.sh runs:
+
+    docker pull --platform=linux/amd64 ghcr.io/jl-0/tetracorder-lite:demo
+
+  Enter to run, v to read the script, s to skip, q to quit >
+```
+
+`v` pages the whole script first. Nothing is hidden and nothing runs until you
+say so; each step is an ordinary script you can also run directly:
 
 | Step | Script |
 |---|---|
@@ -217,7 +229,7 @@ Build the archive on Linux, or with `COPYFILE_DISABLE=1` on macOS: bsdtar
 stores each file's extended attributes as a separate `._name` AppleDouble
 entry, which macOS hides when listing and GNU tar extracts as a real 163-byte
 file beside the data. Attach it to a release, point `TETRACORDER_SCENE_URL` at
-it, and update `TETRACORDER_SCENE_SHA256` in `get-scene.sh`. Use a new release
+it, and update `SCENE_SHA256` in `common.sh`. Use a new release
 tag rather than replacing an asset in place — GitHub's CDN serves the old bytes
 from the same URL for some time afterwards. The
 archive must contain all four files; `get-scene.sh` links them to the
