@@ -30,13 +30,83 @@ you stop and restart the codespace. See
 [`.devcontainer/README.md`](.devcontainer/README.md) for how it is put together
 and how to point it at a different scene.
 
+## Docker or Podman
+
+Either works. Every command in this README is given for both; they take the same
+arguments, so anywhere only one is shown you can substitute the other.
+
+**Install** — follow the official instructions, they change more often than this
+file does:
+
+| | Docker | Podman |
+|---|---|---|
+| Windows | [Docker Desktop](https://docs.docker.com/desktop/install/windows-install/) | [Podman Desktop](https://podman-desktop.io/docs/installation/windows-install) |
+| macOS | [Docker Desktop](https://docs.docker.com/desktop/install/mac-install/) | [Podman Desktop](https://podman-desktop.io/docs/installation/macos-install) |
+| Linux | [Docker Engine](https://docs.docker.com/engine/install/) | [Podman](https://podman.io/docs/installation#installing-on-linux) |
+
+### Windows: use WSL 2
+
+Both engines run Linux containers on Windows through a WSL 2 virtual machine, so
+install WSL first. From an administrator PowerShell:
+
+```powershell
+wsl --install
+```
+
+Reboot, and you have WSL 2 with Ubuntu. Then either install Docker Desktop and
+turn on **Settings → Resources → WSL integration** for your distribution, or
+install Podman Desktop and let it create a Podman machine for you. Either way you
+end up running `docker` or `podman` from inside the WSL shell.
+
+**Keep the data on the Linux side.** Put your scenes and output under your WSL
+home (`/home/you/...`), not under `/mnt/c/...`. Bind mounts that cross into the
+Windows filesystem go through a translation layer, and a run writes roughly 2,300
+small rasters — the difference is not subtle. You can still reach those files from
+Explorer at `\\wsl$\Ubuntu\home\you`.
+
+Details: [WSL install](https://learn.microsoft.com/windows/wsl/install) ·
+[Docker Desktop WSL 2 backend](https://docs.docker.com/desktop/wsl/) ·
+[Podman on WSL](https://podman-desktop.io/docs/installation/windows-install)
+
+### The image is amd64-only
+
+DaVinci is distributed as an amd64 binary, so the image is built for
+`linux/amd64` and nothing else. On an arm64 host — Apple Silicon, an arm64 Linux
+box, Windows on ARM — you must say so explicitly or the engine refuses the image
+with `no matching manifest for linux/arm64/v8`:
+
+```
+--platform=linux/amd64
+```
+
+It runs under emulation there, which is slower but works. On an amd64 host the
+flag is a no-op, so the examples below carry it throughout rather than leaving
+you to work out which commands need it.
+
+### If you are using Podman
+
+* **SELinux** (Fedora, RHEL, CentOS): add `:z` to bind mounts, as in
+  `-v /path/to/input:/data:z`. Without it the container cannot read the mount.
+* **Rootless**: files written to `/output` come back owned by you, not by root,
+  which is usually what you want.
+
 ## Quick start
 
 The pipeline is driven by a YAML config (see [`config.yml`](config.yml)). Mount your
 data and output directories, then point `tetrapy run` at the config:
 
 ```sh
-docker run --rm \
+docker run --rm --platform=linux/amd64 \
+  -v /path/to/input:/data \
+  -v /path/to/output:/output \
+  tetracorder-lite \
+  tetrapy run config.yml \
+    --data.rfl /data/emit20230728t214153_rfl \
+    --data.rfluncert /data/emit20230728t214153_uncert
+```
+
+```sh
+podman run --rm --platform=linux/amd64 \
   -v /path/to/input:/data \
   -v /path/to/output:/output \
   tetracorder-lite \
@@ -51,13 +121,17 @@ flags (see [Overriding config on the CLI](#overriding-config-on-the-cli)).
 ## Building the container
 
 ```sh
-podman build -f Containerfile -t tetracorder-lite .
-# or
-docker build --platform linux/amd64 -f Containerfile -t tetracorder-lite .
+docker build --platform=linux/amd64 -f Containerfile -t tetracorder-lite .
+```
+
+```sh
+podman build --platform=linux/amd64 -f Containerfile -t tetracorder-lite .
 ```
 
 The image compiles specpr + Tetracorder (Fortran/ratfor), installs DaVinci, and
-sets up the `tetrapy` Python environment via pixi.
+sets up the `tetrapy` Python environment via pixi. Building on an arm64 host is
+emulated and takes considerably longer than the native build; if you only want to
+run the pipeline, pull a published image instead of building one.
 
 ## The pipeline
 
@@ -166,8 +240,13 @@ stages are also exposed as standalone subcommands for debugging or partial runs:
 Use `--help` on any command for full options:
 
 ```sh
-docker run --rm tetracorder-lite tetrapy --help
-docker run --rm tetracorder-lite tetrapy run --help
+docker run --rm --platform=linux/amd64 tetracorder-lite tetrapy --help
+docker run --rm --platform=linux/amd64 tetracorder-lite tetrapy run --help
+```
+
+```sh
+podman run --rm --platform=linux/amd64 tetracorder-lite tetrapy --help
+podman run --rm --platform=linux/amd64 tetracorder-lite tetrapy run --help
 ```
 
 ## Volume contract
@@ -210,11 +289,18 @@ pixi install
 pixi run tetrapy --help
 ```
 
+The build context is filtered by two files that must be changed together:
+`.dockerignore`, which only Docker reads, and `.containerignore`, which Podman
+prefers. If either drifts, that engine ships the whole working tree — including
+any scenes downloaded under `in/` — into the context and bakes it into the image.
+
 ## Project structure
 
 ```
 tetracorder-lite/
   Containerfile          # container build (specpr + tetracorder + pixi/tetrapy)
+  .dockerignore          # build context filter -- docker reads this one
+  .containerignore       #   the same list for podman; keep the two in step
   pyproject.toml         # Python project config (pixi workspace)
   config.yml             # pipeline configuration consumed by `tetrapy run`
   tetrapy/               # Python CLI
