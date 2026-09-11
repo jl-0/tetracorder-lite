@@ -11,6 +11,7 @@ Produces, into --out:
   group1_depth.png   group 1 band depth
   group2_depth.png   group 2 band depth
   results.json       per-group statistics the results page reads
+  color/*.png        Tetracorder's own colour products, copied from the run
 
 Mineral ID values in the aggregate product are ``index`` values from the
 reference matrix (tetrapy/data/v6.00a6.csv); 0 means "nothing identified".
@@ -21,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 from pathlib import Path
 
 import matplotlib
@@ -287,6 +289,143 @@ def render_group(ids: np.ndarray, depth: np.ndarray, titles: dict[int, str],
     return stats
 
 
+# Readable titles for Tetracorder's own colour products. The filenames are
+# terse and the catalogue in cmds.color.support/AAA-product-list.txt gives no
+# prose, so these are written here -- the only thing on this page that is.
+PRODUCT_NAMES = {
+    "1micron-minerals-a": ("Iron minerals, 1 µm",
+        "Fe3+ and Fe2+ minerals separated by grain size: hematite and goethite "
+        "coarse through nano, plus jarosite and the iron sulphates."),
+    "2micron-mins-emit8": ("The EMIT eight, 2 µm",
+        "The eight minerals EMIT reports, each pooling every library entry that "
+        "counts as that mineral. Mixtures appear as additive colour."),
+    "2micron-minerals": ("Clays, micas and carbonates, 2 µm",
+        "The full 2 µm mineral set rather than the EMIT subset."),
+    "2micron-minerals-b4": ("Clays, micas and carbonates, 2 µm (b4)",
+        "A later recipe for the same 2 µm minerals, with more classes separated."),
+    "2micron-minerals-detail2": ("2 µm minerals, detailed",
+        "The 2 µm set again, split finer still."),
+    "2micron-minerals-muscovite-comp": ("Muscovite composition",
+        "Muscovite sorted by Al content, which tracks alteration temperature."),
+    "hematite+goethite.grain.size-a": ("Hematite and goethite grain size",
+        "Grain size alone, for the two commonest iron oxides."),
+    "acid-minerals-buffering-minerals.a": ("Acid and buffering minerals",
+        "Minerals that generate acid against those that neutralise it."),
+    "prehnite-chlorite-mix+perchlorate": ("Prehnite, chlorite and perchlorate", ""),
+    "pyroxene.2um.band.position": ("Pyroxene composition",
+        "Band position at 2 µm, which tracks calcium and iron content."),
+    "1.5um.broadfeats": ("Broad 1.5 µm features", ""),
+    "water-a": ("Water", ""),
+    "ree.b-g21": ("Rare-earth elements", ""),
+    "snow-grain-size-water.a": ("Snow grain size and water", ""),
+    "veg,water,snow": ("Vegetation, water and snow", ""),
+    "veg-spectral-type": ("Vegetation spectral type", ""),
+    "veg-water-rgb": ("Vegetation and water, false colour", ""),
+    "vegetation-cover-a": ("Vegetation cover", ""),
+    "red-edge-shift-a": ("Red-edge shift",
+        "A stress indicator: where the vegetation red edge sits."),
+    "organics-veg-2um-a": ("Organics and vegetation, 2 µm", ""),
+}
+
+PREFIX = "tet_color-results_"
+
+LEADS = ("2micron-mins-emit8", "1micron-minerals-a")
+
+
+def colour_products(tetracorder: Path, out: Path, width: int) -> list[dict]:
+    """
+    Copy Tetracorder's own colour products to the site and describe them.
+
+    These are produced by every cube-mode run without asking -- ``cmd.runtet``
+    calls ``cmds.color.support/make.color.results.all`` once the expert system
+    is done -- so nothing here generates anything. It copies and measures.
+
+    Each product comes in three forms. ``color.results`` is a dual panel: the
+    colour map beside the same window in true colour. ``color.results+labels``
+    is that with the published USGS key concatenated underneath, which is the
+    form worth showing. ``color.results.overlays`` composites the map over the
+    grayscale base instead, which reads better on a small scene because the
+    terrain shows through.
+
+    Coverage is measured on the *left half* of the dual panel -- the colour map
+    -- because the right half is the true-colour base and is never black. It is
+    what lets the page rank the products that actually fired on this scene above
+    the ones that came out empty.
+
+    ``width`` is the scene's own width, from the ENVI header, and is what tells
+    a dual panel from a single one. Guessing from the aspect ratio instead gets
+    a 300x150 scene wrong every time, because a single panel of it is exactly as
+    wide as it is tall twice over, which is also what a dual panel looks like.
+    """
+    plain = tetracorder / "color.results"
+    if not plain.is_dir():
+        return []
+
+    dest = out / "color"
+    dest.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from PIL import Image
+    except ImportError:                                  # pragma: no cover
+        Image = None
+
+    def coverage(path: Path) -> float:
+        """Fraction of the colour panel carrying an identification."""
+        if Image is None:
+            return -1.0
+        try:
+            a = np.asarray(Image.open(path).convert("RGB"))
+        except OSError:
+            return -1.0
+        w = a.shape[1]
+        left = a[:, :width] if w >= 2 * width else a
+        return float((left.sum(axis=2) > 12).mean())
+
+    stems = {s.name[len(PREFIX):-4] if s.name.startswith(PREFIX) else s.stem
+             for s in plain.glob("*.png")}
+
+    products = []
+    for src in sorted(plain.glob("*.png")):
+        stem = src.name[len(PREFIX):-4] if src.name.startswith(PREFIX) else src.stem
+
+        # "<product>+bw" is the same map composited on the grayscale base. It is
+        # a rendering of a product already in the list, and measuring it says
+        # nothing -- the base is never black, so it scores ~100% whether or not
+        # anything was identified. Dropped, so an empty product cannot lead the
+        # page on the strength of its own backdrop.
+        if stem.endswith("+bw") and stem[:-3] in stems:
+            continue
+        name, blurb = PRODUCT_NAMES.get(stem, (stem.replace(".", " "), ""))
+
+        entry = {"key": stem, "name": name, "blurb": blurb,
+                 "coverage": round(coverage(src), 4)}
+
+        # Prefer the labelled composite; fall back to the bare product. The
+        # +labels directory is not a strict superset -- a product whose key is
+        # missing from AAA-product-list.txt never gets one.
+        for role, folder, suffix in (
+            ("labelled", "color.results+labels", "+labels.png"),
+            ("plain", "color.results", ".png"),
+            ("overlay", "color.results.overlays", "-overlay-on-bw.png"),
+        ):
+            cand = tetracorder / folder / f"{PREFIX}{stem}{suffix}"
+            if not cand.is_file() and role == "labelled":
+                # Several labelled files are written without the +labels suffix.
+                cand = tetracorder / folder / f"{PREFIX}{stem}.png"
+            if cand.is_file():
+                target = dest / f"{stem}.{role}.png"
+                shutil.copyfile(cand, target)
+                entry[role] = f"color/{target.name}"
+
+        products.append(entry)
+
+    # The two leads first, then busiest first so the page ranks what fired above
+    # what did not. Name breaks ties, for a stable order between runs.
+    products.sort(key=lambda p: (LEADS.index(p["key"]) if p["key"] in LEADS else len(LEADS),
+                                 -p["coverage"], p["name"]))
+    return products
+
+
 def describe_outputs(agg: Path) -> list[dict]:
     """
     Enumerate what the run actually produced, from the output tree itself.
@@ -325,6 +464,22 @@ def describe_outputs(agg: Path) -> list[dict]:
                             "detail": f"{len(files):,} files, {total / 1e6:.1f} MB",
                             "what": what})
 
+        # Tetracorder's own colour products. Listed with the rest because they
+        # are real outputs of the run, not something this page generates -- a
+        # reader who wants them is looking for a directory, not a page section.
+        for folder, what in (
+            ("color.results+labels", "colour mineral map with its published USGS key"),
+            ("color.results", "colour mineral map beside the true-colour base"),
+            ("color.results.overlays", "colour mineral map over the grayscale base"),
+            ("color.results-envi", "the same colour maps as ENVI rasters, for GIS"),
+        ):
+            files = list((tetdir / folder).glob("*")) if (tetdir / folder).is_dir() else []
+            if files:
+                total = sum(f.stat().st_size for f in files if f.is_file())
+                out.append({"name": f"{folder}/", "format": "PNG" if "envi" not in folder else "ENVI",
+                            "detail": f"{len(files):,} files, {total / 1e6:.1f} MB",
+                            "what": what})
+
     out.append({"name": "results.json", "format": "JSON", "detail": "written by quicklook.py",
                 "what": "summary of agg.nc for this page only - not a pipeline product"})
     return out
@@ -336,6 +491,8 @@ def main() -> None:
     parser.add_argument("--agg", type=Path, required=True, help="aggregate product (agg.nc)")
     parser.add_argument("--reference", type=Path, default=Path("/root/tetrapy/data/v6.00a6.csv"))
     parser.add_argument("--out", type=Path, required=True, help="directory to write imagery into")
+    parser.add_argument("--tetracorder", type=Path, default=None,
+                        help="the tetracorder run directory, for its colour products")
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -382,6 +539,13 @@ def main() -> None:
             results["groups"].append(stats)
 
     results["outputs"] = describe_outputs(args.agg)
+
+    # Tetracorder's own colour products. Absent on a run that predates this, or
+    # one where the base image could not be built, so the page treats an empty
+    # list as "nothing to show" rather than an error.
+    results["colour"] = (colour_products(args.tetracorder, args.out,
+                                        int(fields["samples"]))
+                         if args.tetracorder else [])
 
     (args.out / "results.json").write_text(json.dumps(results, indent=2))
     print(json.dumps(results, indent=2))

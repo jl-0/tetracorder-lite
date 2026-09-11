@@ -179,6 +179,7 @@ log "rendering imagery"
 python /tools/quicklook.py \
   --rfl /data/scene_rfl \
   --agg "$OUTPUT/demo/aggregate/agg.nc" \
+  --tetracorder "$OUTPUT/demo/tetracorder" \
   --out "$SITE" >> "$SITE/run.log" 2>&1 &
 supervise $! "rendering" || fail "rendering failed -- see the log"
 

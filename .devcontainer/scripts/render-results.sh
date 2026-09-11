@@ -27,6 +27,7 @@ docker run --rm $PLATFORM "${env[@]}" "${mounts[@]}" "$IMAGE" \
   python /tools/quicklook.py \
     --rfl /data/scene_rfl \
     --agg /output/demo/aggregate/agg.nc \
+    --tetracorder /output/demo/tetracorder \
     --out /site
 
 docker run --rm $PLATFORM "${mounts[@]}" "$IMAGE" \

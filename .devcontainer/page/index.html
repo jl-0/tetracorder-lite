@@ -74,6 +74,23 @@
   tr.member td:first-child { padding-left: 1.6rem; font-size: .85rem; }
   .swatch.sm { width: .6rem; height: .6rem; margin-right: .45rem; }
   tr.member td { border-bottom-color: transparent; }
+  /* Tetracorder's colour products are drawn on black and carry white legend
+     text, so they need a black mount rather than the page's panel colour --
+     anything else puts a grey frame around a black image. */
+  .product { margin: 0 0 2rem; }
+  .product img { width: 100%; display: block; border-radius: 8px; background: #000;
+                 border: 1px solid var(--line); image-rendering: pixelated; }
+  .product h3 { margin: 0 0 .25rem; font-size: 1.05rem; }
+  .product .file { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                   font-size: .75rem; color: var(--muted); margin: .4rem 0 0; }
+  .product .blurb { color: var(--muted); font-size: .9rem; margin: 0 0 .75rem; max-width: 46rem; }
+  .empty { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0 0; padding: 0; list-style: none; }
+  .empty li { font-size: .8rem; color: var(--muted); border: 1px solid var(--line);
+              border-radius: 999px; padding: .15rem .6rem; }
+  details.more { margin-top: 1.5rem; border: 1px solid var(--line); border-radius: 8px; }
+  details.more > summary { cursor: pointer; padding: .7rem 1rem; font-weight: 600; font-size: .95rem; }
+  details.more[open] > summary { border-bottom: 1px solid var(--line); }
+  details.more .inner { padding: 1.25rem 1rem .25rem; }
   .prose { max-width: 46rem; margin: 1.5rem 0; }
   .prose code { background: var(--panel); padding: .1rem .3rem; border-radius: 4px; font-size: .9em; }
   tbody th { font-weight: 600; text-transform: none; letter-spacing: 0; font-size: .85rem;
@@ -197,6 +214,37 @@
 
     <div id="groups"></div>
 
+    <section id="colour-section" class="hidden">
+      <h2>Tetracorder draws its own maps</h2>
+      <p class="prose">Everything above this point was drawn by the demo, from
+        <code>agg.nc</code>. The images below were not. Tetracorder drew them
+        itself during the run, using DaVinci, and they are copied here off the
+        run directory exactly as produced.</p>
+      <p class="prose">Each one is a fixed recipe living in the container under
+        <code>cmds.color.support/davinci.make.*</code>. A recipe names the
+        minerals, gives each a colour, and lists the library entries that count
+        as that mineral &mdash; <code>davinci.make.2micron-mins-emit8</code>
+        pools fourteen separate calcite entries into a single blue. Where
+        minerals occur together the colours add, which is why the keys carry a
+        second row for the mixtures. The colours, the groupings and the key
+        images are all USGS's, so these maps mean the same thing here as in the
+        papers they come from.</p>
+      <p class="prose">That is the difference from the maps above.
+        <code>agg.nc</code> gives each pixel its single best-matching
+        <i>library entry</i>; these give each pixel a <i>mineral</i>, pooling
+        the entries that mean the same thing. Both are worth having.</p>
+      <p class="prose"><b>You get these for free.</b> They cost about eight
+        seconds of an eight-minute run and need no flag: any
+        <code>tetrapy run</code> in <code>cube</code> mode writes them to
+        <code>color.results+labels/</code> in the run directory, as long as the
+        config gives <code>sensor.colors</code> the band numbers to build a base
+        image from. If that base image cannot be built, every colour product is
+        skipped and nothing says so. Which products appear depends on
+        <code>sensor.enable.groups</code> &mdash; this run has the 1&nbsp;µm iron
+        and 2&nbsp;µm mineral groups on, so the 1.9&nbsp;µm water maps are absent.</p>
+      <div id="colour"></div>
+    </section>
+
     <h2>What the run produced</h2>
     <p class="prose">Two real products, in two formats, for different purposes.
       Tetracorder writes a gzipped <b>ENVI</b> raster per material per quantity
@@ -219,6 +267,7 @@ const $ = id => document.getElementById(id);
 let rendered = false;
 
 const fmt = n => n.toLocaleString();
+const PREFIX = 'tet_color-results_';
 const clock = s => `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 
 async function json(path) {
@@ -320,6 +369,42 @@ async function renderResults() {
         </tr>` : ''}
       </tbody>
     </table>`).join('');
+
+  const colour = data.colour || [];
+  if (colour.length) {
+    // Anything under 2% of the colour panel is, to the eye, an empty frame.
+    // Those are a real result -- Tetracorder looked and found nothing -- but
+    // they are not worth a figure each, so they are named instead.
+    const shown = colour.filter(c => c.coverage >= 0.02 || c.coverage < 0);
+    const empty = colour.filter(c => c.coverage >= 0 && c.coverage < 0.02);
+
+    const fig = c => `
+      <figure class="product">
+        <h3>${c.name}</h3>
+        ${c.blurb ? `<p class="blurb">${c.blurb}</p>` : ''}
+        <img src="${(c.labelled || c.plain || c.overlay)}${bust}" alt="${c.name}" loading="lazy">
+        <p class="file">${PREFIX}${c.key} &mdash; ${c.coverage >= 0
+            ? `${(c.coverage * 100).toFixed(0)}% of the window carries an identification`
+            : 'coverage not measured'}</p>
+      </figure>`;
+
+    $('colour').innerHTML =
+      shown.slice(0, 2).map(fig).join('')
+      + (shown.length > 2 ? `
+        <details class="more">
+          <summary>${shown.length - 2} more colour products from this run</summary>
+          <div class="inner">${shown.slice(2).map(fig).join('')}</div>
+        </details>` : '')
+      + (empty.length ? `
+        <p class="prose" style="margin-top:1.5rem"><b>Looked for, not found.</b>
+          ${empty.length} further product${empty.length === 1 ? ' was' : 's were'}
+          drawn and came out empty &mdash; Tetracorder searched this window for
+          them and identified nothing. On an arid volcanic scene that is the
+          expected answer, and it is as much a result as the maps above.</p>
+        <ul class="empty">${empty.map(c => `<li>${c.name}</li>`).join('')}</ul>` : '');
+
+    $('colour-section').classList.remove('hidden');
+  }
 
   $('results').classList.remove('hidden');
   rendered = true;
