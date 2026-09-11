@@ -32,8 +32,10 @@ and how to point it at a different scene.
 
 ## Docker or Podman
 
-Either works. Every command in this README is given for both; they take the same
-arguments, so anywhere only one is shown you can substitute the other.
+Either works. Podman implements the same command-line interface, so every
+example below runs unchanged under `podman` — substitute the command name and
+nothing else. The only additions Podman ever needs are volume suffixes on
+SELinux systems, covered below.
 
 **Install** — follow the official instructions, they change more often than this
 file does:
@@ -85,8 +87,12 @@ you to work out which commands need it.
 
 ### If you are using Podman
 
+Nothing in the examples changes — `--rm`, `-v`, `-e`, `--platform` and the rest
+mean the same thing to both. Two things are worth knowing anyway:
+
 * **SELinux** (Fedora, RHEL, CentOS): add `:z` to bind mounts, as in
   `-v /path/to/input:/data:z`. Without it the container cannot read the mount.
+  This is the one flag Docker has no equivalent for.
 * **Rootless**: files written to `/output` come back owned by you, not by root,
   which is usually what you want.
 
@@ -105,16 +111,6 @@ docker run --rm --platform=linux/amd64 \
     --data.rfluncert /data/emit20230728t214153_uncert
 ```
 
-```sh
-podman run --rm --platform=linux/amd64 \
-  -v /path/to/input:/data \
-  -v /path/to/output:/output \
-  tetracorder-lite \
-  tetrapy run config.yml \
-    --data.rfl /data/emit20230728t214153_rfl \
-    --data.rfluncert /data/emit20230728t214153_uncert
-```
-
 Every config value can be overridden on the command line with dotted `--key value`
 flags (see [Overriding config on the CLI](#overriding-config-on-the-cli)).
 
@@ -122,10 +118,6 @@ flags (see [Overriding config on the CLI](#overriding-config-on-the-cli)).
 
 ```sh
 docker build --platform=linux/amd64 -f Containerfile -t tetracorder-lite .
-```
-
-```sh
-podman build --platform=linux/amd64 -f Containerfile -t tetracorder-lite .
 ```
 
 The image compiles specpr + Tetracorder (Fortran/ratfor), installs DaVinci, and
@@ -242,11 +234,6 @@ Use `--help` on any command for full options:
 ```sh
 docker run --rm --platform=linux/amd64 tetracorder-lite tetrapy --help
 docker run --rm --platform=linux/amd64 tetracorder-lite tetrapy run --help
-```
-
-```sh
-podman run --rm --platform=linux/amd64 tetracorder-lite tetrapy --help
-podman run --rm --platform=linux/amd64 tetracorder-lite tetrapy run --help
 ```
 
 ## Volume contract
