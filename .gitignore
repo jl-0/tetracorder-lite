@@ -21,6 +21,14 @@ build_image.sh
 
 # Ignore test, build and distribution files
 build/
+# ...but not inside vendored third-party source. libtiff, bundled inside
+# iomedley, has a real build/ directory listed in its own SUBDIRS, so the rule
+# above silently dropped three tracked files and left a checkout that fails with
+# "cd: build: No such file or directory" -- while a local `docker build` passed,
+# because the build context is not filtered by .gitignore. Same trap as
+# .devcontainer/build/, which is why demo-assets.yml exists.
+!vendor/**/build/
+!vendor/**/build/**
 dist/*.whl
 *.egg
 *.egg-info/
