@@ -210,9 +210,31 @@ which we deliberately drop:
 Anything else differing means a flag or a dependency moved, and the colour
 products are the thing to re-check -- see the note on version drift below.
 
-## Version drift
+## Version drift, and what the output actually did
 
 Trunk r19810 is 3.02; ASU's `.deb` is 3.01. DaVinci produces the colour products
 and the ENVI-header-from-VICAR conversion, so a source build needs the *output*
-re-validated, not just "it compiles". The demo pipeline is the test: run it and
-compare `color.results/` and `agg.nc` against a known-good amd64 run.
+re-validated, not just "it compiles".
+
+That was done. The demo pipeline was run twice on the same 300x150 window of
+EMIT granule `emit20240626t165035` -- once with the published amd64 image built
+on ASU's `.deb` 3.01, once with an arm64 image built from this source at 3.02:
+
+* **Mineralogy is identical to the pixel.** Group 1: 97.4%, 24 materials,
+  43,825 px. Group 2: 95.7%, 78 materials, 43,080 px. Same in both.
+* **All 46 colour products are byte-for-byte identical** -- 21 in
+  `color.results/`, 22 in `color.results+labels/`, 3 in `base-image/`. Not
+  "visually equivalent": the same SHA-256.
+
+Byte-identical PNGs across both a different architecture and a different DaVinci
+version is a stronger result than it sounds, and it holds because the bundled
+libpng-1.2.3 inside iomedley is compiled from the same vendored source in both
+cases, so the encoder is the same one.
+
+To repeat the comparison, run the demo against each image and diff
+`output/demo/tetracorder/color.results/` plus the `groups` block of
+`site/results.json`.
+
+Incidentally, the arm64 run took **198 s** where the amd64 image under Rosetta on
+the same machine took 460-820 s. Native beats emulated by a wide margin, which is
+most of the point of publishing both.
