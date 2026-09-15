@@ -133,8 +133,13 @@ jobs:
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
-          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
-          echo "${{ matrix.platform }} -> ${{ steps.build.outputs.digest }}"
+          # The sha256: prefix is stripped because the merge job re-adds it when
+          # it builds IMAGE@sha256:<digest>. Leaving it on produces
+          # IMAGE@sha256:sha256:... and a filename containing a colon, which
+          # upload-artifact rejects.
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "${{ matrix.platform }} -> $digest"
 
       - uses: actions/upload-artifact@v4
         with:
