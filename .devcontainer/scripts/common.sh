@@ -22,11 +22,21 @@ PORT="${TETRACORDER_PORT:-8080}"
 # run, and two copies of a checksum are one copy too many. Set to "-" to skip.
 SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-60ed35f1285d92ba01af8c687a11634b4ae7d9825fad87d46c5314308611d9d3}"
 
-# DaVinci ships amd64 only, so the image is amd64 only. Codespaces is amd64 and
-# would not need this, but without it docker refuses to pull or run the image on
-# an arm64 host ("no matching manifest for linux/arm64/v8") -- which is every
-# Apple Silicon Mac these scripts get tested on.
-PLATFORM="--platform=linux/amd64"
+# No --platform pin. The image is published as a manifest list covering
+# linux/amd64 and linux/arm64, so docker selects the native one by itself.
+#
+# This used to be a hard "--platform=linux/amd64", because ASU publishes DaVinci
+# as an amd64-only .deb and an amd64-only image cannot be pulled on an arm64 host
+# at all ("no matching manifest for linux/arm64/v8") -- which is every Apple
+# Silicon Mac these scripts get tested on. The image now builds DaVinci from
+# vendored source, which is what removed the constraint.
+#
+# Set TETRACORDER_PLATFORM to force one, e.g. to run the amd64 image under
+# emulation for comparison:
+#   TETRACORDER_PLATFORM=--platform=linux/amd64
+# get-image.sh also falls back to amd64 on its own if the tag turns out to be an
+# older, amd64-only build.
+PLATFORM="${TETRACORDER_PLATFORM:-}"
 
 # Named containers, because the docker daemon -- not a shell process -- is what
 # owns the long-running work here. A Codespaces lifecycle command reaps anything
