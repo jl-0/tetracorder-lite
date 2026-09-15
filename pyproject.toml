@@ -29,7 +29,10 @@ packages = ["tetrapy"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64"]
+# Both architectures the container image is published for. conda-forge builds
+# every dependency below for linux-aarch64, so this is the whole change needed
+# on the Python side; there is no committed pixi.lock, so nothing to regenerate.
+platforms = ["linux-64", "linux-aarch64"]
 
 [tool.pixi.pypi-dependencies]
 tetrapy = { path = ".", editable = true }
