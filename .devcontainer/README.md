@@ -66,7 +66,7 @@ image, paths and container names filled in as they actually are:
 ```
   .devcontainer/scripts/get-image.sh runs:
 
-    docker pull --platform=linux/amd64 ghcr.io/jl-0/tetracorder-lite:demo
+    docker pull ghcr.io/jl-0/tetracorder-lite:demo
 
   Enter to run, v to read the script, s to skip, q to quit >
 ```
@@ -171,8 +171,10 @@ also has the right lifecycle: preserved across stop/start, discarded on rebuild.
 
 ## Runtime
 
-Measured on this branch, 4 vCPU, amd64 under Rosetta on an Apple M5 Max
-(Colima), 300x150 scene, timed end to end including rendering:
+Measured on this branch, 4 vCPU, **amd64 under Rosetta** on an Apple M5 Max
+(Colima), 300x150 scene, timed end to end including rendering. These predate the
+arm64 image, so on the same hardware a native arm64 run should be faster; that
+has not been measured:
 
 | | |
 |---|---|

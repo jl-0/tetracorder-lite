@@ -25,7 +25,7 @@ SKIPPED=""
 skipped() { case " $SKIPPED " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
 TITLES=("Container image" "Sample scene" "Run Tetracorder" "Open the results")
-NOTES=("ghcr.io/jl-0/tetracorder-lite:demo, 1.7 GB compressed" \
+NOTES=("ghcr.io/jl-0/tetracorder-lite:demo, 1.7 GB compressed, amd64 + arm64" \
        "300x150 window of EMIT granule emit20240626t165035" \
        "convolve, setup, tetrun, aggregate -- about 8 minutes" \
        "mineral maps and the live log, on a forwarded port")
@@ -33,7 +33,7 @@ CMDS=(".devcontainer/scripts/get-image.sh" \
       ".devcontainer/scripts/get-scene.sh" \
       ".devcontainer/scripts/run-pipeline.sh" \
       ".devcontainer/scripts/serve-results.sh")
-BLURBS=("Fetch the container image. It carries specpr, Tetracorder and DaVinci already compiled, so nothing is built here." \
+BLURBS=("Fetch the container image. It carries specpr, Tetracorder and DaVinci already compiled -- for both amd64 and arm64 -- so nothing is built here." \
         "Download the sample scene and check it arrived complete -- a truncated download is caught here rather than nine minutes into a run." \
         "Run the pipeline. It starts as a container and this terminal follows its log; Ctrl-C stops watching, the run keeps going." \
         "Start the results page. It streams the run log and shows the mineral maps when the run finishes.")
@@ -52,16 +52,25 @@ note() { printf '    %s%s%s\n' "$DIM" "$1" "$OFF"; }
 # $HOME is a long path in a codespace and appears in five mounts.
 tilde() { local p=$1; printf '%s' "${p/#$HOME/~}"; }
 
+# PLATFORM is empty on a multi-architecture image, so interpolating it directly
+# would leave a double space in the previewed command. Renders " --platform=..."
+# only when there is one to show.
+plat() { [ -n "$PLATFORM" ] && printf ' %s' "$PLATFORM"; }
+
 preview_1() {
   if dk image inspect "$IMAGE" >/dev/null 2>&1; then
     note "# already pulled -- this step would find it and do nothing"
   fi
   if [ "${TETRACORDER_BUILD:-0}" = 1 ]; then
-    cmd "docker build $PLATFORM -f Containerfile -t $IMAGE ."
+    cmd "docker build$(plat) -f Containerfile -t $IMAGE ."
     note "# TETRACORDER_BUILD=1 is set, so this compiles specpr, Tetracorder"
     note "# and DaVinci from source instead of pulling. Expect ~20 minutes."
   else
-    cmd "docker pull $PLATFORM $IMAGE"
+    cmd "docker pull$(plat) $IMAGE"
+    if [ -z "$PLATFORM" ]; then
+      note "# no --platform: the image is published for amd64 and arm64, so"
+      note "# docker picks the one matching this machine"
+    fi
   fi
 }
 
@@ -75,7 +84,7 @@ preview_2() {
 }
 
 preview_3() {
-  cmd "docker run -d --name $RUN_CONTAINER $PLATFORM \\"
+  cmd "docker run -d --name $RUN_CONTAINER$(plat) \\"
   cmd "  -v \$PWD/.devcontainer/config.demo.yml:/config.demo.yml:ro \\"
   cmd "  -v \$PWD/.devcontainer/tools:/tools:ro \\"
   cmd "  -v $(tilde "$DATA"):/data:ro \\"
@@ -89,7 +98,7 @@ preview_3() {
 
 preview_4() {
   cmd "cp .devcontainer/page/* $(tilde "$SITE")/"
-  cmd "docker run -d --name $WEB_CONTAINER $PLATFORM --restart unless-stopped \\"
+  cmd "docker run -d --name $WEB_CONTAINER$(plat) --restart unless-stopped \\"
   cmd "  -p $PORT:$PORT -v $(tilde "$SITE"):/site \\"
   cmd "  $IMAGE python -m http.server $PORT --directory /site"
 }
