@@ -13,13 +13,62 @@ OUTPUT="$WORK/output"
 SITE="$WORK/site"
 STATE="$WORK/state"
 
-IMAGE="${TETRACORDER_IMAGE:-ghcr.io/jl-0/tetracorder-lite:demo}"
-SCENE_URL="${TETRACORDER_SCENE_URL:-https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz}"
+# Which repository the image and scene come from. Codespaces sets
+# GITHUB_REPOSITORY to <owner>/<repo>, so a codespace opened from a fork uses
+# that fork's own image and scene instead of whichever account happened to be
+# written in here -- which is what made the demo follow jl-0 even from a
+# codespace created on another repository.
+#
+# Unset outside a codespace (a local clone, or a plain `bash get-started.sh`),
+# where the fallback applies. Update the fallback if the canonical home moves;
+# it is the only account name left in the demo scripts.
+REPO="${GITHUB_REPOSITORY:-jl-0/tetracorder-lite}"
+
+# GHCR namespaces are lowercase and GitHub owner names need not be, so fold the
+# case rather than trusting it. The repository half is deliberately not used:
+# container.yml publishes to ghcr.io/${{ github.repository_owner }}/
+# tetracorder-lite, a literal name, so a fork that renames itself still pushes
+# and pulls "tetracorder-lite".
+OWNER="$(printf '%s' "${REPO%%/*}" | tr '[:upper:]' '[:lower:]')"
+
+# Which tag. container.yml publishes type=ref,event=branch, so every branch it
+# builds carries an image named after that branch -- and a codespace is a
+# checkout of exactly one branch, so the branch it checked out is the image it
+# should run. That is what makes "open a codespace on this branch" test this
+# branch's image rather than whatever :demo happens to be pointing at, which
+# for a long while was a build predating the vendored DaVinci entirely.
+#
+# metadata-action replaces runs of characters that are invalid in a Docker tag
+# with a single hyphen, so the branch fix/aggregate-nodata-mask is published as
+# fix-aggregate-nodata-mask. The sed below is that same transform; keep the two
+# in step or the pull asks for a tag the workflow never wrote.
+#
+# Falls back to "demo" when there is no branch to read -- a detached HEAD, or an
+# unpacked tarball rather than a clone. Only branches in container.yml's
+# `on: push:` filter have an image at all; TETRACORDER_IMAGE points elsewhere.
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+case "$BRANCH" in
+  "" | HEAD) TAG="demo" ;;
+  *) TAG="$(printf '%s' "$BRANCH" | sed 's/[^a-zA-Z0-9._-][^a-zA-Z0-9._-]*/-/g')" ;;
+esac
+
+IMAGE="${TETRACORDER_IMAGE:-ghcr.io/$OWNER/tetracorder-lite:$TAG}"
+
+# The central 300x150 window of EMIT granule emit20240626t165035 (lines 565-714,
+# samples 471-770): arid volcanic terrain, alluvial fans cut by dendritic
+# drainage. 96% of pixels are identified in both groups. See
+# .devcontainer/tools/make_subset.py for how it was cut.
+SCENE_URL="${TETRACORDER_SCENE_URL:-https://github.com/$REPO/releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz}"
 PORT="${TETRACORDER_PORT:-8080}"
 
 # Checked before the archive is unpacked. Lives here rather than in
 # get-scene.sh because the walkthrough previews the command it is about to
 # run, and two copies of a checksum are one copy too many. Set to "-" to skip.
+#
+# This pins one specific archive, so it is coupled to SCENE_URL above: a fork
+# that publishes its own scene under the demo-data-v6 tag must update this too,
+# or the download it just built will be rejected as "not the published archive".
+# Re-uploading the same archive to a fork needs no change.
 SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-60ed35f1285d92ba01af8c687a11634b4ae7d9825fad87d46c5314308611d9d3}"
 
 # No --platform pin. The image is published as a manifest list covering

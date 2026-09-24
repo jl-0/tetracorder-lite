@@ -20,15 +20,12 @@
     "memory": "16gb",
     "storage": "32gb"
   },
-  "containerEnv": {
-    // Built and pushed by .github/workflows/container.yml.
-    "TETRACORDER_IMAGE": "ghcr.io/jl-0/tetracorder-lite:demo",
-    // The central 300x150 window of EMIT granule emit20240626t165035 (lines
-    // 565-714, samples 471-770): arid volcanic terrain, alluvial fans cut by
-    // dendritic drainage. 96% of pixels are identified in both groups. See
-    // .devcontainer/tools/make_subset.py for how it was cut.
-    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz"
-  },
+  // No TETRACORDER_IMAGE or TETRACORDER_SCENE_URL here on purpose. Those are the
+  // override variables, so setting them would win over the defaults in
+  // .devcontainer/scripts/common.sh -- which now derive both from
+  // GITHUB_REPOSITORY, so a codespace opened from a fork uses that fork's own
+  // image and scene. Hardcoding them here is what stopped that working. Set
+  // either one in this block only to deliberately point a codespace elsewhere.
   // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
   // .devcontainer/get-started.sh takes each step on request, so the codespace opens fast
   // and nothing is happening that you did not ask for. This only installs the

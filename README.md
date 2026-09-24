@@ -18,11 +18,16 @@ of Tetracorder.  Suggested contributions are welcome as PRs.
 
 ## Try it in a codespace
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jl-0/tetracorder-lite/tree/codespace-demo?quickstart=1)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jl-0/tetracorder-lite/tree/build-davinci-multiarch?quickstart=1)
 
 A guided walkthrough: run Tetracorder over a 300x150 window of a real EMIT L2A
 scene, one step at a time, and see the mineral maps at the end. No install, no
 configuration; about ten minutes of which nine are the run itself.
+
+The badge opens `build-davinci-multiarch`, and the demo scripts pull the image
+built from whichever branch the codespace checked out -- so this one runs the
+multi-architecture image with DaVinci compiled from vendored source, native on
+both amd64 and arm64.
 
 The codespace opens on a terminal and does nothing until you run
 `.devcontainer/get-started.sh`, which takes each step on request and resumes correctly if
