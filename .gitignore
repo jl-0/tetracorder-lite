@@ -13,7 +13,11 @@
 build_image.sh
 
 # Ignore folders and their contents with these names
-.vscode
+# .vscode/* rather than .vscode: git cannot re-include a file whose parent
+# directory is excluded, so the bare name made the negation below impossible.
+# Personal editor state stays ignored; the demo's checked-in task does not.
+.vscode/*
+!.vscode/tasks.json
 
 # Ignore test, build and distribution files
 build/
