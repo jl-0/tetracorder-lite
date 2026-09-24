@@ -12,8 +12,11 @@
 name: container
 
 on:
+  # main is here so the image a codespace opened on main would pull actually
+  # exists: the demo scripts derive their tag from the checked-out branch, and a
+  # branch absent from this list has no image at all.
   push:
-    branches: [codespace-demo, build-davinci-multiarch]
+    branches: [main, build-davinci-multiarch]
     paths-ignore:
       - "SE-Documentation/**"
       - "**/*.md"
@@ -21,10 +24,17 @@ on:
       # under it can change the image. The demo's own scripts are mounted at
       # run time, not baked in.
       - ".devcontainer/**"
+  # Release publishing, merged in from the separate image.yml added by #40.
+  # Keeping them apart would have meant release images built by a single-runner
+  # job -- amd64 only -- while branch images were multi-architecture, so the
+  # tags people actually pull (:latest, the semver ones) would be the ones
+  # missing arm64. One workflow, one manifest-list builder, all tags.
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Extra tag to publish alongside :demo"
+        description: "Extra tag to publish alongside the automatic ones"
         required: false
         type: string
 
@@ -118,6 +128,25 @@ jobs:
       # letting both jobs tag :demo would leave whichever finished last as the
       # whole image and discard the other architecture. The merge job below is
       # what attaches the tags, to a manifest list naming both digests.
+      #
+      # This also attaches a SLSA build-provenance attestation per architecture,
+      # which is the default and is kept deliberately. It records the commit
+      # (vcs:revision), the Actions run that built the image, and the base image
+      # by digest -- so "which commit produced this image" is answerable from the
+      # registry alone. That matters more than usual here, because the image
+      # compiles DaVinci, specpr and Tetracorder from source.
+      #
+      # The cost is cosmetic: each attestation rides in the manifest list as an
+      # entry with platform "unknown/unknown", and GHCR's package page renders
+      # that literally rather than labelling it an attestation. It is not a
+      # broken or empty image, and docker ignores those entries when selecting a
+      # platform. To check which image an entry belongs to:
+      #
+      #   docker buildx imagetools inspect <ref> --raw | \
+      #     jq '.manifests[] | {platform, annotations}'
+      #
+      # -- the annotation vnd.docker.reference.digest names the real image it
+      # attests to. Add `provenance: false` below to drop them entirely.
       - id: build
         uses: docker/build-push-action@v6
         with:
@@ -173,20 +202,35 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # :demo is what every codespace pulls, so only the demo branch may move it.
-      # Any other branch publishes under its own name, which is what makes it
-      # safe to develop the image without breaking the live walkthrough -- point
-      # a demo at one with
-      #   TETRACORDER_IMAGE=ghcr.io/jl-0/tetracorder-lite:<branch>
+      # Every branch publishes under its own name and nothing else, so image
+      # work on one branch cannot disturb another. The demo resolves the same
+      # name from the branch it checked out, so a codespace opened on a branch
+      # runs that branch's image with nothing to configure; TETRACORDER_IMAGE
+      # overrides it to point somewhere else.
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=raw,value=demo,enable=${{ github.ref_name == 'codespace-demo' }}
             type=ref,event=branch
             type=sha,format=long
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+            # From image.yml. These read the git tag, so they yield nothing on a
+            # branch push and need no gate: procSemver in metadata-action bails
+            # unless the ref matches ^refs/tags/. A release event's ref is
+            # refs/tags/vX.Y.Z, so they fire there.
+            #
+            # :latest is NOT listed. flavor's default latest=auto already adds it
+            # for type=semver, and only for a stable version -- image.yml's
+            # explicit type=raw,value=latest would have moved :latest onto a
+            # prerelease, so publishing v1.2.0-rc1 would have made the release
+            # candidate the default pull. auto also collapses a prerelease to
+            # {{version}} alone, so an rc never claims the bare :1 or :1.1
+            # either. latest=auto never applies to type=ref,event=branch, so no
+            # branch push can take it.
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -200,9 +244,15 @@ jobs:
       # `imagetools create` did what was asked. A single-architecture manifest
       # published under a multi-architecture promise is the exact failure this
       # whole branch exists to fix, so it is worth one assertion.
+      # Inspected by steps.meta.outputs.version rather than github.ref_name: on a
+      # release those differ. ref_name is the git tag (v1.1.0), but metadata-action
+      # strips the v, so what actually got published is 1.1.0 -- inspecting
+      # :v1.1.0 would look for a tag this workflow never writes and fail every
+      # release. `version` is the primary generated tag, which is the branch name
+      # on a branch push and the semver on a release, so it is right for both.
       - name: Both architectures are in the published manifest
         run: |
-          docker buildx imagetools inspect "${{ env.IMAGE }}:${{ github.ref_name }}" --raw \
+          docker buildx imagetools inspect "${{ env.IMAGE }}:${{ steps.meta.outputs.version }}" --raw \
             | jq -r '.manifests[] | select(.platform.architecture != "unknown")
                      | "\(.platform.os)/\(.platform.architecture)"' \
             | sort | tee /tmp/arches

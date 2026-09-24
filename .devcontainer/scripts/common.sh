@@ -43,12 +43,16 @@ OWNER="$(printf '%s' "${REPO%%/*}" | tr '[:upper:]' '[:lower:]')"
 # fix-aggregate-nodata-mask. The sed below is that same transform; keep the two
 # in step or the pull asks for a tag the workflow never wrote.
 #
-# Falls back to "demo" when there is no branch to read -- a detached HEAD, or an
-# unpacked tarball rather than a clone. Only branches in container.yml's
-# `on: push:` filter have an image at all; TETRACORDER_IMAGE points elsewhere.
+# Falls back to main when there is no branch to read -- a detached HEAD, or an
+# unpacked tarball rather than a clone. It used to fall back to "demo", a tag
+# that only moved when the retired codespace-demo branch was pushed; that tag is
+# no longer published, so falling back to it would ask for something that does
+# not exist. main is in container.yml's `on: push:` filter, so it has an image
+# for as long as anything does. Only branches in that filter have an image at
+# all; TETRACORDER_IMAGE points elsewhere.
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 case "$BRANCH" in
-  "" | HEAD) TAG="demo" ;;
+  "" | HEAD) TAG="main" ;;
   *) TAG="$(printf '%s' "$BRANCH" | sed 's/[^a-zA-Z0-9._-][^a-zA-Z0-9._-]*/-/g')" ;;
 esac
 

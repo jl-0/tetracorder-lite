@@ -23,8 +23,10 @@ The tag comes from the checked-out branch, read with `git rev-parse
 --abbrev-ref HEAD`, giving `ghcr.io/<owner>/tetracorder-lite:<branch>`. A
 codespace is a checkout of one branch and `container.yml` publishes
 `type=ref,event=branch`, so a codespace opened on a branch runs the image that
-branch built -- rather than `:demo`, which only ever moves when the
-`codespace-demo` branch is pushed and so can lag a long way behind.
+branch built. This replaced a fixed `:demo` tag, which only moved when the
+`codespace-demo` branch was pushed and so lagged a long way behind -- for a
+while it served a build predating the vendored DaVinci entirely. That branch is
+retired and `:demo` is no longer published.
 
 Branch names are sanitized the way `metadata-action` sanitizes them, runs of
 characters invalid in a Docker tag becoming a single hyphen, so
