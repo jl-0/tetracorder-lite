@@ -11,15 +11,45 @@ configure.
 
 ## One-time setup on the fork
 
-Three things have to exist before the badge works for anyone who clicks it:
+The demo follows whichever repository *and branch* it was opened from, so
+nothing here names an account or a tag.
+
+The repository comes from `GITHUB_REPOSITORY`, which Codespaces sets, and gives
+`scripts/common.sh` both the image owner and the scene URL
+(`https://github.com/<owner>/<repo>/releases/download/demo-data-v6/...`).
+Outside a codespace it is unset and the fallback in `common.sh` applies.
+
+The tag comes from the checked-out branch, read with `git rev-parse
+--abbrev-ref HEAD`, giving `ghcr.io/<owner>/tetracorder-lite:<branch>`. A
+codespace is a checkout of one branch and `container.yml` publishes
+`type=ref,event=branch`, so a codespace opened on a branch runs the image that
+branch built -- rather than `:demo`, which only ever moves when the
+`codespace-demo` branch is pushed and so can lag a long way behind.
+
+Branch names are sanitized the way `metadata-action` sanitizes them, runs of
+characters invalid in a Docker tag becoming a single hyphen, so
+`fix/aggregate-nodata-mask` resolves to `fix-aggregate-nodata-mask`. Keep the
+`sed` in `common.sh` in step with that or the pull asks for a tag the workflow
+never wrote. A detached HEAD or an unpacked tarball falls back to `demo`.
+
+Only branches listed in `container.yml`'s `on: push:` filter have an image at
+all. On any other branch, set `TETRACORDER_IMAGE` or add the branch to that
+filter.
+
+That also means each fork has to provide its own, and three things have to
+exist before the badge works for anyone who clicks it:
 
 1. **Publish the scene.** Create a release tagged `demo-data-v6` and attach the
-   archive built by `tools/make_subset.py` (see [The scene](#the-scene)). The
-   URL in `devcontainer.json` points at
-   `releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz`.
+   archive built by `tools/make_subset.py` (see [The scene](#the-scene)), named
+   `emit20240626t165035_300x150.tar.gz`. If you attach a *different* archive,
+   update `SCENE_SHA256` in `scripts/common.sh` or the download is rejected as
+   "not the published archive"; re-uploading the same one needs no change.
 
 2. **Push the branch** so `.github/workflows/container.yml` runs and publishes
-   `ghcr.io/jl-0/tetracorder-lite:demo`.
+   `ghcr.io/<owner>/tetracorder-lite:<branch>`, which is what the demo pulls.
+   The workflow derives the owner the same way, from
+   `github.repository_owner`. The branch must be in the workflow's `on: push:`
+   filter, or no image is built for it.
 
 3. **Make the package public.** GHCR packages are private by default, and a
    private one cannot be pulled by a visitor's codespace. Package settings
@@ -54,7 +84,7 @@ file tree, and the shell prints:
 at a time:
 
 ```
-  [x] 1. Container image    ghcr.io/jl-0/tetracorder-lite:demo, 1.7 GB compressed
+  [x] 1. Container image    ghcr.io/jl-0/tetracorder-lite:build-davinci-multiarch, 1.7 GB compressed
   [x] 2. Sample scene       300x150 window of EMIT granule emit20240626t165035
   [ ] 3. Run Tetracorder    convolve, setup, tetrun, aggregate -- about 8 minutes
   [ ] 4. Open the results   mineral maps and the live log, on a forwarded port
@@ -66,7 +96,7 @@ image, paths and container names filled in as they actually are:
 ```
   .devcontainer/scripts/get-image.sh runs:
 
-    docker pull ghcr.io/jl-0/tetracorder-lite:demo
+    docker pull ghcr.io/jl-0/tetracorder-lite:build-davinci-multiarch
 
   Enter to run, v to read the script, s to skip, q to quit >
 ```
@@ -289,9 +319,9 @@ Overrides, all read by `scripts/common.sh`:
 
 | Variable | Default |
 |---|---|
-| `TETRACORDER_IMAGE` | `ghcr.io/jl-0/tetracorder-lite:demo` |
+| `TETRACORDER_IMAGE` | `ghcr.io/<owner>/tetracorder-lite:<branch>`, owner from `GITHUB_REPOSITORY`, tag from the checked-out branch |
 | `TETRACORDER_BUILD` | `0` — set to `1` to build from `Containerfile` |
-| `TETRACORDER_SCENE_URL` | the `demo-data-v6` release asset |
+| `TETRACORDER_SCENE_URL` | the `demo-data-v6` release asset on `GITHUB_REPOSITORY` |
 | `TETRACORDER_SCENE_SHA256` | checksum of that archive; `-` disables the check |
 | `TETRACORDER_WORK` | `$HOME/tetracorder-demo` |
 | `TETRACORDER_PORT` | `8080` |

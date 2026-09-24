@@ -25,7 +25,7 @@ SKIPPED=""
 skipped() { case " $SKIPPED " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
 TITLES=("Container image" "Sample scene" "Run Tetracorder" "Open the results")
-NOTES=("ghcr.io/jl-0/tetracorder-lite:demo, 1.7 GB compressed, amd64 + arm64" \
+NOTES=("$IMAGE, 1.7 GB compressed, amd64 + arm64" \
        "300x150 window of EMIT granule emit20240626t165035" \
        "convolve, setup, tetrun, aggregate -- about 8 minutes" \
        "mineral maps and the live log, on a forwarded port")

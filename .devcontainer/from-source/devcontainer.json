@@ -18,10 +18,14 @@
     "memory": "16gb",
     "storage": "64gb"
   },
+  // TETRACORDER_IMAGE is set because this configuration builds the image rather
+  // than pulling one, so it wants a local tag, not a registry reference.
+  // TETRACORDER_SCENE_URL is deliberately absent: common.sh derives it from
+  // GITHUB_REPOSITORY, so the scene comes from whichever fork this codespace
+  // was opened on.
   "containerEnv": {
     "TETRACORDER_BUILD": "1",
-    "TETRACORDER_IMAGE": "tetracorder-lite:local",
-    "TETRACORDER_SCENE_URL": "https://github.com/jl-0/tetracorder-lite/releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz"
+    "TETRACORDER_IMAGE": "tetracorder-lite:local"
   },
   // Nothing here fetches, builds or runs anything. The demo is a walkthrough:
   // .devcontainer/get-started.sh takes each step on request, so the codespace opens fast
