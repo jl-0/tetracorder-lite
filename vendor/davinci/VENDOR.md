@@ -10,7 +10,7 @@ written in: every script under `tetracorder.cmds/tetracorder6.00a.cmds/` with a
 | Upstream | `https://oss.mars.asu.edu/svn/davinci/davinci/trunk` |
 | Revision | **r19810** (last changed r19810, 2026-02-24) |
 | Version | 3.02 (`version.h`) |
-| Licence | GPL-2 (`src/LICENSE`) |
+| Licence | GPL-2.0-or-later (`src/LICENSE` is the GPL-2 text; the or-later grant is upstream's, in `src/contrib/debian/copyright`) |
 | Exported | 2026-09-11 via `./refresh.sh` |
 
 ## Why vendored rather than fetched at build time
@@ -35,6 +35,31 @@ every alternative to vendoring is worse:
 
 Vendoring is also what this repository already does: `tetracorder/` is 164 MB of
 vendored GPL source under the same reasoning.
+
+## What licence this is actually under, and why it took looking
+
+`src/LICENSE` is the plain GPL-2 text, `src/COPYING` and `src/AUTHORS` are both
+empty files, and of the 645 `.c`/`.h` files in the tree only seven carry a
+licence header at all -- and those seven are borrowed code (`avl.c`/`avl.h`, `printf.c`,
+`libcsv.c`, the bison-generated `parser.c`, `libltdl/ltdl.c`/`ltdl.h`), not DaVinci's own.
+Read only that far and the conservative answer is GPL-2.0-**only**, because
+nothing grants the version choice.
+
+The grant is there, in `src/contrib/debian/copyright`, which upstream ships in
+the tree and which applies `License: GPL-2+` to `Files: *` with the full "or (at
+your option) any later version" wording. That file is the copyright holder's own
+statement and it covers the whole export, so **GPL-2.0-or-later** is correct.
+
+This matters more now than it did with the `.deb`. The earlier claim rested on
+the `debian/copyright` inside ASU's binary package -- something we installed but
+never redistributed. Vendoring moves the same statement into a file we ship, so
+the licence claim is now supported by the repository itself.
+
+Practically it also removes the one real compatibility question. tetrapy is
+Apache-2.0 and Tetracorder is GPL-3.0, neither of which combines with GPL-2.0-only.
+Under GPL-2-or-later DaVinci can be taken as GPL-3, and in any case the three run
+as separate programs in an image rather than linked into one work -- see the
+"Container images" section of `NOTICE`.
 
 ## What was pruned, and why
 

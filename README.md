@@ -346,7 +346,17 @@ Third-party components keep their own licenses (details in [NOTICE](NOTICE)):
 |---|---|---|
 | Tetracorder, specpr, command files ([PSI-edu/spectroscopy-tetracorder](https://github.com/PSI-edu/spectroscopy-tetracorder)) | `tetracorder/` | [GPL-3.0](tetracorder/COPYING) + PSI conditions in each `license.txt` |
 | USGS splib06 / sprlb06 spectral libraries | `tetracorder/sl1/` | from spectroscopy-tetracorder |
+| [DaVinci](https://davinci.asu.edu) (ASU Mars Space Flight Facility) | `vendor/davinci/src/` ([VENDOR.md](vendor/davinci/VENDOR.md)) | [GPL-2.0-or-later](vendor/davinci/src/LICENSE) |
 
-The Containerfile also downloads third-party software at build time, including
-[DaVinci](https://davinci.asu.edu) (GPL-2.0-or-later) from ASU. That software is not
-part of this repository and keeps its own license.
+DaVinci is vendored as source at upstream revision r19810 and compiled during the
+build, rather than installed from ASU's prebuilt `.deb`. Its tree carries a few
+components under their own terms -- the Xvic widgets (Caltech, 3-clause BSD),
+libcsv and libltdl (LGPL-2.1), and the libtiff, libpng, giflib and libjpeg copies
+bundled inside `iomedley/` (all permissive). [NOTICE](NOTICE) lists each with its
+license file.
+
+The container image is an aggregate of separate programs, each keeping its own
+license. Because the Containerfile copies the repository into the image, the
+complete corresponding source for the GPL components travels inside the image
+itself -- `/root/vendor/davinci/src` and `/root/tetracorder` -- so GPL-2 section
+3(a) and GPL-3 section 6(a) are met without a separate written offer.
