@@ -1,8 +1,6 @@
-# Kept in step with .containerignore. Both are needed: podman reads
-# .containerignore, docker reads only .dockerignore, and without this file a
-# `docker build` ships the whole working tree -- including any downloaded
-# scenes under in/ -- into the context and then bakes it into the image via
-# the Containerfile's `COPY . .`.
+# Kept in step with .containerignore: podman reads .containerignore, docker
+# reads only .dockerignore, and without one `COPY . .` bakes the whole working
+# tree into the image.
 **/.git
 **/.venv
 **/.pixi
@@ -16,27 +14,21 @@ emit-utils
 tetrapy/configs/
 *.sh
 
-# Local scratch: input scenes, run outputs and logs. These are large, are never
-# needed at build time, and are exactly what inflates an image built from a
-# working tree that has been used.
+# Local scratch: input scenes, run outputs and logs. Large, never needed at
+# build time, and exactly what inflates an image built from a working tree.
 in/
 out/
 _e2e*
 _nodata*
 *.log
 *.png
-# Scene archives and failing-case captures kept beside the repo while debugging.
-# These were 10.5 GB of a build context that is otherwise ~200 MB, and because
-# they sit above the Containerfile's `COPY . .` they were also being baked into
-# the image. Untracked, so CI never saw them -- only local builds.
+# Scene archives and debugging captures kept beside the repo -- 10.5 GB against
+# a ~200 MB context, and untracked, so only local builds ever saw them.
 demo-data-source/
 failing_file/
 
-# 53 MB of spectral libraries that nothing in the repository references -- no
-# code, no config, no Containerfile path. They are an archive of the convolved
-# delivery libraries kept for provenance, and `COPY . .` was baking them into
-# every image and every pull. The libraries the pipeline actually reads are
-# under tetracorder/sl1/, which stays.
+# 53 MB of convolved spectral libraries nothing in the repository references.
+# Kept for provenance; the libraries the pipeline reads are under tetracorder/sl1/.
 tetracorder/sl1-archive/
 
 # Repository furniture with no role in the build.
