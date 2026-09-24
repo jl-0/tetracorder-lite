@@ -22,6 +22,12 @@ _e2e*
 _nodata*
 *.log
 *.png
+# Scene archives and failing-case captures kept beside the repo while debugging.
+# These were 10.5 GB of a build context that is otherwise ~200 MB, and because
+# they sit above the Containerfile's `COPY . .` they were also being baked into
+# the image. Untracked, so CI never saw them -- only local builds.
+demo-data-source/
+failing_file/
 
 # Repository furniture with no role in the build.
 .devcontainer/

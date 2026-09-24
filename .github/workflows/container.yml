@@ -1,16 +1,19 @@
 # Builds the image the Codespaces demo pulls.
 #
-# The build compiles specpr and Tetracorder from Fortran/ratfor sources and
-# installs DaVinci, which is far too slow to do inside a codespace on every
-# create. Doing it here once per push means a codespace only has to pull.
+# The build compiles specpr, Tetracorder and DaVinci from source, which is far
+# too slow to do inside a codespace on every create. Doing it here once per push
+# means a codespace only has to pull.
 #
-# DaVinci ships amd64 only, so the image is amd64 only; that matches Codespaces
-# and needs emulation anywhere else.
+# Published for linux/amd64 and linux/arm64. Each architecture is built on a
+# native runner and pushed by digest; a final job joins the two digests into one
+# manifest list, so `docker pull` on either architecture gets the right image
+# without emulation. Emulating a build this size under qemu takes hours -- the
+# matrix exists to avoid that, not for tidiness.
 name: container
 
 on:
   push:
-    branches: [codespace-demo]
+    branches: [codespace-demo, build-davinci-multiarch]
     paths-ignore:
       - "SE-Documentation/**"
       - "**/*.md"
@@ -29,9 +32,25 @@ concurrency:
   group: container-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/tetracorder-lite
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            # GitHub-hosted arm64 runners are free for public repositories.
+            # Without a native runner this job emulates gcc under qemu for
+            # three source builds, which is the difference between minutes and
+            # hours.
+            runner: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -58,6 +77,35 @@ jobs:
             exit 1
           fi
 
+      # The vendored DaVinci tree is what makes the arm64 image possible at all,
+      # and an svn export that silently dropped a directory is exactly the kind
+      # of thing that only shows up as a link error twenty minutes in. iomedley
+      # is an svn:external, so it is the one most likely to go missing.
+      # Checks run against the git checkout, not a working tree, because that is
+      # the only place this class of bug appears: `docker build` reads the build
+      # context, which .gitignore does not filter, so a local build passes while
+      # a clean checkout is missing files. Both entries below have already been
+      # caught this way once -- iomedley (an svn:external a targeted export does
+      # not follow) and tiff-4.0.3/build (swallowed by the `build/` rule in
+      # .gitignore). Each is named in a SUBDIRS line, so each fails as
+      # "cd: <dir>: No such file or directory" minutes into make.
+      - name: Vendored DaVinci source is complete
+        run: |
+          missing=0
+          for d in iomedley config libltdl modules lib \
+                   iomedley/tiff-4.0.3/build \
+                   iomedley/libpng-1.2.3 \
+                   iomedley/libjpeg; do
+            if [ ! -d "vendor/davinci/src/$d" ]; then
+              echo "::error::vendor/davinci/src/$d is missing -- see vendor/davinci/VENDOR.md"
+              git check-ignore -v "vendor/davinci/src/$d" || echo "  (not ignored -- never exported)"
+              missing=1
+            fi
+          done
+          test -f vendor/davinci/src/configure || { echo "::error::configure missing"; missing=1; }
+          [ "$missing" -eq 0 ] && echo "vendored DaVinci source looks complete"
+          exit $missing
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -66,22 +114,99 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/tetracorder-lite
-          tags: |
-            type=raw,value=demo
-            type=sha,format=long
-            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
-
-      - uses: docker/build-push-action@v6
+      # Pushed by digest with no tag: a tag can only point at one thing, so
+      # letting both jobs tag :demo would leave whichever finished last as the
+      # whole image and discard the other architecture. The merge job below is
+      # what attaches the tags, to a manifest list naming both digests.
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Containerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      # One file per architecture, named after its digest, so the merge job can
+      # collect them without needing to know how many there were.
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          # The sha256: prefix is stripped because the merge job re-adds it when
+          # it builds IMAGE@sha256:<digest>. Leaving it on produces
+          # IMAGE@sha256:sha256:... and a filename containing a colon, which
+          # upload-artifact rejects.
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "${{ matrix.platform }} -> $digest"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ runner.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Joins the per-architecture digests into one tagged manifest list. This is
+  # the job that makes `docker pull ...:demo` work on an Apple Silicon Mac
+  # without --platform, which it never did before.
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # :demo is what every codespace pulls, so only the demo branch may move it.
+      # Any other branch publishes under its own name, which is what makes it
+      # safe to develop the image without breaking the live walkthrough -- point
+      # a demo at one with
+      #   TETRACORDER_IMAGE=ghcr.io/jl-0/tetracorder-lite:<branch>
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=demo,enable=${{ github.ref_name == 'codespace-demo' }}
+            type=ref,event=branch
+            type=sha,format=long
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
+            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+      # Proves the manifest list actually carries both, rather than trusting that
+      # `imagetools create` did what was asked. A single-architecture manifest
+      # published under a multi-architecture promise is the exact failure this
+      # whole branch exists to fix, so it is worth one assertion.
+      - name: Both architectures are in the published manifest
+        run: |
+          docker buildx imagetools inspect "${{ env.IMAGE }}:${{ github.ref_name }}" --raw \
+            | jq -r '.manifests[] | select(.platform.architecture != "unknown")
+                     | "\(.platform.os)/\(.platform.architecture)"' \
+            | sort | tee /tmp/arches
+          for want in linux/amd64 linux/arm64; do
+            grep -qx "$want" /tmp/arches || { echo "::error::$want missing from the manifest"; exit 1; }
+          done
+          echo "manifest carries both architectures"

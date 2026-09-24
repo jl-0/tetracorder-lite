@@ -70,25 +70,30 @@ Details: [WSL install](https://learn.microsoft.com/windows/wsl/install) ·
 [Docker Desktop WSL 2 backend](https://docs.docker.com/desktop/wsl/) ·
 [Podman on WSL](https://podman-desktop.io/docs/installation/windows-install)
 
-### The image is amd64-only
+### Architecture
 
-DaVinci is distributed as an amd64 binary, so the image is built for
-`linux/amd64` and nothing else. On an arm64 host — Apple Silicon, an arm64 Linux
-box, Windows on ARM — you must say so explicitly or the engine refuses the image
-with `no matching manifest for linux/arm64/v8`:
+The published image covers **linux/amd64 and linux/arm64**, so Apple Silicon, an
+arm64 Linux box and Windows on ARM all pull a native image and no `--platform`
+flag is needed anywhere. None of the examples below carry one.
+
+This was not always true. ASU distributes DaVinci only as an amd64 `.deb`, which
+made the image amd64-only and meant an arm64 host had to ask for emulation by
+hand or be refused with `no matching manifest for linux/arm64/v8`. The image now
+compiles DaVinci from vendored source instead — see
+[`vendor/davinci/VENDOR.md`](vendor/davinci/VENDOR.md) — which is what removed the
+constraint.
+
+If you need a specific architecture, for instance to compare results under
+emulation, ask for it as usual:
 
 ```
 --platform=linux/amd64
 ```
 
-It runs under emulation there, which is slower but works. On an amd64 host the
-flag is a no-op, so the examples below carry it throughout rather than leaving
-you to work out which commands need it.
-
 ### If you are using Podman
 
-Nothing in the examples changes — `--rm`, `-v`, `-e`, `--platform` and the rest
-mean the same thing to both. Two things are worth knowing anyway:
+Nothing in the examples changes — `--rm`, `-v`, `-e` and the rest mean the same
+thing to both. Two things are worth knowing anyway:
 
 * **SELinux** (Fedora, RHEL, CentOS): add `:z` to bind mounts, as in
   `-v /path/to/input:/data:z`. Without it the container cannot read the mount.
@@ -102,7 +107,7 @@ The pipeline is driven by a YAML config (see [`config.yml`](config.yml)). Mount 
 data and output directories, then point `tetrapy run` at the config:
 
 ```sh
-docker run --rm --platform=linux/amd64 \
+docker run --rm \
   -v /path/to/input:/data \
   -v /path/to/output:/output \
   tetracorder-lite \
@@ -117,13 +122,20 @@ flags (see [Overriding config on the CLI](#overriding-config-on-the-cli)).
 ## Building the container
 
 ```sh
-docker build --platform=linux/amd64 -f Containerfile -t tetracorder-lite .
+docker build -f Containerfile -t tetracorder-lite .
 ```
 
-The image compiles specpr + Tetracorder (Fortran/ratfor), installs DaVinci, and
-sets up the `tetrapy` Python environment via pixi. Building on an arm64 host is
-emulated and takes considerably longer than the native build; if you only want to
-run the pipeline, pull a published image instead of building one.
+The image compiles specpr + Tetracorder (Fortran/ratfor) and DaVinci (C), then
+sets up the `tetrapy` Python environment via pixi. DaVinci builds from the
+vendored source in [`vendor/davinci`](vendor/davinci/VENDOR.md) in a separate
+stage, so the compilers and source do not end up in the finished image.
+
+The build is native on both amd64 and arm64, so nothing here is emulated. To
+build for the architecture you are not on, which *is* emulated and much slower:
+
+```sh
+docker buildx build --platform=linux/arm64 -f Containerfile -t tetracorder-lite .
+```
 
 ## The pipeline
 
@@ -250,8 +262,8 @@ stages are also exposed as standalone subcommands for debugging or partial runs:
 Use `--help` on any command for full options:
 
 ```sh
-docker run --rm --platform=linux/amd64 tetracorder-lite tetrapy --help
-docker run --rm --platform=linux/amd64 tetracorder-lite tetrapy run --help
+docker run --rm tetracorder-lite tetrapy --help
+docker run --rm tetracorder-lite tetrapy run --help
 ```
 
 ## Volume contract
