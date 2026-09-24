@@ -39,10 +39,14 @@ Public License, version 2.1 (see COPYING.LIB in that directory).
 
 Spectral libraries
 ------------------
-Location:  tetracorder/sl1/usgs/library06.conv/        (splib06b, sprlb06b)
+Location:  tetracorder/sl1/usgs/library06.conv/  (splib06b, sprlb06b)
+             -- in the repository and in the container image.
            tetracorder/sl1-archive/usgs/library06.conv/ (splib06b, sprlb06b and
-             the EMIT-convolved s06emita/s06emitc)
-           tetracorder/sl1-archive/usgs/rlib06/         (r06emita, r06emitc)
+             the EMIT-convolved s06emita/s06emitc) and
+           tetracorder/sl1-archive/usgs/rlib06/ (r06emita, r06emitc)
+             -- in the repository only. .dockerignore and .containerignore
+             exclude sl1-archive/ from the build context, so it is not in the
+             image; nothing in the pipeline reads it.
 Source:    Copied from spectroscopy-tetracorder (see above).
            splib06 is the USGS Digital Spectral Library:
            Clark, R.N., et al., 2007, USGS digital spectral library splib06a:

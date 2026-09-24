@@ -32,6 +32,13 @@ _nodata*
 demo-data-source/
 failing_file/
 
+# 53 MB of spectral libraries that nothing in the repository references -- no
+# code, no config, no Containerfile path. They are an archive of the convolved
+# delivery libraries kept for provenance, and `COPY . .` was baking them into
+# every image and every pull. The libraries the pipeline actually reads are
+# under tetracorder/sl1/, which stays.
+tetracorder/sl1-archive/
+
 # Repository furniture with no role in the build.
 .devcontainer/
 .github/
