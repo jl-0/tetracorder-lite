@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
-# Shared settings for the demo scripts. Sourced, never executed, and always
-# from the repository root so the $PWD-relative mounts below resolve.
-#
-# Everything the demo generates lives under $WORK, outside the repository, so a
-# run can never dirty the working tree or land in a container build context.
-# $WORK is under $HOME, which Codespaces preserves across stop/start and
-# captures in a prebuild -- the same lifecycle as the pulled image.
+# Shared settings. Sourced from the repository root, so the $PWD-relative
+# mounts resolve. Everything the demo writes goes under $WORK, outside the
+# repository, so a run cannot dirty the tree or the build context.
 
 WORK="${TETRACORDER_WORK:-$HOME/tetracorder-demo}"
 DATA="$WORK/data"
@@ -13,43 +9,23 @@ OUTPUT="$WORK/output"
 SITE="$WORK/site"
 STATE="$WORK/state"
 
-# Which repository the image and scene come from. Codespaces sets
-# GITHUB_REPOSITORY to <owner>/<repo>, so a codespace opened from a fork uses
-# that fork's own image and scene instead of whichever account happened to be
-# written in here -- which is what made the demo follow jl-0 even from a
-# codespace created on another repository.
-#
-# Unset outside a codespace (a local clone, or a plain `bash get-started.sh`),
-# where the fallback applies. Update the fallback if the canonical home moves;
-# it is the only account name left in the demo scripts.
+# Codespaces sets GITHUB_REPOSITORY, so a codespace opened on a fork uses that
+# fork's image and scene. The fallback applies outside a codespace and is the
+# only account name in the demo scripts -- update it if the home moves.
 REPO="${GITHUB_REPOSITORY:-jl-0/tetracorder-lite}"
 
-# GHCR namespaces are lowercase and GitHub owner names need not be, so fold the
-# case rather than trusting it. The repository half is deliberately not used:
-# container.yml publishes to ghcr.io/${{ github.repository_owner }}/
-# tetracorder-lite, a literal name, so a fork that renames itself still pushes
-# and pulls "tetracorder-lite".
+# GHCR namespaces are lowercase; owner names need not be. The repository half
+# is unused on purpose -- container.yml publishes the literal name
+# "tetracorder-lite", so a renamed fork still resolves.
 OWNER="$(printf '%s' "${REPO%%/*}" | tr '[:upper:]' '[:lower:]')"
 
-# Which tag. container.yml publishes type=ref,event=branch, so every branch it
-# builds carries an image named after that branch -- and a codespace is a
-# checkout of exactly one branch, so the branch it checked out is the image it
-# should run. That is what makes "open a codespace on this branch" test this
-# branch's image rather than whatever :demo happens to be pointing at, which
-# for a long while was a build predating the vendored DaVinci entirely.
-#
-# metadata-action replaces runs of characters that are invalid in a Docker tag
-# with a single hyphen, so the branch fix/aggregate-nodata-mask is published as
-# fix-aggregate-nodata-mask. The sed below is that same transform; keep the two
-# in step or the pull asks for a tag the workflow never wrote.
-#
-# Falls back to main when there is no branch to read -- a detached HEAD, or an
-# unpacked tarball rather than a clone. It used to fall back to "demo", a tag
-# that only moved when the retired codespace-demo branch was pushed; that tag is
-# no longer published, so falling back to it would ask for something that does
-# not exist. main is in container.yml's `on: push:` filter, so it has an image
-# for as long as anything does. Only branches in that filter have an image at
-# all; TETRACORDER_IMAGE points elsewhere.
+# The tag is the checked-out branch, matching container.yml's
+# type=ref,event=branch -- so a codespace runs the image its own branch built.
+# The sed mirrors metadata-action's sanitizing (runs of invalid characters
+# become one hyphen); keep the two in step or the pull asks for a tag that was
+# never written. Falls back to main when there is no branch to read. Only
+# branches in container.yml's push filter have an image; TETRACORDER_IMAGE
+# points elsewhere.
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 case "$BRANCH" in
   "" | HEAD) TAG="main" ;;
@@ -58,55 +34,31 @@ esac
 
 IMAGE="${TETRACORDER_IMAGE:-ghcr.io/$OWNER/tetracorder-lite:$TAG}"
 
-# The central 300x150 window of EMIT granule emit20240626t165035 (lines 565-714,
-# samples 471-770): arid volcanic terrain, alluvial fans cut by dendritic
-# drainage. 96% of pixels are identified in both groups. See
-# .devcontainer/tools/make_subset.py for how it was cut.
+# A 300x150 window of EMIT granule emit20240626t165035 -- arid volcanic terrain,
+# ~96% of pixels identified in both groups. Cut by tools/make_subset.py.
 SCENE_URL="${TETRACORDER_SCENE_URL:-https://github.com/$REPO/releases/download/demo-data-v6/emit20240626t165035_300x150.tar.gz}"
 PORT="${TETRACORDER_PORT:-8080}"
 
-# Checked before the archive is unpacked. Lives here rather than in
-# get-scene.sh because the walkthrough previews the command it is about to
-# run, and two copies of a checksum are one copy too many. Set to "-" to skip.
-#
-# This pins one specific archive, so it is coupled to SCENE_URL above: a fork
-# that publishes its own scene under the demo-data-v6 tag must update this too,
-# or the download it just built will be rejected as "not the published archive".
-# Re-uploading the same archive to a fork needs no change.
+# Checked before the archive is unpacked; "-" skips it. Pins one specific
+# archive, so a fork publishing its own scene must update this too.
 SCENE_SHA256="${TETRACORDER_SCENE_SHA256:-60ed35f1285d92ba01af8c687a11634b4ae7d9825fad87d46c5314308611d9d3}"
 
-# No --platform pin. The image is published as a manifest list covering
-# linux/amd64 and linux/arm64, so docker selects the native one by itself.
-#
-# This used to be a hard "--platform=linux/amd64", because ASU publishes DaVinci
-# as an amd64-only .deb and an amd64-only image cannot be pulled on an arm64 host
-# at all ("no matching manifest for linux/arm64/v8") -- which is every Apple
-# Silicon Mac these scripts get tested on. The image now builds DaVinci from
-# vendored source, which is what removed the constraint.
-#
-# Set TETRACORDER_PLATFORM to force one, e.g. to run the amd64 image under
-# emulation for comparison:
-#   TETRACORDER_PLATFORM=--platform=linux/amd64
-# get-image.sh also falls back to amd64 on its own if the tag turns out to be an
-# older, amd64-only build.
+# No --platform pin: the image is a manifest list, so docker picks the native
+# architecture. Set TETRACORDER_PLATFORM to force one (e.g.
+# --platform=linux/amd64). get-image.sh falls back to amd64 by itself if the tag
+# turns out to be an older, amd64-only build.
 PLATFORM="${TETRACORDER_PLATFORM:-}"
 
-# Named containers, because the docker daemon -- not a shell process -- is what
-# owns the long-running work here. A Codespaces lifecycle command reaps anything
-# it backgrounded when it exits, which killed both the web server and the run;
-# a detached container survives that, and shows up in `docker ps` where you
-# would look for it.
+# Named containers: the daemon owns the long-running work, not a shell. A
+# Codespaces lifecycle command reaps what it backgrounds, which killed both the
+# run and the web server; a detached container survives that.
 RUN_CONTAINER="${TETRACORDER_RUN_CONTAINER:-tetracorder-demo-run}"
 WEB_CONTAINER="${TETRACORDER_WEB_CONTAINER:-tetracorder-demo-web}"
 
-# Docker calls, bounded.
-#
-# The walkthrough runs as a folder-open task, which can start before
-# docker-in-docker has finished coming up. A docker CLI call against a socket
-# that exists but is not answering yet blocks, and several of them in a row
-# make the editor look like it is hanging rather than waiting. `timeout` is
-# util-linux, so it is present on Codespaces but not on macOS; without it the
-# call simply runs unbounded, as it did before.
+# Bounded docker calls. The walkthrough can start before docker-in-docker is
+# up, and a call against a not-yet-answering socket blocks long enough to look
+# like a hang. `timeout` is util-linux -- present on Codespaces, absent on
+# macOS, where these simply run unbounded.
 DOCKER_TIMEOUT="${TETRACORDER_DOCKER_TIMEOUT:-5}"
 dk() {
   if command -v timeout >/dev/null 2>&1; then
@@ -144,14 +96,10 @@ envi_expected_bytes() {
   echo $(( s * l * b * bpe ))
 }
 
-# Checks the scene is complete, not merely present.
-#
-# A truncated download is the failure this exists for: the archive holds rfl,
-# rfl.hdr, uncert, uncert.hdr in that order, so a stream that dies near the end
-# leaves a perfectly good reflectance cube and a short uncertainty cube. The
-# pipeline then runs for nine minutes before aggregate opens the uncertainty
-# and rasterio says "Image file is too small". Checking only that scene_rfl
-# exists -- which it does -- is what let that through.
+# Complete, not merely present. The archive holds rfl, rfl.hdr, uncert,
+# uncert.hdr in that order, so a truncated download leaves a good reflectance
+# cube and a short uncertainty one -- which only surfaces nine minutes later as
+# rasterio's "Image file is too small".
 verify_scene() {
   local role data hdr expected actual
   for role in rfl uncert; do
@@ -173,10 +121,8 @@ verify_scene() {
   return 0
 }
 
-# On a codespace *start* (as opposed to create) postStartCommand can run before
-# docker-in-docker has finished coming up, and every docker call here would then
-# fail for a reason that looks exactly like the bug this design already fixed:
-# no containers, no obvious error. Wait rather than race.
+# postStartCommand can run before docker-in-docker is up, and the resulting
+# failure looks like "no containers, no error". Wait rather than race.
 wait_for_docker() {
   local i
   for i in $(seq 1 60); do
@@ -189,11 +135,9 @@ wait_for_docker() {
   return 1
 }
 
-# PYTHONUNBUFFERED matters more than it looks: without it Python block-buffers
-# stdout when it is a file rather than a terminal, so the log the page streams
-# arrives in silent 8 KB bursts and the run looks hung. NO_COLOR and TERM=dumb
-# ask rich for plain text instead of colour and OSC-8 hyperlink escapes, and a
-# fixed width stops it guessing 80 and wrapping mid-path.
+# PYTHONUNBUFFERED: otherwise Python block-buffers to a file and the streamed
+# log arrives in silent 8 KB bursts. NO_COLOR/TERM/COLUMNS ask rich for plain
+# text at a fixed width instead of colour, hyperlink escapes and mid-path wraps.
 env=(-e PYTHONUNBUFFERED=1 -e NO_COLOR=1 -e TERM=dumb -e COLUMNS=120)
 
 mounts=(

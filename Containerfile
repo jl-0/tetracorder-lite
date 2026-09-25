@@ -1,19 +1,9 @@
-# Pinned to ubuntu:22.04 -- newer releases dropped packages DaVinci wants, such
-# as libcfitsio9. No --platform pin: this image builds for linux/amd64 and
-# linux/arm64, and hardcoding one here would make buildx publish that one's
-# binaries under both architectures' manifest entries.
+# ubuntu:22.04 is pinned: newer releases dropped packages DaVinci needs
+# (libcfitsio9). Do not add --platform -- it would publish one architecture's
+# binaries under both manifest entries.
 
-# ---------------------------------------------------------------------------
-# Stage 1: build DaVinci from the vendored source in vendor/davinci.
-#
-# This used to be `wget` + `dpkg -i` of ASU's davinci_3.0.1-1_amd64_ubuntu22_04.deb.
-# That .deb is the only binary ASU publishes and it is amd64-only, which was the
-# sole reason this image was pinned to amd64 -- nothing else in the stack needs
-# x86. Building from source is what makes an arm64 image possible.
-#
-# A separate stage keeps the compilers, headers and 10 MB of C source out of the
-# finished image; only the install tree is carried forward.
-# ---------------------------------------------------------------------------
+# Stage 1: DaVinci, built from vendor/davinci/src. Separate stage so the
+# compilers and source stay out of the final image. See vendor/davinci/VENDOR.md.
 FROM ubuntu:22.04 AS davinci-build
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -36,35 +26,19 @@ RUN apt-get update &&\
 COPY vendor/davinci/src /davinci
 WORKDIR /davinci
 
-# The tree's config.guess/config.sub are dated 2003-06-17 and predate aarch64,
-# so on arm64 configure stops with "cannot guess build type". There are six of
-# each -- libltdl and iomedley bundle their own -- and missing one only shows up
-# later as "./configure failed for libltdl", so replace them all with Debian's
-# current copies from autotools-dev.
-#
-# Patched here rather than in vendor/davinci/src so the vendored tree stays a
-# faithful export of upstream r19810. See vendor/davinci/VENDOR.md.
+# The vendored config.guess/config.sub predate aarch64. Replace all six of each
+# (libltdl and iomedley bundle their own); missing one fails later as
+# "./configure failed for libltdl". Patched here so the vendored tree stays a
+# faithful export.
 RUN find . \( -name config.guess -o -name config.sub \) | \
       while read -r f; do cp "/usr/share/misc/$(basename "$f")" "$f"; done
 
-# Five things here are load-bearing and none are obvious; vendor/davinci/VENDOR.md
-# explains each with the error it produces if you get it wrong.
-#
-#   --without-library   ASU's .deb installs 336 MB, ~320 MB of it Mars data
-#                       Tetracorder never reads. Ours installs 19 MB.
-#   no --without-motif  configure.ac never guards withval="no", so negating a
-#                       --with flag injects a literal -Lno/lib and kills the
-#                       link of modules/thm. --without-x alone is enough.
-#   --with-gplot        not --with-gnuplot, which configure --help advertises but
-#                       does not register, so it is silently ignored.
-#   -fPIC in CFLAGS     passing CFLAGS at all strips the -fPIC that configure.ac
-#                       exports from the iomedley sub-configure. arm64-only, and
-#                       the one genuine ARM blocker in this build.
-#   HDF5 by CFLAGS      mandatory in practice (ff_load.c), and Ubuntu's layout
-#                       does not fit --with-hdf5=<prefix>.
-#
-# make is serial because Makefile.am:125 uses `-ldavinci` rather than
-# libdavinci.la, which gives automake no dependency edge to order against.
+# Every flag here is load-bearing; VENDOR.md gives the error each one prevents.
+# Briefly: never negate a --with flag (configure.ac does not guard withval="no"
+# and injects a literal -Lno/lib); it is --with-gplot, not --with-gnuplot; -fPIC
+# must be in CFLAGS or the iomedley sub-configure drops it and the arm64 link
+# fails; HDF5 goes via CFLAGS because Ubuntu's layout does not fit --with-hdf5.
+# make is serial: Makefile.am uses -ldavinci, so automake orders nothing.
 RUN ./configure --prefix=/usr/local \
       --without-x \
       --without-library \
@@ -76,9 +50,7 @@ RUN ./configure --prefix=/usr/local \
     make &&\
     make install DESTDIR=/davinci-install
 
-# ---------------------------------------------------------------------------
 # Stage 2: the image itself.
-# ---------------------------------------------------------------------------
 FROM ubuntu:22.04
 
 USER root
@@ -150,12 +122,8 @@ RUN apt-get update &&\
 
 WORKDIR /root
 
-# Environment variables required for compiling specpr
-#
-# LD_LIBRARY_PATH names both multiarch triplets rather than just x86_64, which
-# is what it used to hardcode. ENV cannot run a command, so there is no way to
-# ask dpkg-architecture for the right one here; the loader simply ignores the
-# entry that does not exist on the architecture being built.
+# specpr build environment. LD_LIBRARY_PATH names both multiarch triplets
+# because ENV cannot run dpkg-architecture; the loader ignores the absent one.
 ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/lib/x86_64-linux-gnu:/usr/lib/aarch64-linux-gnu" \
     SSPPFLAGS="LINUX -INTEL -XWIN " \
     SPECPR="/root/tetracorder/specpr" \
@@ -196,16 +164,11 @@ ENV SP_DBG="${SPECPR}/debug" \
     SP_LIB="${SPECPR}/lib" \
     SPSYSOBJ="${SPECPR}/obj/syslinux.o"
 
-# DaVinci, from the source build in stage 1 rather than ASU's amd64-only .deb.
-# The install tree lands on /usr/local, which LD_LIBRARY_PATH above already
-# covers and which is on the default PATH -- so the colour scripts' shebang,
-# `#!/usr/bin/env -S davinci -f`, resolves without further help.
+# DaVinci from stage 1. Lands on /usr/local, already on PATH and
+# LD_LIBRARY_PATH, so the colour scripts' `env -S davinci -f` shebang resolves.
 COPY --from=davinci-build /davinci-install/ /
-# Smoke test with the flags this build actually depends on, rather than just
-# "does it start". `-V` dumps the configuration summary; `-v` is a level flag
-# (-v#) that prints usage and exits 1. Asserting HDF5 and the plotting program
-# here catches a silently-misconfigured build at image-build time instead of
-# halfway through a run -- both have already been wrong once.
+# Assert the configuration, not just that it starts: HDF5 and the plotting
+# program have each been silently wrong once. Note -V (summary), not -v (level).
 RUN ldconfig &&\
     davinci -V 2>&1 | sed 's/\\n/\n/g' > /tmp/dv-config &&\
     cat /tmp/dv-config &&\
@@ -236,22 +199,13 @@ RUN cd tetracorder/specpr &&\
     sed -i "234,245 s/^/#/" AAA.INSTALL.specpr+support-progs-linux-upgrade.1.7.sh &&\
     yes "" | bash AAA.INSTALL.specpr+support-progs-linux-upgrade.1.7.sh install
 
-# Install tetracorder
+# Install tetracorder.
 #
-# Tetracorder's makefile hardcodes `mcmodelflags=-mcmodel=medium`, which only
-# exists on x86-64; aarch64 gfortran rejects it outright:
-#   gfortran: error: unrecognized argument in option '-mcmodel=medium'
-#
-# The flag is there for a specifically x86-64 reason, documented in multmap.h:
-# the default model caps static arrays at 2 GB, and with maxmat=670 Tetracorder's
-# COMMON blocks came close enough to hit
-#   relocation truncated to fit: R_X86_64_PC32 against symbol `lblg_'
-# aarch64's default (small) model addresses 4 GB, twice x86-64's, so dropping the
-# flag there keeps more headroom than x86-64 has with it. If Tetracorder ever
-# does outgrow that, the linker says so loudly rather than miscompiling -- watch
-# for the aarch64 spelling of the same "relocation truncated to fit" error, and
-# reach for -mcmodel=large then. It is not used now because specpr.a is built
-# without a model flag and mixing large with small can fail to link.
+# The makefile hardcodes -mcmodel=medium, which is x86-64 only; aarch64 gfortran
+# rejects it. Dropping it there is safe -- aarch64's default model addresses
+# 4 GB against x86-64's 2 GB, so it has more headroom than x86-64 has with the
+# flag. If it is ever outgrown the linker says "relocation truncated to fit"
+# rather than miscompiling.
 RUN cd tetracorder &&\
     if [ "$(uname -m)" != x86_64 ]; then \
       sed -i "s/^mcmodelflags=.*/mcmodelflags=/" tetracorder/makefile; \

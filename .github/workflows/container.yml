@@ -1,28 +1,16 @@
-# Builds the image the Codespaces demo pulls.
+# Builds and publishes the image, for linux/amd64 and linux/arm64 as one
+# manifest list. The image compiles specpr, Tetracorder and DaVinci from source,
+# so it is built here once rather than in every codespace.
 #
-# The build compiles specpr, Tetracorder and DaVinci from source, which is far
-# too slow to do inside a codespace on every create. Doing it here once per push
-# means a codespace only has to pull.
-#
-# Published for linux/amd64 and linux/arm64 as one manifest list, so
-# `docker pull` on either architecture gets the right image without --platform.
-#
-# One job, with the arm64 half emulated under qemu. That is the slow way round:
-# this image compiles three source trees, and emulation was measured at 4.9x on
-# the DaVinci stage alone (91 s native arm64 against 7m20s emulated, and that
-# was Rosetta -- qemu here is slower still). The fast alternative is a matrix
-# building each architecture on a native runner, pushing by digest, and joining
-# the digests with `docker buildx imagetools create`; that is what the commit
-# before this one did, and `git revert` brings it back. It was dropped because
-# the image is built rarely, and the digest plumbing -- two jobs, an artifact
-# round-trip and a merge step -- is a standing cost paid on every read of this
-# file, against a wait paid a few times a month.
+# arm64 is emulated under qemu, which costs ~50 min against ~7 for a
+# native-runner matrix. Traded deliberately for one job instead of two plus a
+# digest merge; `git revert` on the commit that introduced this restores the
+# matrix if the build frequency changes.
 name: container
 
 on:
-  # main is here so the image a codespace opened on main would pull actually
-  # exists: the demo scripts derive their tag from the checked-out branch, and a
-  # branch absent from this list has no image at all.
+  # A branch missing here has no image, and the demo derives its tag from the
+  # checked-out branch -- so any branch a codespace opens on belongs in this list.
   push:
     branches: [main, build-davinci-multiarch]
     paths-ignore:
@@ -32,11 +20,8 @@ on:
       # under it can change the image. The demo's own scripts are mounted at
       # run time, not baked in.
       - ".devcontainer/**"
-  # Release publishing, merged in from the separate image.yml added by #40.
-  # Keeping them apart would have meant release images built by a single-runner
-  # job -- amd64 only -- while branch images were multi-architecture, so the
-  # tags people actually pull (:latest, the semver ones) would be the ones
-  # missing arm64. One workflow, all tags.
+  # Release publishing, merged in from #40's image.yml so release and branch
+  # images come from the same multi-architecture build.
   release:
     types: [published]
   workflow_dispatch:
@@ -63,18 +48,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The build tree is large and the runner's root filesystem is not. Reclaim
-      # the preinstalled toolchains nothing here uses before starting. This
-      # matters more with both architectures on one runner than it did with one
-      # each: the layer cache now holds two builds' worth.
+      # The runner's root filesystem is not big enough for two architectures'
+      # layers plus the build tree.
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           df -h /
 
-      # A clean checkout is the only place the exec-bit and DATASETS classes of
-      # regression show up -- a published image carries the artefacts of
-      # whatever tree built it. Fail here rather than in someone's codespace.
+      # Only a clean checkout catches this: a published image carries whatever
+      # modes the tree that built it had. PR #12 dropped these once.
       - name: Check tetracorder command files are executable
         run: |
           missing=$(find tetracorder/tetracorder -maxdepth 1 -name 'checkmultmap*' ! -perm -u+x)
@@ -84,18 +66,11 @@ jobs:
             exit 1
           fi
 
-      # The vendored DaVinci tree is what makes the arm64 image possible at all,
-      # and an svn export that silently dropped a directory is exactly the kind
-      # of thing that only shows up as a link error twenty minutes in. iomedley
-      # is an svn:external, so it is the one most likely to go missing.
-      # Checks run against the git checkout, not a working tree, because that is
-      # the only place this class of bug appears: `docker build` reads the build
-      # context, which .gitignore does not filter, so a local build passes while
-      # a clean checkout is missing files. Both entries below have already been
-      # caught this way once -- iomedley (an svn:external a targeted export does
-      # not follow) and tiff-4.0.3/build (swallowed by the `build/` rule in
-      # .gitignore). Each is named in a SUBDIRS line, so each fails as
-      # "cd: <dir>: No such file or directory" minutes into make.
+      # A missing vendored directory fails minutes into make as
+      # "cd: <dir>: No such file or directory". Both iomedley (an svn:external
+      # that a targeted export does not follow) and tiff-4.0.3/build (caught by
+      # the `build/` rule in .gitignore) have gone missing this way. Only a clean
+      # checkout shows it -- a local build reads the working tree instead.
       - name: Vendored DaVinci source is complete
         run: |
           missing=0
@@ -113,11 +88,8 @@ jobs:
           [ "$missing" -eq 0 ] && echo "vendored DaVinci source looks complete"
           exit $missing
 
-      # Registers the qemu binfmt handlers that let this amd64 runner execute
-      # arm64 binaries. Without it buildx cannot produce the arm64 half at all
-      # and the build fails with "exec format error" on the first RUN in that
-      # platform's stages. Needed only because both architectures build here;
-      # the native-runner matrix this replaced did not have it.
+      # Required for the emulated arm64 half: without the binfmt handlers the
+      # build fails with "exec format error" on its first RUN.
       - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
@@ -128,11 +100,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Every branch publishes under its own name and nothing else, so image
-      # work on one branch cannot disturb another. The demo resolves the same
-      # name from the branch it checked out, so a codespace opened on a branch
-      # runs that branch's image with nothing to configure; TETRACORDER_IMAGE
-      # overrides it to point somewhere else.
+      # Every branch publishes under its own name, which is what the demo
+      # resolves from the branch it checked out.
       - id: meta
         uses: docker/metadata-action@v5
         with:
@@ -141,19 +110,10 @@ jobs:
             type=ref,event=branch
             type=sha,format=long
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
-            # From image.yml. These read the git tag, so they yield nothing on a
-            # branch push and need no gate: procSemver in metadata-action bails
-            # unless the ref matches ^refs/tags/. A release event's ref is
-            # refs/tags/vX.Y.Z, so they fire there.
-            #
-            # :latest is NOT listed. flavor's default latest=auto already adds it
-            # for type=semver, and only for a stable version -- image.yml's
-            # explicit type=raw,value=latest would have moved :latest onto a
-            # prerelease, so publishing v1.2.0-rc1 would have made the release
-            # candidate the default pull. auto also collapses a prerelease to
-            # {{version}} alone, so an rc never claims the bare :1 or :1.1
-            # either. latest=auto never applies to type=ref,event=branch, so no
-            # branch push can take it.
+            # Tag-only, so these yield nothing on a branch push. :latest is
+            # deliberately absent: flavor's default latest=auto adds it for
+            # stable semver only, where an explicit entry would hand it to a
+            # prerelease.
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
@@ -191,18 +151,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # buildx either builds both platforms or fails, so this no longer guards
-      # the race it was written for -- two jobs contending for one tag. It is
-      # kept because it is six lines and it is the only check that what was
-      # actually published matches the promise: an edit to `platforms` above, or
-      # a silently dropped platform, shows up here rather than on someone's Mac.
-      #
-      # Inspected by steps.meta.outputs.version rather than github.ref_name: on a
-      # release those differ. ref_name is the git tag (v1.1.0), but metadata-action
-      # strips the v, so what actually got published is 1.1.0 -- inspecting
-      # :v1.1.0 would look for a tag this workflow never writes and fail every
-      # release. `version` is the primary generated tag, which is the branch name
-      # on a branch push and the semver on a release, so it is right for both.
+      # Checks what was published against the promise, so an edit to `platforms`
+      # fails here rather than on someone's Mac. Uses meta.outputs.version, not
+      # github.ref_name: on a release the ref is v1.1.0 but the published tag is
+      # 1.1.0, and inspecting :v1.1.0 would fail every release.
       - name: Both architectures are in the published manifest
         run: |
           docker buildx imagetools inspect "${{ env.IMAGE }}:${{ steps.meta.outputs.version }}" --raw \
