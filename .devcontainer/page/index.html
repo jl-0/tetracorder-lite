@@ -245,6 +245,25 @@
       the aggregated NetCDF, never Tetracorder's raw per-material rasters, and
       then does exactly that lookup.</p>
 
+    <p class="prose"><b>Where the family groupings come from.</b> Tetracorder names
+      its products <code>group.&lt;region&gt;/&lt;family&gt;_&lt;material&gt;</code> &mdash;
+      <code>carbonate_calcite</code>, <code>kaolgrp_halloysite</code>,
+      <code>fe3+_goethite.thincoat</code> &mdash; so the family is already in the
+      path, and <code>quicklook.py</code> takes that prefix. Most prefixes are
+      already the mineral's name and only need capitalising; the ones that are
+      not &mdash; a chemical class that reads better as a plural, an abbreviation
+      like <code>sioh</code>, an iron variant belonging with an existing family
+      &mdash; are mapped by hand. A mixture takes the family of its leading
+      component, so <code>talc+calcite</code> is filed under Talc.</p>
+    <p class="prose">This is <i>a</i> grouping, not <i>the</i> grouping. USGS ships
+      its own, in the DaVinci colour recipes that drew the maps further down this
+      page &mdash; and there are several of them at different granularity, on
+      purpose: <code>2micron-mins-emit8</code> pools the 2&nbsp;µm minerals into
+      the eight EMIT reports, while <code>2micron-mins-detail2</code> splits much
+      the same entries thirteen ways. Rather than pick one and reimplement it,
+      this page shows both kinds: the path-derived families here, and USGS's own
+      groupings below exactly as Tetracorder drew them, with the published key.</p>
+
     <div id="groups"></div>
 
     <section id="colour-section" class="hidden">

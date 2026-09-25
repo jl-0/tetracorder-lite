@@ -41,15 +41,41 @@ OTHER = "#8a8a8a"
 NODATA = -9999
 
 # Readable names for the family prefixes the reference matrix encodes in its
-# `path` column. Anything not listed falls back to the raw prefix.
+# `path` column. Only prefixes needing more than capitalisation are listed --
+# a chemical class that should read as a plural, an abbreviation, or an iron
+# variant that belongs with an existing family. Everything else falls through to
+# a title-cased prefix, which is already the mineral's name: `actinolite` ->
+# `Actinolite`. That covers the long tail without enumerating it.
 FAMILY_NAMES = {
+    # iron, including the variants that belong with the main families
     "fe3+": "Fe3+ oxides", "fe3+bearing1": "Fe3+ bearing", "fe3+bearing2": "Fe3+ bearing",
-    "fe2+": "Fe2+ minerals", "fe2+generic": "Fe2+ minerals", "fe2+fe3+": "Fe2+/Fe3+ mixed",
-    "kaolgrp": "Kaolin group", "kaolin": "Kaolin group", "kaolin-smect": "Kaolin-smectite",
-    "micagrp": "Micas", "smectite": "Smectites", "chlorite": "Chlorite",
+    "fe3+mix": "Fe3+ mixtures", "fe3+mn": "Fe3+ / Mn oxides",
+    "fe3+copper-hydroxide": "Fe3+ / copper hydroxides",
+    "fe2+": "Fe2+ minerals", "fe2+generic": "Fe2+ minerals",
+    "fe2+fe3+": "Fe2+/Fe3+ mixed", "fe3+fe2+": "Fe2+/Fe3+ mixed",
+    "fe2+fe3+mix": "Fe2+/Fe3+ mixed",
+    # clay and mica groups
+    "kaolgrp": "Kaolin group", "kaolin": "Kaolin group", "kaol": "Kaolin group",
+    "kaolin-smect": "Kaolin-smectite", "micagrp": "Micas", "smectite": "Smectites",
+    "chlorite": "Chlorite", "chlorite-skarn": "Chlorite (skarn)", "clay": "Clays",
+    "musc": "Muscovite", "pyroph": "Pyrophyllite", "dick": "Dickite",
+    # chemical classes, which read better as plurals than as the bare prefix
     "carbonate": "Carbonates", "sulfate": "Sulfates", "sulfate-mix": "Sulfates",
-    "sulfide": "Sulfides", "serpentine": "Serpentine", "organic": "Organic / vegetation",
-    "copper": "Copper minerals", "zeolite": "Zeolites", "amphibole": "Amphiboles",
+    "sulfate-bloedite": "Sulfates", "sulfide": "Sulfides", "nitrate": "Nitrates",
+    "borate": "Borates", "chloride": "Chlorides", "halide": "Halides",
+    "phosphate": "Phosphates", "oxide": "Oxides", "hydroxide": "Hydroxides",
+    "perchlorate": "Perchlorates", "feldspar": "Feldspars", "zeolite": "Zeolites",
+    "amphibole": "Amphiboles", "pyroxene": "Pyroxenes", "garnet": "Garnets",
+    "inosilicate": "Inosilicates", "phyllosilicate": "Phyllosilicates",
+    "cyanide": "Cyanides", "cyanide-trihydrate": "Cyanides",
+    # abbreviations and everything else that is not simply its own name
+    "sioh": "Si-OH hydrated silica", "ree": "Rare-earth elements",
+    "mn": "Manganese minerals", "mn2+": "Mn2+ minerals",
+    "Mn-Coating": "Manganese coatings", "methane-gas": "Methane and gases",
+    # USGS's own wording for these two, from the colour recipes' legends
+    "Kalun+kaol.intmx": "K-alunite", "Na-alun+kaol.intmx": "Na-alunite",
+    "serpentine": "Serpentine", "organic": "Organic / vegetation",
+    "copper": "Copper minerals", "white": "Surface crusts",
 }
 
 
@@ -93,8 +119,27 @@ def family(path: str) -> str:
     """
     tail = path.split("/")[-1]
     m = re.match(r"([a-z0-9+\-]+?)_", tail)
-    key = m.group(1) if m else tail.split(".")[0]
-    return FAMILY_NAMES.get(key, key)
+    if m:
+        key = m.group(1)
+    else:
+        # No underscore, so the whole tail is the entry: take its leading
+        # alphabetic components. Splitting on "." instead truncated mid-formula,
+        # turning calcite+0.5Ca-mont into the family "calcite+0".
+        m2 = re.match(r"([a-z][a-z0-9]*(?:[+\-][a-z][a-z0-9]*)*)", tail)
+        key = m2.group(1) if m2 else tail
+
+    if key in FAMILY_NAMES:
+        return FAMILY_NAMES[key]
+
+    # A mixture takes the family of its leading component, so talc+calcite is
+    # Talc. Tried only after the exact lookup, or fe3+ would lose its "+" and
+    # stop matching.
+    head = key.split("+")[0]
+    if head in FAMILY_NAMES:
+        return FAMILY_NAMES[head]
+
+    # Otherwise the prefix is already the mineral's name and only needs casing.
+    return (head or key).replace("-", " ").capitalize()
 
 
 # ENVI data type codes, for showing the header in human terms.
