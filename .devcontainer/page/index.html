@@ -92,6 +92,9 @@
   details.more[open] > summary { border-bottom: 1px solid var(--line); }
   details.more .inner { padding: 1.25rem 1rem .25rem; }
   .prose { max-width: 46rem; margin: 1.5rem 0; }
+  .recap { max-width: 46rem; margin: 1.5rem 0; padding-left: 1.4rem; }
+  .recap li { margin: .55rem 0; }
+  .recap b code { background: none; padding: 0; }
   .prose code { background: var(--panel); padding: .1rem .3rem; border-radius: 4px; font-size: .9em; }
   tbody th { font-weight: 600; text-transform: none; letter-spacing: 0; font-size: .85rem;
              color: var(--fg); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -109,9 +112,10 @@
 <body>
 <main>
   <h1>Tetracorder on an EMIT L2A scene</h1>
-  <p class="sub">A 300&times;150 window of granule <code>emit20240626t165035</code>, run end to end
-     through <code>tetrapy</code>: convolve the USGS spectral library onto the scene's channels,
-     set up and run Tetracorder, aggregate the results into L2B mineral products.</p>
+  <p class="sub">You just ran a 300&times;150 window of granule
+     <code>emit20240626t165035</code> end to end through <code>tetrapy</code>. This page
+     follows the run while it works, then walks back through what each stage did and what
+     it left on disk.</p>
 
   <div class="status">
     <span class="dot spin" id="dot"></span>
@@ -132,7 +136,36 @@
 
   <section id="results" class="hidden">
     <ul class="stats" id="scene"></ul>
-    <h2>The input</h2>
+
+    <h2>What just ran</h2>
+    <p class="prose">One command, <code>tetrapy run</code>, drove six stages. Each is
+      worth knowing because each leaves something behind on disk:</p>
+    <ol class="recap">
+      <li><b><code>convolve</code></b> &mdash; resampled the USGS spectral library onto
+        this scene's exact channels, reading <code>wavelength</code> and <code>fwhm</code>
+        out of the ENVI header. Tetracorder can only compare like with like, so the
+        library has to be sampled the way the instrument sampled the ground.</li>
+      <li><b><code>sensor</code></b> &mdash; wrote the sensor definition telling
+        Tetracorder which channels to ignore (bad detectors, water-vapour bands) and which
+        mineral groups to look for.</li>
+      <li><b><code>setup</code></b> &mdash; generated the run directory and the command
+        files. This is where the ~2,400 individual material tests get laid out.</li>
+      <li><b><code>tetrun</code></b> &mdash; the actual identification, and nearly all of
+        the wall clock. Every pixel is compared against every enabled library entry, and
+        the best fit wins. Output is thousands of small gzipped ENVI rasters, one per
+        material per quantity.</li>
+      <li><b><code>aggregate</code></b> &mdash; reduced those thousands of files to the
+        two NetCDFs that are the real product: <code>agg.nc</code> and
+        <code>agg-uncert.nc</code>.</li>
+      <li><b><code>render</code></b> &mdash; drew the images on this page from
+        <code>agg.nc</code>. This stage is the demo's, not the pipeline's; a production
+        run stops after <code>aggregate</code>.</li>
+    </ol>
+    <p class="prose">The rest of this page is a walk back through that, in order: what
+      went in, how to read what came out, the maps Tetracorder drew for itself, and where
+      everything landed.</p>
+
+    <h2>What you ran it on</h2>
     <div class="grid">
       <figure>
         <img src="rfl_rgb.png" alt="True-colour reflectance quicklook of the subset">
@@ -150,7 +183,7 @@
       </figure>
     </div>
 
-    <p class="prose"><b>This is a subset.</b> Running a whole granule is the same
+    <p class="prose"><b>You ran this on a subset.</b> A whole granule is the same
       command against a bigger file &mdash; point <code>data.rfl</code> and
       <code>data.rfluncert</code> in the config at it. Expect roughly half an hour
       rather than eight minutes: measured on this hardware a full 1242&times;1280
@@ -188,7 +221,7 @@
     <table id="header"></table>
     <p class="prose" id="description"></p>
 
-    <h2>What the mineral names are</h2>
+    <h2>How to read the mineral names</h2>
     <p class="prose">The names below come straight from Tetracorder. Each is the
       <code>TITLE=</code> field of an entry in its <code>cmd.lib.setup</code>
       file, which is the title of the USGS spectral library record that entry
@@ -203,8 +236,8 @@
       <code>tetrapy/data/v6.00a6.csv</code>, which <code>export-matrix</code>
       generates from those same command files, purely to assign the stable
       numeric value stored in the raster. Nothing is renamed along the way.</p>
-    <p class="prose">Worth knowing if you take the products elsewhere: those
-      numbers are <i>all</i> the NetCDF holds. <code>agg.nc</code> carries no
+    <p class="prose">One thing to carry with you if you use these products
+      elsewhere: those numbers are <i>all</i> the NetCDF holds. <code>agg.nc</code> carries no
       variable attributes &mdash; no <code>long_name</code>, no CF
       <code>flag_values</code>/<code>flag_meanings</code> &mdash; so it is not
       self-describing. Handed <code>agg.nc</code> alone you cannot tell what
@@ -215,11 +248,11 @@
     <div id="groups"></div>
 
     <section id="colour-section" class="hidden">
-      <h2>Tetracorder draws its own maps</h2>
-      <p class="prose">Everything above this point was drawn by the demo, from
-        <code>agg.nc</code>. The images below were not. Tetracorder drew them
-        itself during the run, using DaVinci, and they are copied here off the
-        run directory exactly as produced.</p>
+      <h2>The maps Tetracorder drew for itself</h2>
+      <p class="prose">Every image above was drawn by the demo from
+        <code>agg.nc</code>. These were not. Tetracorder drew them itself during
+        the <code>tetrun</code> stage, using DaVinci, and they are copied here off
+        the run directory exactly as it produced them.</p>
       <p class="prose">Each one is a fixed recipe living in the container under
         <code>cmds.color.support/davinci.make.*</code>. A recipe names the
         minerals, gives each a colour, and lists the library entries that count
@@ -229,12 +262,12 @@
         second row for the mixtures. The colours, the groupings and the key
         images are all USGS's, so these maps mean the same thing here as in the
         papers they come from.</p>
-      <p class="prose">That is the difference from the maps above.
+      <p class="prose">So the two kinds of map answer different questions.
         <code>agg.nc</code> gives each pixel its single best-matching
-        <i>library entry</i>; these give each pixel a <i>mineral</i>, pooling
-        the entries that mean the same thing. Both are worth having.</p>
-      <p class="prose"><b>You get these for free.</b> They cost about eight
-        seconds of an eight-minute run and need no flag: any
+        <i>library entry</i>; these give each pixel a <i>mineral</i>, pooling the
+        entries that mean the same thing. Both are worth having.</p>
+      <p class="prose"><b>You did not have to ask for these.</b> They cost about
+        eight seconds of an eight-minute run and need no flag: any
         <code>tetrapy run</code> in <code>cube</code> mode writes them to
         <code>color.results+labels/</code> in the run directory, as long as the
         config gives <code>sensor.colors</code> the band numbers to build a base
@@ -245,7 +278,7 @@
       <div id="colour"></div>
     </section>
 
-    <h2>What the run produced</h2>
+    <h2>What you can take away</h2>
     <p class="prose">Two real products, in two formats, for different purposes.
       Tetracorder writes a gzipped <b>ENVI</b> raster per material per quantity
       &mdash; thousands of small files, each with its own <code>.hdr</code>, one
@@ -254,10 +287,11 @@
       the identity of its best-matching material and the depth of the feature
       that matched. Name <code>aggregate.out_min</code> with a <code>.tif</code>
       extension instead and you get GeoTIFF.</p>
-    <p class="prose"><code>results.json</code> is neither of those. It is written
-      by <code>quicklook.py</code> from <code>agg.nc</code> purely to render this
-      page &mdash; a summary, not a product. Everything below is on disk in the
-      codespace under <code>~/tetracorder-demo/output</code>.</p>
+    <p class="prose">You will also see <code>results.json</code> in the list below.
+      That one is not a product: <code>quicklook.py</code> writes it from
+      <code>agg.nc</code> purely to render this page. Everything listed is on disk
+      in the codespace under <code>~/tetracorder-demo/output</code>, so you can
+      open any of it after the run.</p>
     <table id="outputs"></table>
   </section>
 </main>
