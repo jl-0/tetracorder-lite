@@ -4,11 +4,19 @@
 # too slow to do inside a codespace on every create. Doing it here once per push
 # means a codespace only has to pull.
 #
-# Published for linux/amd64 and linux/arm64. Each architecture is built on a
-# native runner and pushed by digest; a final job joins the two digests into one
-# manifest list, so `docker pull` on either architecture gets the right image
-# without emulation. Emulating a build this size under qemu takes hours -- the
-# matrix exists to avoid that, not for tidiness.
+# Published for linux/amd64 and linux/arm64 as one manifest list, so
+# `docker pull` on either architecture gets the right image without --platform.
+#
+# One job, with the arm64 half emulated under qemu. That is the slow way round:
+# this image compiles three source trees, and emulation was measured at 4.9x on
+# the DaVinci stage alone (91 s native arm64 against 7m20s emulated, and that
+# was Rosetta -- qemu here is slower still). The fast alternative is a matrix
+# building each architecture on a native runner, pushing by digest, and joining
+# the digests with `docker buildx imagetools create`; that is what the commit
+# before this one did, and `git revert` brings it back. It was dropped because
+# the image is built rarely, and the digest plumbing -- two jobs, an artifact
+# round-trip and a merge step -- is a standing cost paid on every read of this
+# file, against a wait paid a few times a month.
 name: container
 
 on:
@@ -28,7 +36,7 @@ on:
   # Keeping them apart would have meant release images built by a single-runner
   # job -- amd64 only -- while branch images were multi-architecture, so the
   # tags people actually pull (:latest, the semver ones) would be the ones
-  # missing arm64. One workflow, one manifest-list builder, all tags.
+  # missing arm64. One workflow, all tags.
   release:
     types: [published]
   workflow_dispatch:
@@ -47,20 +55,7 @@ env:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-latest
-          - platform: linux/arm64
-            # GitHub-hosted arm64 runners are free for public repositories.
-            # Without a native runner this job emulates gcc under qemu for
-            # three source builds, which is the difference between minutes and
-            # hours.
-            runner: ubuntu-24.04-arm
-
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -69,7 +64,9 @@ jobs:
       - uses: actions/checkout@v4
 
       # The build tree is large and the runner's root filesystem is not. Reclaim
-      # the preinstalled toolchains nothing here uses before starting.
+      # the preinstalled toolchains nothing here uses before starting. This
+      # matters more with both architectures on one runner than it did with one
+      # each: the layer cache now holds two builds' worth.
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
@@ -116,83 +113,12 @@ jobs:
           [ "$missing" -eq 0 ] && echo "vendored DaVinci source looks complete"
           exit $missing
 
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Pushed by digest with no tag: a tag can only point at one thing, so
-      # letting both jobs tag :demo would leave whichever finished last as the
-      # whole image and discard the other architecture. The merge job below is
-      # what attaches the tags, to a manifest list naming both digests.
-      #
-      # This also attaches a SLSA build-provenance attestation per architecture,
-      # which is the default and is kept deliberately. It records the commit
-      # (vcs:revision), the Actions run that built the image, and the base image
-      # by digest -- so "which commit produced this image" is answerable from the
-      # registry alone. That matters more than usual here, because the image
-      # compiles DaVinci, specpr and Tetracorder from source.
-      #
-      # The cost is cosmetic: each attestation rides in the manifest list as an
-      # entry with platform "unknown/unknown", and GHCR's package page renders
-      # that literally rather than labelling it an attestation. It is not a
-      # broken or empty image, and docker ignores those entries when selecting a
-      # platform. To check which image an entry belongs to:
-      #
-      #   docker buildx imagetools inspect <ref> --raw | \
-      #     jq '.manifests[] | {platform, annotations}'
-      #
-      # -- the annotation vnd.docker.reference.digest names the real image it
-      # attests to. Add `provenance: false` below to drop them entirely.
-      - id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Containerfile
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
-
-      # One file per architecture, named after its digest, so the merge job can
-      # collect them without needing to know how many there were.
-      - name: Export digest
-        run: |
-          mkdir -p /tmp/digests
-          # The sha256: prefix is stripped because the merge job re-adds it when
-          # it builds IMAGE@sha256:<digest>. Leaving it on produces
-          # IMAGE@sha256:sha256:... and a filename containing a colon, which
-          # upload-artifact rejects.
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
-          echo "${{ matrix.platform }} -> $digest"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: digest-${{ runner.arch }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-          retention-days: 1
-
-  # Joins the per-architecture digests into one tagged manifest list. This is
-  # the job that makes `docker pull ...:demo` work on an Apple Silicon Mac
-  # without --platform, which it never did before.
-  merge:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: /tmp/digests
-          pattern: digest-*
-          merge-multiple: true
+      # Registers the qemu binfmt handlers that let this amd64 runner execute
+      # arm64 binaries. Without it buildx cannot produce the arm64 half at all
+      # and the build fails with "exec format error" on the first RUN in that
+      # platform's stages. Needed only because both architectures build here;
+      # the native-runner matrix this replaced did not have it.
+      - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
 
@@ -232,18 +158,45 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
 
-      - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          # shellcheck disable=SC2046
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
-            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+      # Both platforms in one call, so buildx pushes a manifest list under the
+      # tags directly -- no pushing by digest and no merge step to assemble it.
+      #
+      # This also attaches a SLSA build-provenance attestation per architecture,
+      # which is the default and is kept deliberately. It records the commit
+      # (vcs:revision), the Actions run that built the image, and the base image
+      # by digest -- so "which commit produced this image" is answerable from the
+      # registry alone. That matters more than usual here, because the image
+      # compiles DaVinci, specpr and Tetracorder from source.
+      #
+      # The cost is cosmetic: each attestation rides in the manifest list as an
+      # entry with platform "unknown/unknown", and GHCR's package page renders
+      # that literally rather than labelling it an attestation. It is not a
+      # broken or empty image, and docker ignores those entries when selecting a
+      # platform. To check which image an entry belongs to:
+      #
+      #   docker buildx imagetools inspect <ref> --raw | \
+      #     jq '.manifests[] | {platform, annotations}'
+      #
+      # -- the annotation vnd.docker.reference.digest names the real image it
+      # attests to. Add `provenance: false` below to drop them entirely.
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # Proves the manifest list actually carries both, rather than trusting that
-      # `imagetools create` did what was asked. A single-architecture manifest
-      # published under a multi-architecture promise is the exact failure this
-      # whole branch exists to fix, so it is worth one assertion.
+      # buildx either builds both platforms or fails, so this no longer guards
+      # the race it was written for -- two jobs contending for one tag. It is
+      # kept because it is six lines and it is the only check that what was
+      # actually published matches the promise: an edit to `platforms` above, or
+      # a silently dropped platform, shows up here rather than on someone's Mac.
+      #
       # Inspected by steps.meta.outputs.version rather than github.ref_name: on a
       # release those differ. ref_name is the git tag (v1.1.0), but metadata-action
       # strips the v, so what actually got published is 1.1.0 -- inspecting
