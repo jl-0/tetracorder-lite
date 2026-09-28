@@ -67,9 +67,10 @@ end up running `docker` or `podman` from inside the WSL shell.
 
 **Keep the data on the Linux side.** Put your scenes and output under your WSL
 home (`/home/you/...`), not under `/mnt/c/...`. Bind mounts that cross into the
-Windows filesystem go through a translation layer, and a run writes roughly 2,300
-small rasters — the difference is not subtle. You can still reach those files from
-Explorer at `\\wsl$\Ubuntu\home\you`.
+Windows filesystem go through a translation layer, and a full scene writes 8,516
+files — the difference is not subtle. You can still reach those files from Explorer
+at `\\wsl$\Ubuntu\home\you`. Faster still is to write output to a named volume; see
+[where `/output` lives](#on-macos-and-windows-where-output-lives-changes-the-runtime).
 
 Details: [WSL install](https://learn.microsoft.com/windows/wsl/install) ·
 [Docker Desktop WSL 2 backend](https://docs.docker.com/desktop/wsl/) ·
@@ -123,6 +124,10 @@ docker run --rm \
 
 Every config value can be overridden on the command line with dotted `--key value`
 flags (see [Overriding config on the CLI](#overriding-config-on-the-cli)).
+
+On macOS or Windows, mount `/output` as a named volume rather than a host directory
+and copy the results out afterwards — on a full scene that is the difference between
+7 minutes and 24. See [where `/output` lives](#on-macos-and-windows-where-output-lives-changes-the-runtime).
 
 ## Building the container
 
@@ -283,6 +288,49 @@ into the image** at `/root/tetracorder/sl1/usgs/library06.conv/`, so a normal ru
 needs the scene mounted at `/data`. The `convolve` stage reads its target
 wavelength/FWHM grid from the reflectance ENVI header (`${data.rfl}.hdr`), so the
 convolved library self-consistently matches the scene.
+
+### On macOS and Windows, where `/output` lives changes the runtime
+
+A full scene writes **8,516 files**. On Linux that costs nothing — the daemon shares
+your kernel and a bind mount is an ordinary path. On macOS and Windows every
+container runs inside a Linux VM, and a bind mount of a host directory crosses a
+file-sharing layer that charges per filesystem operation. Thousands of small
+creates, writes, gzips and renames is the worst possible shape for it.
+
+Measured on an M5 Max under Colima (4 CPU, virtiofs), full EMIT granule
+`emit20250327t212148`, 1242x1280x285, everything else held constant:
+
+| `/output` on | total | `tetrun` | CPU |
+|---|---|---|---|
+| a named volume | **6m 42s** | 5m 58s | 200% |
+| a host bind mount | 24m 23s | 23m 31s | 71% |
+
+Same image, same scene, byte-identical `agg.nc` — **3.6x**, purely from where the
+output went. The CPU column is the tell: on the volume the run never drops below one
+core, on the bind mount it sits under one core 79% of the time with the rest idle,
+waiting on the filesystem. Raising the VM's CPU allocation does not help, because
+cores were never the constraint.
+
+So on macOS and Windows, write to a volume and copy out at the end:
+
+```sh
+docker volume create tetra-out
+docker run --rm -v /path/to/input:/data -v tetra-out:/output \
+  tetracorder-lite tetrapy run config.yml \
+    --data.rfl /data/<scene>_rfl --data.rfluncert /data/<scene>_uncert
+# one bulk pass, ~11 s for 1.8 GB -- the cost is per-operation, not per-byte
+docker run --rm -v tetra-out:/output -v "$PWD/results:/host" \
+  tetracorder-lite cp -a /output/. /host/
+```
+
+Input can stay bind-mounted: it is two large sequential reads, which this layer
+handles fine.
+
+On **Windows** the equivalent already appears under [Windows: use WSL 2](#windows-use-wsl-2)
+— keeping data in your WSL home rather than `/mnt/c/...` avoids the much more
+expensive crossing into NTFS. A named volume is still the safer instruction, since
+with the WSL 2 backend your files and the Docker daemon live in different distros.
+On **Linux**, ignore all of this and bind-mount whatever you like.
 
 ## Convolved spectral library
 
