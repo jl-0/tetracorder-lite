@@ -109,25 +109,139 @@ thing to both. Two things are worth knowing anyway:
 
 ## Quick start
 
-The pipeline is driven by a YAML config (see [`config.yml`](config.yml)). Mount your
-data and output directories, then point `tetrapy run` at the config:
+Most people run the whole pipeline in one container call and never install
+`tetrapy` themselves. Put the scene's ENVI files in one directory and run:
 
 ```sh
 docker run --rm \
-  -v /path/to/input:/data \
-  -v /path/to/output:/output \
+  -v /path/to/scenes:/data \
+  -v tetra-out:/output \
   tetracorder-lite \
   tetrapy run config.yml \
-    --data.rfl /data/emit20230728t214153_rfl \
-    --data.rfluncert /data/emit20230728t214153_uncert
+    --data.rfl       /data/<scene>_rfl \
+    --data.rfluncert /data/<scene>_uncert \
+    --data.glt       /data/<scene>_glt
 ```
 
-Every config value can be overridden on the command line with dotted `--key value`
-flags (see [Overriding config on the CLI](#overriding-config-on-the-cli)).
+This convolves the spectral library onto the scene's wavelength grid, runs
+Tetracorder, writes COGs, and aggregates the result into L2B mineral products under
+`/output/test/`. Point `--data.*` at the data files, not the `.hdr`s. The examples
+use `tetracorder-lite` as the image name, which is the tag
+[Building the container](#building-the-container) produces. If your image has a
+different name, use that instead.
 
-On macOS or Windows, mount `/output` as a named volume rather than a host directory
-and copy the results out afterwards — on a full scene that is the difference between
-7 minutes and 24. See [where `/output` lives](#on-macos-and-windows-where-output-lives-changes-the-runtime).
+`tetra-out` is a named volume, which is the fast choice on macOS and Windows. Copy
+the results out when the run finishes. See
+[where `/output` lives](#on-macos-and-windows-where-output-lives-changes-the-runtime).
+On Linux you can bind-mount a host directory, for example `-v /path/to/output:/output`.
+
+## Running the container
+
+### How a container call is put together
+
+Every call has the same two halves. Everything up to and including the image name
+is the container method: which engine, which mounts, which image. Everything after
+the image name is the command that runs inside the container:
+
+```
+docker run --rm -v …:/data -v …:/output IMAGE   tetrapy <command> config.yml [--key value …]
+└──────────────── container method ────────┘   └──────────── runs inside the container ──────────┘
+```
+
+| Part | What it is |
+|---|---|
+| `docker run --rm` | Engine. `podman run --rm` works the same way (see [Docker or Podman](#docker-or-podman)) |
+| `-v …:/data` | Your input scenes. Read-only access is enough |
+| `-v …:/output` | Where results are written |
+| `IMAGE` | `tetracorder-lite` in these examples; substitute your image's name |
+| `tetrapy <command>` | The command to run. The image's default command is bare `tetrapy`, and anything you put after the image name replaces it, so `tetrapy` must be typed out |
+| `config.yml` | The default config baked into the image (at `/root/config.yml`, the working directory) |
+| `--key value` | Overrides for any config value (see below) |
+
+**The rest of this README shows commands in their short form**, such as
+`tetrapy run config.yml …` or `tetrapy aggregate config.yml`. Run them by putting
+your container method in front, exactly as in the Quick start. Mounts and engine
+flags go before the image name. Config overrides go after `config.yml`.
+
+### Common options
+
+Add these after `config.yml`. Quote any value that contains spaces, so your shell
+passes it as a single argument.
+
+| Option | Effect |
+|---|---|
+| `--output.base /output/<run>` | Writes this run under its own directory. Tetracorder's output directory is wiped at the start of each run, so give each run its own `base` if you want to keep earlier results |
+| `--data.glt ""` | No GLT. COGs are written in raw instrument geometry instead of being orthorectified |
+| `--sensor.deleted_channels "…"` | Channels Tetracorder ignores. **The default list is for EMIT and must be changed for any other sensor** (see below) |
+| `--<stage>.enabled False` | Skips a pipeline stage, such as `--postprocess.enabled False` (see [The pipeline](#the-pipeline)) |
+
+To check the resolved config without running anything, replace `run` with `preview`:
+
+```sh
+docker run --rm tetracorder-lite \
+  tetrapy preview config.yml --output.base /output/run2
+```
+
+### Example: a non-EMIT sensor (deleted channels)
+
+Tetracorder blanks the deleted channels in every reference spectrum before it fits
+anything, so the list decides which absorption features can be matched. The
+built-in list is EMIT's 285-channel list:
+
+```
+1t4 75t79 99t106 128t148 188t214 218 219t221 226 280t285c
+```
+
+On another sensor's grid those numbers point at the wrong wavelengths. The run
+still finishes, but the identifications are wrong, or a group identifies nothing
+because its continuum endpoints were deleted. Always pass the list that matches
+the sensor:
+
+```sh
+docker run --rm \
+  -v /path/to/scenes:/data \
+  -v tetra-out:/output \
+  tetracorder-lite \
+  tetrapy run config.yml \
+    --data.rfl       /data/<scene>_rfl \
+    --data.rfluncert /data/<scene>_uncert \
+    --data.glt       "" \
+    --output.base    /output/aviris-2019 \
+    --sensor.deleted_channels "1 61t66 81t84 102t117 150t170 175 176 179 181"
+```
+
+The syntax:
+
+* `NtM` deletes channels N through M, inclusive. A bare number deletes one channel.
+* Channels are **1-based**. If you start from a 0-based band index or an ENVI bad
+  band list, add 1.
+* Leave off the trailing `c` that the Tetracorder files use. tetrapy adds it when
+  it writes the file.
+
+USGS-curated lists for several AVIRIS years ship in the image under
+`/root/tetracorder/tetracorder.cmds/tetracorder6.00a.cmds/DELETED.channels/`, for
+example `delete_aviris_2019`. Copy the first line up to the `c`. To list them:
+
+```sh
+docker run --rm tetracorder-lite \
+  ls /root/tetracorder/tetracorder.cmds/tetracorder6.00a.cmds/DELETED.channels
+```
+
+### Using your own config
+
+For repeated runs of the same kind, for example one sensor, copy
+[`config.yml`](config.yml), edit it, and mount it into the container:
+
+```sh
+docker run --rm \
+  -v /path/to/scenes:/data \
+  -v tetra-out:/output \
+  -v "$PWD/config.aviris.yml:/config/config.aviris.yml:ro" \
+  tetracorder-lite \
+  tetrapy run /config/config.aviris.yml --data.rfl /data/<scene>_rfl
+```
+
+Overrides still apply on top of a mounted config.
 
 ## Building the container
 
@@ -136,7 +250,7 @@ docker build -f Containerfile -t tetracorder-lite .
 ```
 
 The image compiles specpr + Tetracorder (Fortran/ratfor) and DaVinci (C), then
-sets up the `tetrapy` Python environment via pixi. DaVinci builds from the
+sets up the `tetrapy` Python environment with uv. DaVinci builds from the
 vendored source in [`vendor/davinci`](vendor/davinci/VENDOR.md) in a separate
 stage, so the compilers and source do not end up in the finished image.
 
@@ -149,125 +263,176 @@ docker buildx build --platform=linux/arm64 -f Containerfile -t tetracorder-lite 
 
 ## The pipeline
 
-`tetrapy run <config.yml>` executes an ordered pipeline. Each stage has an `enabled`
+`tetrapy run <config.yml>` runs these stages in order. Each stage has an `enabled`
 flag in the config, so you can run any subset:
 
 | Stage | Config key | What it does |
 |---|---|---|
-| Convolve | `convolve` | Convolve the reference + research master libraries onto the scene's instrument grid and integrate them into tetracorder |
-| Setup | `setup` | Configure a tetracorder run (`cmd-setup-tetrun`) |
+| Export matrix | `export_matrix` | Decode the expert system and write its material matrix to CSV (off by default) |
+| Convolve | `convolve` | Convolve the reference and research master libraries onto the scene's wavelength grid |
+| Sensor | `sensor` | Wire the convolved libraries into Tetracorder under `sensor.name`: the restart, deleted-channels, enable/disable and color files |
+| Setup | `setup` | Configure a Tetracorder run (`cmd-setup-tetrun`) |
 | Tetrun | `tetrun` | Execute the configured run (`cmd.runtet`) |
-| Postprocess | `postprocess` | Convert matched tetracorder outputs into COGs and/or delete matched paths |
-| Aggregate | `aggregate` | Aggregate tetracorder outputs into L2B mineral/uncertainty products |
+| Postprocess | `postprocess` | Convert matched Tetracorder outputs into COGs and/or delete matched paths |
+| Aggregate | `aggregate` | Aggregate Tetracorder outputs into L2B mineral/uncertainty products |
 
-After Setup initializes the output directory, the resolved config is written to
-`{output}/config.yml` for provenance.
+When tetrapy starts, it writes the resolved config (after interpolation and CLI
+overrides) to `log.config`, `/output/test/aggregate/config.yml` by default, for
+provenance.
 
 ## Configuration
 
-The config is a nested YAML file. Top-level keys hold shared values (`output`,
-`data`, `tetracorder`); the remaining keys are the pipeline stages, each gated by its
-own `enabled` flag. Paths refer to locations **inside the container**.
+The config is a nested YAML file. `output`, `data` and `tetracorder` hold shared
+values, `log` controls logging, and the remaining keys are the pipeline stages, each
+gated by its own `enabled` flag. Paths refer to locations **inside the container**.
+This is the default [`config.yml`](config.yml) baked into the image:
 
 ```yaml
-output: /output/tetracorder      # Must not exist unless setup.autoremove is True
-data:
-  rfl:       /data/rfl            # Reflectance data (not the .hdr)
-  rfluncert: /data/rfluncert      # Reflectance uncertainty data (not the .hdr)
+output:
+  base:        /output/test
+  tetracorder: ${output.base}/tetracorder   # Tetracorder's run directory; wiped at the start of setup
+  tetrapy:     ${output.base}/aggregate     # tetrapy's log, COGs and L2B products
+data:                                       # Data files, not the .hdr
+  rfl:       /data/rfl                      # Reflectance; its .hdr sets the convolution grid
+  rfluncert: /data/rfluncert                # Reflectance uncertainty
+  glt:       /data/glt                      # GLT; COGs are orthorectified onto its grid ("" for raw geometry)
+
 tetracorder:
+  root:    /root/tetracorder
+  davinci: True
   version: 6.00a
-  mode:    cube                   # "cube" or "singlespectrum"
+  sensor:  ${sensor.name}
+  mode:    cube                             # "cube" or "singlespectrum"
+
+log:
+  level:  DEBUG
+  file:   ${output.tetrapy}/tetrapy.log
+  append: False
+  config: ${output.tetrapy}/config.yml      # Resolved config, written at startup
+
+export_matrix:
+  enabled: False
+  file:    ${output.tetrapy}/matrix.csv
+  groups:  [1, 2]
+  columns: [id, group, library, record, title, path]
+  reference: tetrapy/data/v6.00a6.csv
+  sortby:  [group, index]
+  clean_titles: True
 
 convolve:
-  enabled:   True
-  reflib:    /root/tetracorder/sl1/usgs/library06.conv/splib06b   # unconvolved reference master
-  reslib:    /root/tetracorder/sl1/usgs/library06.conv/sprlb06b   # unconvolved research master
-  output:    /conv/
-  integrate: True                 # Wire the convolved libraries into tetracorder
-  name:      ${setup.sensor}       # Interpolated from setup.sensor
+  enabled: True
+  reflib: ${tetracorder.root}/sl1/usgs/library06.conv/splib06b   # Unconvolved reference master
+  reslib: ${tetracorder.root}/sl1/usgs/library06.conv/sprlb06b   # Unconvolved research master
+  output:
+    reflib: /conv/reflib
+    reslib: /conv/reslib
+  name: ${sensor.name}
+
+sensor:
+  enabled: True
+  name: tetrapy                             # Key for the files written into the command tree
+  deleted_channels: "1t4 75t79 99t106 128t148 188t214 218 219t221 226 280t285c"  # EMIT; change for other sensors
+  enable:                                   # Everything not listed is disabled
+    groups: [1-5, 18, 20-22, 37-38]
+    cases:  [1-6]
+  colors:
+    - BASE     23 23 23  base-image.jpg     # base grayscale image
+    - COLOR1   38 23 11  color-visRGB.jpg   # visible color channels
+    - COLOR2  246 85 18  color-vir.jpg      # false color vis-IR
+  reflib: ${convolve.output.reflib}
+  reslib: ${convolve.output.reslib}
 
 setup:
-  enabled:    True
-  autoremove: True                # Remove output dir first (setup requires it absent)
-  sensor:     tetrapy
-  geology:    True
-  args:       ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"]
+  enabled: True
+  geology: False
+  args: ["1", "-T", "-20", "80", "C", "-P", ".5", "1.5", "bar"]
 
 tetrun:
-  enabled: False
-  args:    ["band", "20", "gif"]
+  enabled: True
+  args: ["band", "20", "gif"]
 
 postprocess:
-  enabled:     True
-  tetracorder: ${output}                  # Glob root for both cogs and remove
-  cogs:                                   # Convert matched rasters to COGs (omit to skip)
-    output:        ${output}/cogs         # Mirrored destination root
-    skip_existing: False                  # False == overwrite existing COGs
-    glt:           ${data.glt}            # EMIT L1B GLT ENVI; orthorectify onto its map grid (omit for raw)
-    glob:                                 # Rasters to convert (relative to tetracorder)
-      - "group.*/*.depth.gz"
-      - "group.*/*.fit.gz"
-      - "results.masses/*.png"           # 8-bit PNG products (same grid as the rasters)
-  remove:                                 # Paths (files/dirs) to delete (omit to skip)
+  enabled: True
+  tetracorder: ${output.tetracorder}        # Glob root for both cogs and remove
+  cogs:                                     # Convert matched rasters to COGs (omit to skip)
+    output: ${output.tetrapy}/cogs/
+    skip_existing: False                    # False == overwrite existing COGs
+    glt: ${data.glt}
+    glob:                                   # Relative to postprocess.tetracorder
+      - "results.masses/*.png"
+  remove:                                   # Paths to delete (omit to skip)
     - "results.group*"
     - "results.dual*"
     - "results.case*"
+    - "color.results+labels"
+    - "color.results-envi"
 
 aggregate:
-  enabled:     False
-  tetracorder: ${output}
-  output:      ${output}/l2b/
-  reflib:      ${convolve.output}/reflib.envi
-  reslib:      ${convolve.output}/reslib.envi
-  output_as:   ["nc", "tif"]      # Product formats: NetCDF and/or GeoTIFF
-
-emit_fmt:                         # TODO — not yet implemented
-  enabled: False
+  enabled: True
+  tetracorder: ${output.tetracorder}
+  output: ${output.tetrapy}
+  reflib: ${convolve.output.reflib}
+  reslib: ${convolve.output.reslib}
+  out_min:       ${output.tetrapy}/agg.nc         # .nc or .tif
+  out_minuncert: ${output.tetrapy}/agg-uncert.nc  # .nc or .tif
+  reference: tetrapy/data/v6.00a6.csv
 ```
 
 ### Interpolation (`${...}`)
 
 Values may reference other parts of the config with `${...}` syntax, resolved when
-the config is loaded:
+the config is loaded (after CLI overrides are applied):
 
-- `${output}` — absolute reference from the top of the config (e.g. `aggregate.tetracorder`).
-- `${convolve.output}` — dotted path into a subsection.
+- `${output.base}` — absolute dotted path from the top of the config.
 - `${.key}` — a **relative** reference, resolved within the same subsection.
 
-For example, `name: ${setup.sensor}` in the `convolve` block reuses whatever
-`setup.sensor` is set to, so the convolved libraries and the tetracorder integration
-stay in sync.
+This is why most overrides only need one key. `--output.base /output/run2` moves
+every output path, because `output.tetracorder`, `output.tetrapy`, the log and the
+COG directory are all derived from it. Likewise `sensor.name` feeds `convolve.name`
+and `tetracorder.sensor`, so the convolved libraries, the command-tree files and the
+run all use the same sensor key.
 
 ### Overriding config on the CLI
 
 Any config value can be overridden without editing the file, using dotted `--key`
 flags after the config path. Values are parsed as Python literals (so lists, numbers,
-and booleans work), falling back to a string if parsing fails:
+and booleans work), falling back to a string if parsing fails. Shown in short form;
+prefix your [container method](#how-a-container-call-is-put-together):
 
 ```sh
 tetrapy run config.yml \
-  --output /output/run2 \
+  --output.base /output/run2 \
   --data.rfl /data/scene_rfl \
   --tetrun.enabled True \
   --tetrun.args '["band", 10, "gif"]'
 ```
 
+Override the leaf key, not the section it is in. `--output /output/run2`
+replaces the whole `output:` block with a string, and the config then fails to load
+with `Interpolation reference '${output.tetrapy}' not found`.
+
 You can also load and run just one subsection with `-s/--section`.
 
 ## Commands
 
-The container entrypoint is `tetrapy`. `run` is the usual entry point; the individual
-stages are also exposed as standalone subcommands for debugging or partial runs:
+The image's default command is `tetrapy`. As a default command rather than an
+entrypoint, it is replaced by whatever follows the image name, which is why every
+call spells out `tetrapy <command>`. `run` is the usual command. The individual
+stages are also exposed as standalone subcommands for debugging or partial runs.
+Each one runs with the same [container method](#how-a-container-call-is-put-together)
+as `run`:
 
 | Command | Description |
 |---|---|
 | `run` | Execute the full pipeline from a YAML config (the primary interface) |
-| `convolve` | Convolve + integrate the spectral libraries for a scene's grid |
+| `export_matrix` | Export the expert system's material matrix to CSV |
+| `convolve` | Convolve the spectral libraries onto a scene's grid |
+| `sensor` | Write the sensor's restart, deleted-channels, enable/disable and color files |
 | `setup` | Configure a tetracorder run only (`cmd-setup-tetrun`) |
 | `tetrun` | Execute a previously-configured run (`cmd.runtet`) |
 | `postprocess` | Convert matched tetracorder outputs into COGs and/or delete matched paths |
 | `aggregate` | Aggregate tetracorder outputs into L2B mineral/uncertainty products |
-| `goc` | Convert group outputs to EMIT L2B NetCDF format |
+| `preview` | Print the resolved config without running anything |
 
 Use `--help` on any command for full options:
 
@@ -343,21 +508,24 @@ spectrum from its native grid onto the target EMIT grid (with native-FWHM quadra
 correction, matching the USGS Fortran math), writing valid specpr libraries plus ENVI
 exports for the aggregator.
 
-When `integrate: True`, the convolved libraries are wired into the tetracorder command
+The `sensor` stage then wires the convolved libraries into the tetracorder command
 tree (restart, color, disable, datasets, and deleted-channels files) under
-`name`, so the subsequent Setup/Tetrun stages use them.
+`sensor.name`, so the subsequent Setup/Tetrun stages use them.
 
 See [`docs/convolved-library-build.md`](docs/convolved-library-build.md) for the full
 technical reference on the convolution.
 
 ## Development
 
-The Python CLI lives in `tetrapy/`. Managed with [pixi](https://pixi.sh):
+The Python CLI lives in `tetrapy/`. Managed with [uv](https://docs.astral.sh/uv/):
 
 ```sh
-pixi install
-pixi run tetrapy --help
+uv sync --all-extras
+uv run tetrapy --help
 ```
+
+Running `tetrapy` outside the container is for development. The pipeline stages that
+call Tetracorder need the binaries and command tree that only the image provides.
 
 The build context is filtered by two files that must be changed together:
 `.dockerignore`, which only Docker reads, and `.containerignore`, which Podman
@@ -368,20 +536,21 @@ any scenes downloaded under `in/` — into the context and bakes it into the ima
 
 ```
 tetracorder-lite/
-  Containerfile          # container build (specpr + tetracorder + pixi/tetrapy)
+  Containerfile          # container build (DaVinci + specpr + tetracorder + uv/tetrapy)
   .dockerignore          # build context filter -- docker reads this one
   .containerignore       #   the same list for podman; keep the two in step
-  pyproject.toml         # Python project config (pixi workspace)
+  pyproject.toml         # Python project config (uv; lockfile in uv.lock)
   config.yml             # pipeline configuration consumed by `tetrapy run`
   tetrapy/               # Python CLI
     __main__.py          #   click CLI entrypoint (run + per-stage commands)
     config.py            #   YAML config loader, CLI patching, ${...} interpolation
-    tetra.py             #   tetracorder setup/run + library convolution & integration
-    convolve.py          #   recipe-driven convolved-library builder (pure Python)
+    pipeline.py          #   the pipeline stages, in order; maps config keys to calls
+    tetra.py             #   tetracorder setup/run
+    sensor.py            #   writes the sensor's restart/deleted-channels/disable/color files
+    postprocess.py       #   COG conversion and cleanup of the run directory
     aggregate.py         #   L2B mineral/uncertainty product aggregation
     tetracorder.py       #   expert-system command-file decoder
-    conv/                #   specpr / ENVI convolution internals
-    templates/           #   tetracorder integration file templates
+    conv/                #   pure-Python specpr library convolution
     data/                #   mineral grouping matrices
   tetracorder/           # vendored tetracorder + specpr source tree
   docs/                  # technical documentation
