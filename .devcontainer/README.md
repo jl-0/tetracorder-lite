@@ -86,7 +86,7 @@ file tree, and the shell prints:
 at a time:
 
 ```
-  [x] 1. Container image    ghcr.io/jl-0/tetracorder-lite:build-davinci-multiarch, 1.7 GB compressed
+  [x] 1. Container image    ghcr.io/emit-sds/tetracorder-lite:main, 1.7 GB compressed
   [x] 2. Sample scene       300x150 window of EMIT granule emit20240626t165035
   [ ] 3. Run Tetracorder    convolve, setup, tetrun, aggregate -- about 8 minutes
   [ ] 4. Open the results   mineral maps and the live log, on a forwarded port
@@ -98,7 +98,7 @@ image, paths and container names filled in as they actually are:
 ```
   .devcontainer/scripts/get-image.sh runs:
 
-    docker pull ghcr.io/jl-0/tetracorder-lite:build-davinci-multiarch
+    docker pull ghcr.io/emit-sds/tetracorder-lite:main
 
   Enter to run, v to read the script, s to skip, q to quit >
 ```

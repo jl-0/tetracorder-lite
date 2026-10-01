@@ -12,7 +12,7 @@ STATE="$WORK/state"
 # Codespaces sets GITHUB_REPOSITORY, so a codespace opened on a fork uses that
 # fork's image and scene. The fallback applies outside a codespace and is the
 # only account name in the demo scripts -- update it if the home moves.
-REPO="${GITHUB_REPOSITORY:-jl-0/tetracorder-lite}"
+REPO="${GITHUB_REPOSITORY:-emit-sds/tetracorder-lite}"
 
 # GHCR namespaces are lowercase; owner names need not be. The repository half
 # is unused on purpose -- container.yml publishes the literal name
