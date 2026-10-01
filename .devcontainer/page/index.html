@@ -112,10 +112,9 @@
 <body>
 <main>
   <h1>Tetracorder on an EMIT L2A scene</h1>
-  <p class="sub">You just ran a 300&times;150 window of granule
-     <code>emit20240626t165035</code> end to end through <code>tetrapy</code>. This page
-     follows the run while it works, then walks back through what each stage did and what
-     it left on disk.</p>
+  <p class="sub">Congratulations, you've just processed part of an EMIT scene
+    through tetracorder-lite! This page summarizes what happened, including the full
+    output of <code>tetrapy</code> and Tetracorder.</p>
 
   <div class="status">
     <span class="dot spin" id="dot"></span>
@@ -137,14 +136,19 @@
   <section id="results" class="hidden">
     <ul class="stats" id="scene"></ul>
 
-    <h2>What just ran</h2>
-    <p class="prose">One command, <code>tetrapy run</code>, drove six stages. Each is
-      worth knowing because each leaves something behind on disk:</p>
+    <h2>Process summary</h2>
+    <p class="prose">The <a href="https://github.com/features/codespaces">GitHub
+      Codespace</a> you opened at the start of this demo is a ready-made environment
+      that already has Docker installed. You then pulled the <code>tetracorder-lite</code>
+      container image, which is published alongside this repository, and downloaded a
+      300&times;150 window of an EMIT scene. Finally, you started a Docker container
+      from that image. Inside it, <code>tetrapy run</code> drove the first five stages
+      below, and the demo added a sixth to draw this page:</p>
     <ol class="recap">
       <li><b><code>convolve</code></b> &mdash; resampled the spectral library onto
         this scene's exact channels, reading <code>wavelength</code> and <code>fwhm</code>
-        out of the ENVI header. Tetracorder can only compare like with like, so the
-        library has to be sampled the way the instrument sampled the ground.</li>
+        out of the ENVI header. This keeps the library in step with the scene
+        Tetracorder is evaluating.</li>
       <li><b><code>sensor</code></b> &mdash; wrote the sensor definition telling
         Tetracorder which channels to ignore (bad detectors, water-vapour bands) and which
         mineral groups to look for.</li>
@@ -156,7 +160,7 @@
         the best fit wins. Output is thousands of small gzipped ENVI rasters, one per
         material per quantity.</li>
       <li><b><code>aggregate</code></b> &mdash; reduced those thousands of files to the
-        two NetCDFs that are the real product: <code>agg.nc</code> and
+        two NetCDFs that are the output of this process: <code>agg.nc</code> and
         <code>agg-uncert.nc</code>.</li>
       <li><b><code>render</code></b> &mdash; drew the images on this page from
         <code>agg.nc</code>. This stage is the demo's, not the pipeline's; a production
@@ -166,7 +170,7 @@
       went in, how to read what came out, the maps Tetracorder drew for itself, and where
       everything landed.</p>
 
-    <h2>What you ran it on</h2>
+    <h2>The input scene</h2>
     <div class="grid">
       <figure>
         <img src="rfl_rgb.png" alt="True-colour reflectance quicklook of the subset">
@@ -175,28 +179,16 @@
       </figure>
       <figure>
         <img src="full-scene.jpg" alt="The full granule with the demo's window outlined">
-        <figcaption>Where it came from. The whole granule is 1242&times;1280 &mdash;
-          35&times; more pixels &mdash; and mostly snow-covered mountain. The window
-          is arid volcanic terrain &mdash; alluvial fans cut by dendritic drainage
-          &mdash; taken from the centre of the granule. Almost every pixel carries
-          an identification, and the mineral classes follow the fan lobes rather
-          than looking like noise.</figcaption>
       </figure>
     </div>
 
-    <p class="prose"><b>You ran this on a subset,</b> so the demo finishes while
-      you watch it. A whole granule is the same command against a bigger file
-      &mdash; point <code>data.rfl</code> and <code>data.rfluncert</code> in the
-      config at it. It takes longer, though less than the pixel count suggests:
-      Tetracorder emits its full set of mineral products whatever the scene size,
-      so on a window this small that fixed cost is most of the runtime.</p>
+    <p class="prose"><b>This demo uses a subset</b> of the full scene to keep the
+      processing time short. A full scene goes through exactly the same process.</p>
 
-    <p class="prose">The input requirement for Tetracorder is an ENVI formatted binary 
-      file and detached header, at least 300 columns wide.  The current default setup
-      is for a VSWIR spectrometer (~380-2500 nm).</p>
-
-    <p class="prose">The table below documents the minimal set of fields needed to 
-      understand an ENVI file's image byte array, i.e. the shape of the cube, numeric type,
+    <p class="prose">Tetracorder expects an ENVI-format input file with its sidecar
+      header, at least 300 samples wide (see
+      <a href="https://github.com/emit-sds/tetracorder-lite/issues/24">#24</a>). The table below documents the minimal set of header fields
+      needed to understand an ENVI file's image byte array, i.e. the shape of the cube, numeric type,
       and the order the values were written in. The second group is
       what <i>this</i> pipeline needs. The <code>convolve</code> step reads
       <code>wavelength</code> and <code>fwhm</code> straight out of this header
