@@ -11,7 +11,7 @@
         <link rel="canonical" href="https://emit-sds.github.io/tetracorder-lite/1.1.0/pipeline/">
       
       
-        <link rel="prev" href="../installation/">
+        <link rel="prev" href="../running-the-container/">
       
       
         <link rel="next" href="../configuration/">
@@ -345,7 +345,7 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/emit-sds/tetracorder-lite#readme" class="md-nav__link">
+      <a href="../running-the-container/" class="md-nav__link">
         
   
   
@@ -1548,8 +1548,8 @@ maps config keys onto the underlying calls.</p>
 <span class="w">  </span>--data.glt<span class="w"> </span>/data/emit20230728t214153_glt
 </code></pre></div>
 <p>These are shown in short form. In the container, put your <code>docker run</code> mounts
-and the image name in front, as in the
-<a href="https://github.com/emit-sds/tetracorder-lite#how-a-container-call-is-put-together">README</a>.</p>
+and the image name in front, as shown on
+<a href="../running-the-container/#how-a-container-call-is-put-together">Running the container</a>.</p>
 <p>Individual stages are also exposed as subcommands:</p>
 <div class="highlight"><pre><span></span><code>tetrapy<span class="w"> </span>export-matrix<span class="w"> </span>config.yml<span class="w">   </span><span class="c1"># decode expert system -&gt; material matrix CSV</span>
 tetrapy<span class="w"> </span>convolve<span class="w">      </span>config.yml<span class="w">   </span><span class="c1"># convolve reference/research libraries to scene grid</span>
